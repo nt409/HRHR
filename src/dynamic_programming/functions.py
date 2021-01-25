@@ -1,15 +1,18 @@
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
-from Functions_and_plotting.plotter_HRHR    import Overlay_plotter, colourmap_fn
-from Functions_and_plotting.functions_HRHR  import interpolate, master_loop_one_tactic, master_loop_grid_of_tactics
-from Functions_and_plotting.parameters_HRHR import params
 from math import ceil, log, floor, log10, exp
 from scipy.optimize import fsolve
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.interpolate import RegularGridInterpolator
 import warnings
+
+from utils.plotter_HRHR    import Overlay_plotter, colourmap_fn
+from utils.functions_HRHR  import interpolate, master_loop_one_tactic, master_loop_grid_of_tactics
+from utils.parameters_HRHR import PARAMS
+
+
 # #----------------------------------------------------------------------------------------------        
 def Int_Y_FD(n_phi = 2,dose = 0.5,output_size=10):
     Yield_vec = np.zeros((n_phi,n_phi))
@@ -21,14 +24,25 @@ def Int_Y_FD(n_phi = 2,dose = 0.5,output_size=10):
             Yield_vec[i,j] = output['Yield_vec']
     Interpolate_Y_at_FD, Int_Y_at_FD = interpolate(Yield_vec,len(Yield_vec[:,0]),output_size,'linear')
     return Interpolate_Y_at_FD, Int_Y_at_FD
+
+
+
+
+
+
+
 # #----------------------------------------------------------------------------------------------        
 # currently only correct for sexual reproduction
-def optimal_simulator(r1,r2,n_doses,output_size,n_seasons,interp,Interpolate_Y_at_FD=None,always_on_contour=0,interp_type=None,equal_dose_on_contour=0,G_or_yield=None,n_phi=None,Diff=None):
+def optimal_simulator(r1, r2, n_doses, output_size, n_seasons, interp, 
+        Interpolate_Y_at_FD=None, always_on_contour=0, interp_type=None, 
+        equal_dose_on_contour=0, G_or_yield=None, n_phi=None, Diff=None):
+    
     # default settings:
     n_seas = 1
     upper_Y = 100
     upper_G = 100
     upper_P = 100
+
     ##
     if interp_type is None:
         interp_type = 'linear'
@@ -36,7 +50,7 @@ def optimal_simulator(r1,r2,n_doses,output_size,n_seasons,interp,Interpolate_Y_a
         G_or_yield = 'Y'
     if n_phi is None:
         n_phi = n_doses
-# #----------------------------------------------------------------------------------------------        
+    # #----------------------------------------------------------------------------------------------        
     # initialise
     res_array                 = 2*np.ones((2,n_seasons+1))
     dose_array,dose_array_int = [2*np.ones((2,n_seasons)) for i in range(2)]
@@ -56,20 +70,20 @@ def optimal_simulator(r1,r2,n_doses,output_size,n_seasons,interp,Interpolate_Y_a
     ##
     res_array[0,0] = r1
     res_array[1,0] = r2
-# #----------------------------------------------------------------------------------------------        
+    # #----------------------------------------------------------------------------------------------        
     # Yield at full dose as a function of phi
     if G_or_yield == 'Y':
         if Interpolate_Y_at_FD is None:
             Interpolate_Y_at_FD = Int_Y_FD(n_phi = n_phi)[0] # , Int_Y_at_FD
-# #----------------------------------------------------------------------------------------------        
+    # #----------------------------------------------------------------------------------------------        
     # speed in phi-space
     if G_or_yield== 'D':
         Interpolate_Phi_Speed = interpolate(Diff,len(Diff[:,0]),output_size,'linear')[0]
         # Interpolate_Phi_Speed, Int_Phi_Speed = interpolate(Diff,len(Diff[:,0]),output_size,'linear')
-# #----------------------------------------------------------------------------------------------        
+    # #----------------------------------------------------------------------------------------------        
     for k in range(n_seasons):
         if k >= 1:
-            if Yield_array[n_doses-1,n_doses-1,0,k-1] > params.Yield_threshold: # survived last year
+            if Yield_array[n_doses-1,n_doses-1,0,k-1] > PARAMS.Yield_threshold: # survived last year
                 grid_output = master_loop_grid_of_tactics(n_doses,n_seas,res_array[0,k],res_array[1,k])#y_t
                 Yield_array[:,:,:,k] = grid_output['Yield']
                 Res_array_1          = grid_output['Res_array_1']
@@ -91,7 +105,7 @@ def optimal_simulator(r1,r2,n_doses,output_size,n_seasons,interp,Interpolate_Y_a
                 for i in range(n_doses):
                     for j in range(n_doses):
                         H[i,j,k] = S1[i,j,1]*S2[i,j,1]
-                        if Yield_array[i,j,0,k]>params.Yield_threshold:
+                        if Yield_array[i,j,0,k]>PARAMS.Yield_threshold:
                             G[i,j,k] = S1[i,j,1]*S2[i,j,1]
                 if np.amin(G[:,:,k])<upper_G:
                     index_G = np.argwhere(G[:,:,k]==np.amin(G[:,:,k]))
@@ -105,13 +119,13 @@ def optimal_simulator(r1,r2,n_doses,output_size,n_seasons,interp,Interpolate_Y_a
                 for j in range(n_phi):
                     if G_or_yield == 'Y':
                         Y_FD_by_dose_complete[i,j,k] = Interpolate_Y_at_FD(Res_array_1[i,j,1],Res_array_2[i,j,1])
-                        if Yield_array[i,j,0,k]>params.Yield_threshold: # so tactic valid
+                        if Yield_array[i,j,0,k]>PARAMS.Yield_threshold: # so tactic valid
                             Y_FD_by_dose[i,j,k] = Interpolate_Y_at_FD(Res_array_1[i,j,1],Res_array_2[i,j,1])
                         Y_FD_by_dose_int = interpolate(Y_FD_by_dose[:,:,k],n_phi,output_size,'linear')[1] # Interpolate_Y_FD_plot, Y_FD_by_dose_int, without [0] in function call
                         Y_FD_by_dose_to_plot[:,:,k] = interpolate(Y_FD_by_dose_complete[:,:,k],n_phi,output_size,'linear')[1] # Interpolate_Y_FD_plot, Y_FD_by_dose_int, without [0] in function call
                     if G_or_yield == 'D':
                         P_speed_by_dose_complete[i,j,k] = Interpolate_Phi_Speed(Res_array_1[i,j,1],Res_array_2[i,j,1])
-                        if Yield_array[i,j,0,k]>params.Yield_threshold: # so tactic valid
+                        if Yield_array[i,j,0,k]>PARAMS.Yield_threshold: # so tactic valid
                             P_speed_by_dose[i,j,k] = Interpolate_Phi_Speed(Res_array_1[i,j,1],Res_array_2[i,j,1])
                         P_speed_by_dose_int = interpolate(P_speed_by_dose[:,:,k],n_phi,output_size,'linear')[1] #Interpolate_P_speed_in
     # #----------------------------------------------------------------------------------------------        
@@ -159,7 +173,7 @@ def optimal_simulator(r1,r2,n_doses,output_size,n_seasons,interp,Interpolate_Y_a
                 # here downwards selects point on the contour: x_val_chosen, y_val_chosen
                 else:
                     def equations(y):
-                        return Interpolate_Y(x_val,y)-params.Yield_threshold # x_val is in [0,1]
+                        return Interpolate_Y(x_val,y)-PARAMS.Yield_threshold # x_val is in [0,1]
                     ##
                     cont_min_exact = upper_Y
                     cont_max_exact = 0
@@ -168,7 +182,7 @@ def optimal_simulator(r1,r2,n_doses,output_size,n_seasons,interp,Interpolate_Y_a
                     ##
                     if equal_dose_on_contour==1:
                         def equations_equal(y):
-                            return Interpolate_Y(y,y)-params.Yield_threshold # x_val is in [0,1]
+                            return Interpolate_Y(y,y)-PARAMS.Yield_threshold # x_val is in [0,1]
                         y_val = fsolve(equations_equal,ig)
                         x_val_chosen = y_val
                         y_val_chosen = y_val
@@ -198,6 +212,8 @@ def optimal_simulator(r1,r2,n_doses,output_size,n_seasons,interp,Interpolate_Y_a
                                     if Interpolate_Phi_Speed(p1,p2) < cont_min_exact:
                                         cont_min_exact = Interpolate_Phi_Speed(p1,p2)
                                         x_val_chosen , y_val_chosen = x_val, y_val # on the contour, in [0,1]
+                    
+                    
                     # #----------------------------------------------------------------------------------------------                            
                     dose_array_int[0,k] = 0.5*x_val_chosen        # in [0,0.5]
                     dose_array_int[1,k] = 0.5*y_val_chosen #0.5*contour_dose_interp[i_chosen,k] #  in [0,0.5], corresponds to the contour
@@ -205,7 +221,21 @@ def optimal_simulator(r1,r2,n_doses,output_size,n_seasons,interp,Interpolate_Y_a
                     res_array[0,k+1] = Interpolate_R1(x_val_chosen,y_val_chosen) # flip?
                     res_array[1,k+1] = Interpolate_R2(x_val_chosen,y_val_chosen) # flip?
                     print('Doses',dose_array_int[0,k],dose_array_int[1,k],dose_array_int[0,k]/(dose_array_int[0,k]+dose_array_int[1,k]),'D ratio RF',res_array[0,k+1]/(res_array[0,k+1]+res_array[1,k+1]),k,'CD',G_or_yield,res_array[0,k+1],res_array[1,k+1],'RFs')
-    dictionary = {'H': H, 'G': G, 'Yield_array': Yield_array, 'dose_array': dose_array, 'res_array': res_array, 'success_years': success_years, 'H_int': H_int, 'G_int': G_int, 'Y_int': Y_int, 'dose_array_int': dose_array_int, 'Y_FD_by_dose': Y_FD_by_dose, 'Y_FD_by_dose_to_plot': Y_FD_by_dose_to_plot}
+    
+    dictionary = {'H': H,
+        'G': G,
+        'Yield_array': Yield_array,
+        'dose_array': dose_array,
+        'res_array': res_array,
+        'success_years': success_years,
+        'H_int': H_int,
+        'G_int': G_int,
+        'Y_int': Y_int,
+        'dose_array_int': dose_array_int,
+        'Y_FD_by_dose': Y_FD_by_dose,
+        'Y_FD_by_dose_to_plot': Y_FD_by_dose_to_plot
+        }
+    
     return dictionary
 
 
@@ -215,253 +245,6 @@ def optimal_simulator(r1,r2,n_doses,output_size,n_seasons,interp,Interpolate_Y_a
 
 
 
-
-
-# #----------------------------------------------------------------------------------------------      
-def optimal_animator(Res_vec_1,Res_vec_2,Res_vec_1_int,Res_vec_2_int,Yield1,Yield1_int,Yield_array,Y_int,H,H_int,dose_array_success,dose_array_success_int,interp,success_years,n_seasons,animate_int=1,animate_not_int=0):
-    label = 'G'
-    bounds_vector = (1,)
-    if interp==1:
-        matrix = H_int[:,:,0]
-        numberofdoses_array = len(H_int[:,0,0])
-        array= Y_int[:,:,0,0]
-        numberofdoses_contour = len(H_int[:,0,0])
-    else:
-        matrix = H[:,:,0]
-        numberofdoses_array = len(H[:,0,0])
-        array = (Yield_array[:,:,0,0])
-        numberofdoses_contour = len(H[:,0,0])
-    labels = ([0,params.Yield_threshold])
-    alpha = 1
-    title = 'G in year 1'
-
-    fig = plt.figure(figsize=(14,12))
-    ax  = fig.add_subplot(221)
-
-    x_lab = 'Fungicide 1 dose'
-    y_lab = 'Fungicide 2 dose'
-
-    x = np.linspace(0-0.5/(numberofdoses_array-1),1+0.5/(numberofdoses_array-1),numberofdoses_array+1)
-    y = np.linspace(0-0.5/(numberofdoses_array-1),1+0.5/(numberofdoses_array-1),numberofdoses_array+1)
-    X, Y = np.meshgrid(x,y)  
-
-    Maximum = ceil(np.amax(matrix))
-    bounds    = np.linspace(bounds_vector[0],Maximum,101)
-    ticks    = np.linspace(bounds_vector[0],Maximum,Maximum-bounds_vector[0]+1)
-
-    # define the colormap
-    cmap, norm = colourmap_fn(bounds)
-
-    ax.pcolormesh(X,Y,np.transpose(matrix),cmap=cmap, norm=norm,alpha = alpha,linewidth=0,antialiased=True) # np.transpose(matrix)
-    # antialiased - attempt to remove grid lines that appear due to overlap of alpha=0.5 squares
-
-    ###    
-    x1 = np.linspace(0,1,numberofdoses_contour)
-    y1 = np.linspace(0,1,numberofdoses_contour)
-    X1, Y1 = np.meshgrid(x1,y1)
-    ##
-
-    ax.contourf(X1, Y1,np.transpose(array),colors=('k'),alpha = 0.5,levels = labels)#np.transpose(array)
-    ax.set_xlim((0,1))
-    ax.set_ylim((0,1))
-    
-    if animate_int==1:
-        ax.scatter(2*dose_array_success_int[0,0],2*dose_array_success_int[1,0],color='c')
-    if animate_not_int==1:
-        ax.scatter(2*dose_array_success[0,0],2*dose_array_success[1,0],color='c')
-    
-    divider = make_axes_locatable(ax)
-    cax = divider.new_horizontal(size="5%", pad=0.6, pack_start=False)
-    # create a second axes for the colorbar
-    ax2 = fig.add_axes(cax)
-    mpl.colorbar.ColorbarBase(ax2, cmap=cmap, norm=norm, spacing='proportional', ticks=ticks, boundaries=bounds)#, format='%1i')
-    ax2.set_ylabel(label)
-
-    ax.set_title(title)
-    ax.set_ylabel(y_lab)
-    ax.set_xlabel(x_lab)
-# #----------------------------------------------------------------------------------------------
-    #RF
-    ax3 = fig.add_subplot(222)
-    values1 = log10(Res_vec_1[0]) # same whether 'int' or not
-    values2 = log10(Res_vec_2[0]) # same whether 'int' or not
-    values3 = values1+values2
-
-    y_min = min(values1,values2)-1
-    y_pos = [1]
-    if animate_not_int==1:
-        ax3.plot(y_pos,values1,label='log(R_1)',color='b')
-        ax3.plot(y_pos,values2,label='log(R_2)',color='r')
-        ax3.plot(y_pos,values3,label='log(R_1 R_2)',color='k')
-    
-    if animate_int==1:
-        values1_int = log10(Res_vec_1_int[0])
-        values2_int = log10(Res_vec_2_int[0])
-        values3_int = values1_int+values2_int
-
-        ax3.plot(y_pos,values1_int,label='Int log(R_1)',color='g')
-        ax3.plot(y_pos,values2_int,label='Int log(R_2)',color='y')
-        ax3.plot(y_pos,values3_int,label='Int log(R_1 R_2)',color='c')
-    
-    # ax3.axhline(log10(0.5),linestyle='--',color='k')
-    ax3.set_xlim((0,success_years+3))
-    ax3.set_ylim((y_min,0))
-    ax3.set_ylabel('log_10 resistance freqs, start of year n')
-    ax3.set_xlabel('Year')
-    ax3.grid()
-    ax3.set_title(r'$\Delta$ prod is: ')
-# #----------------------------------------------------------------------------------------------
-    # Dose
-    ax4 = fig.add_subplot(223)
-    y_pos = [1]
-    if animate_not_int==1:
-        values1 = 2*dose_array_success[0,0]
-        values2 = 2*dose_array_success[1,0]
-        ax4.plot(y_pos,values1,label='D1',color='b')
-        ax4.plot(y_pos,values2,label='D2',color='r')
-    if animate_int==1:
-        values1_int = 2*dose_array_success_int[0,0]
-        values2_int = 2*dose_array_success_int[1,0]
-        ax4.plot(y_pos,values1_int,label='D1_int',color='g')
-        ax4.plot(y_pos,values2_int,label='D2_int',color='y')
-    ax4.set_xlim((0,success_years+3))
-    ax4.set_ylim((0,1.1))
-    ax4.set_ylabel('Doses')
-    ax4.set_xlabel('Year')
-    ax4.grid()
-# #----------------------------------------------------------------------------------------------
-    # Yield
-    ax5 = fig.add_subplot(224)
-    y_min_Y = 90
-    y_pos = [1]
-    if animate_not_int==1:
-        values1 = Yield1[0]
-        ax5.plot(y_pos,values1,label='Y1',color='k')
-    if animate_int==1:
-        values_int = Yield1_int[0]
-        ax5.plot(y_pos,values_int,label='Y1_int',color='b')
-    ax5.axhline(params.Yield_threshold,linestyle='--',color='k')
-    ax5.set_xlim((0,success_years+3))
-    ax5.set_ylim((y_min_Y,100))
-    ax5.set_ylabel('Yield')
-    ax5.set_xlabel('Year')
-    ax5.grid()
-# #----------------------------------------------------------------------------------------------
-    def update(frame_number):
-        # Get an index which we can use to re-spawn the oldest raindrop.
-        end = min(success_years+1,n_seasons)
-        current_index = frame_number % end
-
-        if interp == 1:
-            ax.pcolormesh(X,Y,np.transpose(H_int[:,:,current_index]),cmap=cmap, norm=norm,alpha = alpha,linewidth=0,antialiased=True) # np.transpose(matrix)
-            # antialiased - attempt to remove grid lines that appear due to overlap of alpha=0.5 squares
-            ax.contourf(X1, Y1,np.transpose(Y_int[:,:,0,current_index]),colors=('k'),alpha = 0.7,levels = labels) # np.transpose(matrix)
-        else:
-            ax.pcolormesh(X,Y,H[:,:,current_index],cmap=cmap, norm=norm,alpha = alpha,linewidth=0,antialiased=True)# np.transpose(matrix)
-            # antialiased - attempt to remove grid lines that appear due to overlap of alpha=0.5 squares
-            ax.contourf(X1, Y1,np.transpose(Yield_array[:,:,0,current_index]),colors=('k'),alpha = 0.7,levels = labels)# np.transpose(matrix)
-        
-        if current_index<success_years:    
-            if animate_int==1:
-                ax.scatter(2*dose_array_success_int[0,current_index],2*dose_array_success_int[1,current_index],color='c')
-            if animate_not_int==1:
-                ax.scatter(2*dose_array_success[0,current_index],2*dose_array_success[1,current_index],color='c')
-
-        if frame_number<end:
-            ax3.clear()
-            ax4.clear()
-            ax5.clear()
-# #----------------------------------------------------------------------------------------------            
-            # RF
-            y_pos = np.arange(1,current_index+2,1)
-            
-            if animate_not_int==1:
-                values1 = Res_vec_1[0:(current_index+1)]
-                values2 = Res_vec_2[0:(current_index+1)]
-                values1 = [log10(i) for i in values1]
-                values2 = [log10(i) for i in values2]
-                values3 = [values1[i]+values2[i] for i in range(len(values1))]
-
-                ax3.plot(y_pos,values1,label='log(R_1)',color='b')
-                ax3.plot(y_pos,values2,label='log(R_2)',color='r')
-                ax3.plot(y_pos,values3,label='log(R_1 R_2)',color='k')
-
-            if animate_int==1:
-                values1_int = Res_vec_1_int[0:(current_index+1)]
-                values2_int = Res_vec_2_int[0:(current_index+1)]
-                values1_int = [log10(i) for i in values1_int]
-                values2_int = [log10(i) for i in values2_int]
-                values3_int = [values1_int[i]+values2_int[i] for i in range(len(values1_int))]
-    
-                ax3.plot(y_pos,values1_int,label='Int log(R_1)',color='g')
-                ax3.plot(y_pos,values2_int,label='Int log(R_2)',color='y')
-                ax3.plot(y_pos,values3_int,label='Int log(R_1 R_2)',color='c')
-
-            ax3.set_xlim((0,success_years+3))
-            ax3.set_ylim((y_min,0))
-            # ax3.axhline(log10(0.5),linestyle='--',color='k')
-            ax3.set_ylabel('log_10 resistance freqs, start of year n')
-            ax3.set_xlabel('Year')
-            ax3.legend()
-            ax3.grid()
-            if len(y_pos)>=2:
-                if animate_int==1:
-                    diff = exp(values3_int[-1]) - exp(values3_int[-2])
-                    diff2 = exp(values3_int[-1])/exp(values3_int[-2])
-                if animate_not_int==1:
-                    diff = exp(values3[-1]) - exp(values3[-2])
-                    diff2 = exp(values3[-1])/exp(values3[-2])
-                title_1 = r'$\Delta$ prod is: '+str(np.around(diff,decimals=4))+r', $\Delta$ ratio is: '+str(np.around(diff2,decimals=2))
-            else:
-                title_1 = r'$\Delta$ prod is: '
-            ax3.axvline(success_years,linestyle='--',color='r',alpha=0.5)
-            ax3.set_title(title_1)
-# #----------------------------------------------------------------------------------------------            
-            # dose
-            y_pos = np.arange(1,current_index+2,1)
-            if animate_not_int==1:
-                values1 = 2*dose_array_success[0,0:(current_index+1)]
-                values2 = 2*dose_array_success[1,0:(current_index+1)]
-                ax4.plot(y_pos,values1,label='D1',color='b')
-                ax4.plot(y_pos,values2,label='D2',color='r')
-            if animate_int==1:
-                values1_int = 2*dose_array_success_int[0,0:(current_index+1)]
-                values2_int = 2*dose_array_success_int[1,0:(current_index+1)]
-                ax4.plot(y_pos,values1_int,label='D1_int',color='g')
-                ax4.plot(y_pos,values2_int,label='D2_int',color='y')
-            ax4.set_xlim((0,success_years+3))
-            ax4.set_ylim((0,1.1))
-            ax4.set_ylabel('Doses')
-            ax4.set_xlabel('Year')
-            ax4.axvline(success_years,linestyle='--',color='r',alpha=0.5)
-            ax4.legend()
-            ax4.grid()
-# #----------------------------------------------------------------------------------------------
-            # Yield
-            y_pos = np.arange(1,current_index+2,1)
-            if animate_not_int==1:
-                values1 = Yield1[0:(current_index+1)]
-                ax5.plot(y_pos,values1,label='Y1',color='k')
-            if animate_int==1:
-                values_int = Yield1_int[0:(current_index+1)]
-                ax5.plot(y_pos,values_int,label='Y1_int',color='b')
-            ax5.set_xlim((0,success_years+3))
-            ax5.set_ylim((y_min_Y,100))
-            ax5.axhline(params.Yield_threshold,linestyle='--',color='k')
-            ax5.axvline(success_years,linestyle='--',color='r',alpha=0.5)
-            ax5.set_ylabel('Yield')
-            ax5.set_xlabel('Year')
-            ax5.legend()
-            ax5.grid()
-# #----------------------------------------------------------------------------------------------      
-        title = 'G in year %s' % (current_index+1)
-        ax.set_title(title)
-        return None
-
-    # Construct the animation, using the update function as the animation director.
-    FuncAnimation(fig, update, interval=1000)#, blit=False)
-    plt.show()
-    return None
 
 
 # #----------------------------------------------------------------------------------------------      
@@ -484,7 +267,7 @@ def optimal_mosaic(H_int,Y_int,dose,success_years,last_9=False,type_plot=None,bo
     # y_Y = np.linspace(0-0.5/(numberofdoses_Y-1),1+0.5/(numberofdoses_Y-1),numberofdoses_Y+1)
     # X_Y, Y_Y = np.meshgrid(x_Y,y_Y)
     ##
-    labels = ([0,params.Yield_threshold])
+    labels = ([0,PARAMS.Yield_threshold])
     alpha = 1
     ##
     x1_H = np.linspace(0,1,numberofdoses_H)
@@ -575,6 +358,11 @@ def optimal_mosaic(H_int,Y_int,dose,success_years,last_9=False,type_plot=None,bo
 
 
 
+
+
+
+
+
 # #----------------------------------------------------------------------------------------------      
 def phi_plane_jumps(C_cont=None,n_steps = 3,n_phi = 12,n_d=10,output_size = 21,phi_grid=None):
     dose = 0.5
@@ -602,7 +390,7 @@ def phi_plane_jumps(C_cont=None,n_steps = 3,n_phi = 12,n_d=10,output_size = 21,p
             Yield_vec[i,j] = one_t_output['Yield_vec']
     #
     Interpolate_Y_FD = interpolate(Yield_vec,n_phi,output_size)[0] # , Int_Y_FD
-# #----------------------------------------------------------------------------------------------      
+    # #----------------------------------------------------------------------------------------------      
     if phi_grid is None:
         Yield = start_val_Y*np.ones((n_d,n_d,n_s,n_steps))
         Y2    = start_val_Y*np.ones((n_d,n_d,n_steps))
@@ -630,8 +418,8 @@ def phi_plane_jumps(C_cont=None,n_steps = 3,n_phi = 12,n_d=10,output_size = 21,p
             phi_1_values[i] = min(fsolve(equations_FD_phi_1,ig),1)        
     ###
         for k in range(n_steps):
-            # LTY, TY, FY, Yield[:,:,:,k], Res_array_1[:,:,:,k], Res_array_2[:,:,:,k], PRR_array, PRS_array, PSR_array, PSS_array, Selection_array_1, Selection_array_2, Innoc_array = master_loop_grid_of_tactics(n_d,n_s,phi_1_values[k],phi_2_values[k],yield_stopper=params.Yield_threshold) # doses
-            grid_output = master_loop_grid_of_tactics(n_d,n_s,phi_1_values[k],phi_2_values[k],yield_stopper=params.Yield_threshold) # doses
+            # LTY, TY, FY, Yield[:,:,:,k], Res_array_1[:,:,:,k], Res_array_2[:,:,:,k], PRR_array, PRS_array, PSR_array, PSS_array, Selection_array_1, Selection_array_2, Innoc_array = master_loop_grid_of_tactics(n_d,n_s,phi_1_values[k],phi_2_values[k],yield_stopper=PARAMS.Yield_threshold) # doses
+            grid_output = master_loop_grid_of_tactics(n_d,n_s,phi_1_values[k],phi_2_values[k],yield_stopper=PARAMS.Yield_threshold) # doses
             Yield[:,:,:,k]       = grid_output['Yield']
             Res_array_1[:,:,:,k] = grid_output['Res_array_1']
             Res_array_2[:,:,:,k] = grid_output['Res_array_2']
@@ -639,7 +427,7 @@ def phi_plane_jumps(C_cont=None,n_steps = 3,n_phi = 12,n_d=10,output_size = 21,p
 
             for i in range(n_d):
                 for j in range(n_d):
-                    if Yield[i,j,0,k]>params.Yield_threshold: # so acceptable dose
+                    if Yield[i,j,0,k]>PARAMS.Yield_threshold: # so acceptable dose
                         Rv1[i,j,k]   = Res_array_1[i,j,1,k]
                         Rv2[i,j,k]   = Res_array_2[i,j,1,k]
                         dist1[i,j,k] = Res_array_1[i,j,1,k]-phi_1_values[k]
@@ -647,7 +435,7 @@ def phi_plane_jumps(C_cont=None,n_steps = 3,n_phi = 12,n_d=10,output_size = 21,p
                         Y2[i,j,k] = Interpolate_Y_FD(Res_array_1[i,j,1,k],Res_array_2[i,j,1,k])
                         SR1[i,j,k] = Rv1[i,j,k]/phi_1_values[k]
                         SR2[i,j,k] = Rv2[i,j,k]/phi_2_values[k]
-# #----------------------------------------------------------------------------------------------      
+    # #----------------------------------------------------------------------------------------------      
     else:
         Yield = start_val_Y*np.ones((n_d,n_d,n_s,n_phi,n_phi))
         Y2    = start_val_Y*np.ones((n_d,n_d,n_phi,n_phi))
@@ -657,19 +445,19 @@ def phi_plane_jumps(C_cont=None,n_steps = 3,n_phi = 12,n_d=10,output_size = 21,p
         phi_2_values = np.linspace(0,1,n_phi)
         for ii in range(n_phi):
             for jj in range(n_phi):
-                if Interpolate_Y_FD(phi_1[ii],phi_2[jj])>params.Yield_threshold: # and we use yield threshold on the grid
-                    # LTY, TY, FY, Yield[:,:,:,ii,jj], Res_array_1[:,:,:,ii,jj], Res_array_2[:,:,:,ii,jj], PRR_array, PRS_array, PSR_array, PSS_array, Selection_array_1, Selection_array_2, Innoc_array = master_loop_grid_of_tactics(n_d,n_s,phi_1[ii],phi_2[jj],yield_stopper=params.Yield_threshold) # doses
-                    grid_2_output = master_loop_grid_of_tactics(n_d,n_s,phi_1[ii],phi_2[jj],yield_stopper=params.Yield_threshold) # doses
+                if Interpolate_Y_FD(phi_1[ii],phi_2[jj])>PARAMS.Yield_threshold: # and we use yield threshold on the grid
+                    # LTY, TY, FY, Yield[:,:,:,ii,jj], Res_array_1[:,:,:,ii,jj], Res_array_2[:,:,:,ii,jj], PRR_array, PRS_array, PSR_array, PSS_array, Selection_array_1, Selection_array_2, Innoc_array = master_loop_grid_of_tactics(n_d,n_s,phi_1[ii],phi_2[jj],yield_stopper=PARAMS.Yield_threshold) # doses
+                    grid_2_output = master_loop_grid_of_tactics(n_d,n_s,phi_1[ii],phi_2[jj],yield_stopper=PARAMS.Yield_threshold) # doses
                     Yield[:,:,:,ii,jj]       = grid_2_output['Yield']
                     Res_array_1[:,:,:,ii,jj] = grid_2_output['Res_array_1']
                     Res_array_2[:,:,:,ii,jj] = grid_2_output['Res_array_2']
 
                     for i in range(n_d):
                         for j in range(n_d):
-                            if Yield[i,j,0,ii,jj]>params.Yield_threshold: # so acceptable dose
+                            if Yield[i,j,0,ii,jj]>PARAMS.Yield_threshold: # so acceptable dose
                                 Y2[i,j,ii,jj] = Interpolate_Y_FD(Res_array_1[i,j,1,ii,jj],Res_array_2[i,j,1,ii,jj])
                 Diff[ii,jj] = Interpolate_Y_FD(phi_1[ii],phi_2[jj]) - np.amax(Y2[:,:,ii,jj])
-# #----------------------------------------------------------------------------------------------      
+    # #----------------------------------------------------------------------------------------------      
     dictionary = {'Rv1': Rv1, 'Rv2': Rv2, 'Res_array_1': Res_array_1, 'Res_array_2': Res_array_2, 'dist1': dist1, 'dist2': dist2, 'Yield': Yield, 'Y2': Y2, 'SR1': SR1, 'SR2': SR2, 'phi_1_values': phi_1_values, 'phi_2_values': phi_2_values, 'Yield_vec': Yield_vec, 'Diff': Diff, 'Interpolate_Y_FD': Interpolate_Y_FD}
     return dictionary
 
@@ -690,14 +478,14 @@ def transformed_yield_contours(grid=False,n_phi=5,n_steps=5,dose_descriptors=Fal
         Interp_Y_FD = Interpolate_Y_FD
         No_R_pt = Interpolate_Y_FD(0,0)
         if log_ind:
-            ax.fill_between([log10(No_R_pt - params.Yield_threshold),10],-10,10, facecolor='grey')
+            ax.fill_between([log10(No_R_pt - PARAMS.Yield_threshold),10],-10,10, facecolor='grey')
             # ax.axvline(No_R_pt,linestyle='--',color='k') # resistance free yield
-            # ax.axvline(log10(No_R_pt - params.Yield_threshold),linestyle='--',color='k')
+            # ax.axvline(log10(No_R_pt - PARAMS.Yield_threshold),linestyle='--',color='k')
     ##
     
     # ax.axvline(No_R_pt,linestyle='--',color='k') # resistance free yield
     if not log_ind:
-        ax.axvline(params.Yield_threshold,linestyle='--',color='k')
+        ax.axvline(PARAMS.Yield_threshold,linestyle='--',color='k')
 
 
     ##
@@ -714,11 +502,11 @@ def transformed_yield_contours(grid=False,n_phi=5,n_steps=5,dose_descriptors=Fal
                 Interp_Y_FD = pp_jumps_out['Interpolate_Y_FD']
                 No_R_pt = Interp_Y_FD(0,0)
                 if log_ind:
-                    ax.fill_between([log10(No_R_pt - params.Yield_threshold),10],-10,10, facecolor='grey')
+                    ax.fill_between([log10(No_R_pt - PARAMS.Yield_threshold),10],-10,10, facecolor='grey')
             x_points, y_points = np.zeros((Y2.shape[0]*Y2.shape[1]+1,n_phi,n_phi)), np.zeros((Y2.shape[0]*Y2.shape[1]+1,n_phi,n_phi))
             for ii in range(1,n_phi):
                 for jj in range(1,n_phi):
-                    if Interp_Y_FD(phi_1_values[ii],phi_2_values[jj])>params.Yield_threshold and phi_1_values[ii]/(phi_1_values[ii]+phi_2_values[jj])>0.5: # only care if we start from acceptable phi
+                    if Interp_Y_FD(phi_1_values[ii],phi_2_values[jj])>PARAMS.Yield_threshold and phi_1_values[ii]/(phi_1_values[ii]+phi_2_values[jj])>0.5: # only care if we start from acceptable phi
                         x_points[0,ii,jj] = Interp_Y_FD(phi_1_values[ii],phi_2_values[jj])
                         y_points[0,ii,jj] = phi_1_values[ii]/(phi_1_values[ii]+phi_2_values[jj])
                         k = 1
@@ -747,7 +535,7 @@ def transformed_yield_contours(grid=False,n_phi=5,n_steps=5,dose_descriptors=Fal
                 Interp_Y_FD = pp_jumps_2_out['Interpolate_Y_FD']
                 No_R_pt = Interp_Y_FD(0,0)
                 if log_ind:
-                    ax.fill_between([log10(No_R_pt - params.Yield_threshold),10],-10,10, facecolor='grey')
+                    ax.fill_between([log10(No_R_pt - PARAMS.Yield_threshold),10],-10,10, facecolor='grey')
             x_points, y_points = np.zeros((Y2.shape[0]*Y2.shape[1]+1,n_steps)), np.zeros((Y2.shape[0]*Y2.shape[1]+1,n_steps))
             for ii in phi_vector:
                 x_points[0,ii] = Interp_Y_FD(phi_1_values[ii],phi_2_values[ii])
@@ -829,7 +617,7 @@ def transformed_yield_contours(grid=False,n_phi=5,n_steps=5,dose_descriptors=Fal
     ##
 
 
-    # lower_lim = lower_lim - (100-upper_lim)-0.1 # min(lower_lim - (100-upper_lim)-0.1,params.Yield_threshold-1)
+    # lower_lim = lower_lim - (100-upper_lim)-0.1 # min(lower_lim - (100-upper_lim)-0.1,PARAMS.Yield_threshold-1)
     # ax.set_xlim((lower_lim,100.1))
     upper_lim = np.amax(x_points)
     if x_lim is None:
@@ -905,8 +693,8 @@ def Y_t_space_contour_finder(Interpolate_Y_at_FD=None,res1=10**(-4),res2=10**(-4
                 res_freq = res_used[:,:,seas_no-1]
                 r1, r2 = res_freq[0,bin], res_freq[1,bin]
             ###
-            # LTY, TY, FY, Yield_array, Res_array_1, Res_array_2, PRR_array, PRS_array, PSR_array, PSS_array, S1, S2, Innoc_array = master_loop_grid_of_tactics(n_d,n_seas,r1,r2,yield_stopper=params.Yield_threshold-0.5)
-            grid_output = master_loop_grid_of_tactics(n_d,n_seas,r1,r2,yield_stopper=params.Yield_threshold-0.5)
+            # LTY, TY, FY, Yield_array, Res_array_1, Res_array_2, PRR_array, PRS_array, PSR_array, PSS_array, S1, S2, Innoc_array = master_loop_grid_of_tactics(n_d,n_seas,r1,r2,yield_stopper=PARAMS.Yield_threshold-0.5)
+            grid_output = master_loop_grid_of_tactics(n_d,n_seas,r1,r2,yield_stopper=PARAMS.Yield_threshold-0.5)
             Yield_array = grid_output['Yield']
             Res_array_1 = grid_output['Res_array_1']
             Res_array_2 = grid_output['Res_array_2']
@@ -914,7 +702,7 @@ def Y_t_space_contour_finder(Interpolate_Y_at_FD=None,res1=10**(-4),res2=10**(-4
             k = 0
             for j in [0,-1]: # some sort of criteria to where poor doses not scanned
                 for i in range(n_d):
-                    if Yield_array[i,j,0]>params.Yield_threshold:
+                    if Yield_array[i,j,0]>PARAMS.Yield_threshold:
                         dose_gen[0,bin,k] = dose_vec[0,i]
                         dose_gen[1,bin,k] = dose_vec[1,j]
                         res_gen[0,bin,k]  = Res_array_1[i,j,1]
@@ -925,7 +713,7 @@ def Y_t_space_contour_finder(Interpolate_Y_at_FD=None,res1=10**(-4),res2=10**(-4
                         k = k+1
             for j in [0,-1]: # some sort of criteria to where poor doses not scanned?
                 for i in range(1,n_d-1):
-                    if Yield_array[j,i,0]>params.Yield_threshold:
+                    if Yield_array[j,i,0]>PARAMS.Yield_threshold:
                         dose_gen[0,bin,k] = dose_vec[0,j]
                         dose_gen[1,bin,k] = dose_vec[1,i]
                         res_gen[0,bin,k] = Res_array_1[j,i,1]
@@ -937,7 +725,7 @@ def Y_t_space_contour_finder(Interpolate_Y_at_FD=None,res1=10**(-4),res2=10**(-4
             # define interpolated function
             Interpolate_Y = interpolate(Yield_array[:,:,0],Yield_array.shape[0],n_d,'linear')[0] # , Int_Y
             def equations(y):
-                return Interpolate_Y(x_val,y)-params.Yield_threshold
+                return Interpolate_Y(x_val,y)-PARAMS.Yield_threshold
             ##
             ig = 0.2
             ##
@@ -953,7 +741,7 @@ def Y_t_space_contour_finder(Interpolate_Y_at_FD=None,res1=10**(-4),res2=10**(-4
                     contour[1,i] = 0.5*y_val
                     # print('Contour used: ',contour[:,i])
                 ##
-                    one_t_output =  master_loop_one_tactic([contour[0,i]],[contour[1,i]],[contour[0,i]],[contour[1,i]],r1,r2,yield_stopper=params.Yield_threshold-0.5)
+                    one_t_output =  master_loop_one_tactic([contour[0,i]],[contour[1,i]],[contour[0,i]],[contour[1,i]],r1,r2,yield_stopper=PARAMS.Yield_threshold-0.5)
                     Yield_vec = one_t_output['Yield_vec']
                     Res_vec_1 = one_t_output['Res_vec_1']
                     Res_vec_2 = one_t_output['Res_vec_2']
@@ -978,7 +766,7 @@ def Y_t_space_contour_finder(Interpolate_Y_at_FD=None,res1=10**(-4),res2=10**(-4
             if index.shape[0]>0:
                 Y2_top = [Y2_gen[index[i][0],index[i][1]] for i in range(index.shape[0])]
                 for i in range(index.shape[0]):
-                    if Y1_gen[index[i][0],index[i][1]]>params.Yield_threshold: # acceptable dose
+                    if Y1_gen[index[i][0],index[i][1]]>PARAMS.Yield_threshold: # acceptable dose
                         if Y2_gen[index[i][0],index[i][1]]>Y_top:
                             Y_top = Y2_gen[index[i][0],index[i][1]]
                 i2 = np.argwhere(Y2_top==Y_top)[0][0]
@@ -1015,7 +803,7 @@ def FD_space(Yield_out,bottom_phi):
                 pss = 1 - prr - prs - psr
                 if pss>0:
                     Y2_array[i,j,k] = Yield_out[i,j,k,-1,-1]
-                if Y2_array[i,j,k]>params.Yield_threshold:
+                if Y2_array[i,j,k]>PARAMS.Yield_threshold:
                     F_array[i,j,k] = 1
     x   = phi_vec_rr
     y,z = [phi_vec for i in range(2)]
@@ -1027,9 +815,9 @@ def FD_space(Yield_out,bottom_phi):
 
 
 
-# from Mathematical originally
+
 ##----------------------------------------------------------
-def C_contours(n_p=18,n_c=18,p_bottom=10**(-4),p_top=1-10**(-4),c_bottom=10**(-8),c_top=0.5,dose=0.5,C_vec=None,p=None,phi_vec=None,Y_bottom=params.Yield_threshold-0.1,surface_plot=None):
+def C_contours(n_p=18,n_c=18,p_bottom=10**(-4),p_top=1-10**(-4),c_bottom=10**(-8),c_top=0.5,dose=0.5,C_vec=None,p=None,phi_vec=None,Y_bottom=PARAMS.Yield_threshold-0.1,surface_plot=None):
     ##----------------------------------------------------------
     if C_vec is None:
         C_vec = np.linspace(c_bottom,c_top,n_c)
@@ -1063,7 +851,7 @@ def C_contours(n_p=18,n_c=18,p_bottom=10**(-4),p_top=1-10**(-4),c_bottom=10**(-8
     # for i in range(n_p):
     #     phi_here1[i,:] = phi_here[i,:]*(p[i]) # phi1
     #     phi_here2[i,:] = phi_here[i,:]*(1-p[i]) # phi2
-    # Overlay_plotter(Col_mat= Yield_vec,Col_label='Yield',Col_bds_vec=(params.Yield_threshold,),title='Yield, p, C')
+    # Overlay_plotter(Col_mat= Yield_vec,Col_label='Yield',Col_bds_vec=(PARAMS.Yield_threshold,),title='Yield, p, C')
     # Overlay_plotter(Con_mats=(phi_here),Con_levels=([0,0.2,0.4,0.6,0.8,1]),Con_inline=('inline'),x_lab='p',y_lab='C',xtick= p,ytick= C_vec,title='phi_1 + phi_2, p, C')
     # Overlay_plotter(Con_mats=(phi_here1,phi_here2),Con_levels=([0,0.1,0.2,0.3,0.4,0.5],[0,0.1,0.2,0.3,0.4,0.5]),Con_inline=('inline','inline'),x_lab='p',y_lab='C',xtick= p,ytick= C_vec,title='phi_1, phi_2, p, C')
 

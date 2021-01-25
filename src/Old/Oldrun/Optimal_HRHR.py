@@ -4,15 +4,15 @@ import numpy as np
 import pickle
 from math import ceil, log, floor, log10, exp
 ##
-import sys
-sys.path.insert(0, '/Functions_and_plotting/')
+# import sys
+# sys.path.insert(0, '/utils/')
 ##
 import os
 ##
-from Functions_and_plotting.parameters_HRHR import params, params_dict
-from Functions_and_plotting.functions_HRHR  import interpolate, master_loop_one_tactic, master_loop_grid_of_tactics
-from Functions_and_plotting.plotter_HRHR    import Overlay_plotter, Season_plotter, Equal_dose, plot_disease_dynamics, bar_plotter
-from Functions_and_plotting.Optimal_simulator_functions_and_animator import optimal_simulator, optimal_animator, optimal_mosaic, phi_plane_jumps, transformed_yield_contours, Y_t_space_contour_finder, Int_Y_FD, C_contours
+from utils.params import params, params_dict
+from utils.functions import interpolate, master_loop_one_tactic, master_loop_grid_of_tactics
+# from utils.plotter_HRHR import Overlay_plotter, Season_plotter, Equal_dose, plot_disease_dynamics, bar_plotter
+from utils.Optimal_simulator_functions_and_animator import optimal_simulator, optimal_animator, optimal_mosaic, phi_plane_jumps, transformed_yield_contours, Y_t_space_contour_finder, Int_Y_FD, C_contours
 #----------------------------------------------------------------------------------------------
 ##
 p    = 0.01 # keep in (0,0.5)

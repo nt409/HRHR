@@ -121,7 +121,7 @@ class Simulator:
 
     #----------------------------------------------------------------------------------------------
     def calculator_d_free(self): # calculates disease free yield
-        y0   = [PARAMS.S_0] + [0]*PARAMS.no_variables
+        y0   = [PARAMS.S_0] + [0]*(PARAMS.no_variables-1)
 
         sol  = ode(self.ode_system,jac=None).set_integrator('dopri5',nsteps= PARAMS.nstepz)
         #,rtol=10**(-10),atol=10**(-20))
@@ -148,7 +148,7 @@ class Simulator:
         for t in tim1[1:]:
             if sol.successful():
                 yy1[:,i1] = sol.y
-                i1=i1+1
+                i1 += 1
                 sol.integrate(t)
             else:
                 raise RuntimeError('ode solver unsuccessful')
@@ -159,7 +159,7 @@ class Simulator:
         for t in tim2[1:]:
             if sol.successful():
                 yy2[:,i2] = sol.y
-                i2=i2+1
+                i2 += 1
                 sol.integrate(t)
             else:
                 raise RuntimeError('ode solver unsuccessful')
@@ -178,6 +178,7 @@ class Simulator:
     
     #----------------------------------------------------------------------------------------------
     def resist_prop_calculator(self, solution, solutiont=None, method=None):
+
         if method is None or method == 'final_value':
             disease = solution[-1,PARAMS.IR_ind]+solution[-1,PARAMS.IRS_ind]+solution[-1,PARAMS.ISR_ind]+solution[-1,PARAMS.IS_ind]
             Res_disease_1 = solution[-1,PARAMS.IR_ind]+solution[-1,PARAMS.IRS_ind]
@@ -224,21 +225,33 @@ class Simulator:
 
 
     #----------------------------------------------------------------------------------------------
-    def solve_ode(self, dose_11, dose_12, dose_21, dose_22, P_RR0, P_RS0, P_SR0, P_SS0):
-        res_prop_1 = P_RR0 + P_RS0
-        res_prop_2 = P_RR0 + P_SR0
+    def solve_ode(self,
+            fung1_doses,
+            fung2_doses,
+            primary_inoc):
+
+        res_prop_1 = primary_inoc['RR'] + primary_inoc['RS']
+        res_prop_2 = primary_inoc['RR'] + primary_inoc['SR']
         ##
-        y0   = [PARAMS.S_0, 0,  0,  0, 0, 0,  0,  0, 0,0, P_RR0,  P_RS0, P_SR0, P_SS0,    0,   0]
-        sol  = ode(self.ode_system,jac=None).set_integrator('dopri5',nsteps= PARAMS.nstepz)#,rtol=0.3*10**(-13),atol=10**(-25))#,y0,t)#,hmin =0.01)#,hmax=0.0025)#.set_integrator('vode', with_jacobian=False)#  method='bdf', args = (r,k,omega_L,theta_L,omega_H,theta_H,T_GS61,PARAMS.T_GS87,beta,gamma,mu,nu,delta_H,delta_L))#,atol=10**(-20))
-        t0, t1, t2, t3, t4 = (PARAMS.T_emerge,PARAMS.T_GS32,PARAMS.T_GS39,PARAMS.T_GS61,PARAMS.T_GS87)
+        y0   = [PARAMS.S_0] + [0]*9 + [primary_inoc['RR'],  primary_inoc['RS'], primary_inoc['SR'], primary_inoc['SS']] + [0]*2
+        sol  = ode(self.ode_system,jac=None).set_integrator('dopri5',nsteps= PARAMS.nstepz)
+         
+        t0 = PARAMS.T_emerge
+        t1 = PARAMS.T_GS32
+        t2 = PARAMS.T_GS39
+        t3 = PARAMS.T_GS61
+        t4 = PARAMS.T_GS87
+        
         n1 = 1 + (t1-t0)/PARAMS.dt
         n2 = 1 + (t2-t1)/PARAMS.dt
         n3 = 1 + (t3-t2)/PARAMS.dt
         n4 = 1 + (t4-t3)/PARAMS.dt
+        
         c1 = ceil(n1-0.5)
         c2 = ceil(n2-0.5)
         c3 = ceil(n3-0.5)
         c4 = ceil(n4-0.5)
+
         tim1 = np.linspace(t0,t1,c1)
         tim2 = np.linspace(t1,t2,c2)
         tim3 = np.linspace(t2,t3,c3)
@@ -263,8 +276,8 @@ class Simulator:
                 raise RuntimeError('ode solver unsuccessful')
         #----------------------------------------------------------------------------------------------
         y1 = sol.y
-        y1[PARAMS.Fung1_ind]=y1[PARAMS.Fung1_ind] + dose_11
-        y1[PARAMS.Fung2_ind]=y1[PARAMS.Fung2_ind] + dose_12
+        y1[PARAMS.Fung1_ind] = y1[PARAMS.Fung1_ind] + fung1_doses['spray_1']
+        y1[PARAMS.Fung2_ind] = y1[PARAMS.Fung2_ind] + fung2_doses['spray_1']
         sol.set_initial_value(y1,t1)
         for t in tim2[1:]:
             if sol.successful():
@@ -275,8 +288,8 @@ class Simulator:
                 raise RuntimeError('ode solver unsuccessful')
         #----------------------------------------------------------------------------------------------
         y2 = sol.y #yy2[:,-1]
-        y2[PARAMS.Fung1_ind]=y2[PARAMS.Fung1_ind] + dose_21
-        y2[PARAMS.Fung2_ind]=y2[PARAMS.Fung2_ind] + dose_22
+        y2[PARAMS.Fung1_ind]=y2[PARAMS.Fung1_ind] + fung1_doses['spray_2']
+        y2[PARAMS.Fung2_ind]=y2[PARAMS.Fung2_ind] + fung2_doses['spray_2']
         sol.set_initial_value(y2,t2)
         for t in tim3[1:]:
             if sol.successful():
@@ -319,7 +332,25 @@ class Simulator:
             Selection_2    = res_prop_new_2/(res_prop_2/PARAMS.init_den)
         # #----------------------------------------------------------------------------------------------  
         inte = simps(yy4[PARAMS.S_ind,:]+yy4[PARAMS.ER_ind,:]+yy4[PARAMS.ERS_ind,:]+yy4[PARAMS.ESR_ind,:]+yy4[PARAMS.ES_ind,:],tim4)
-        return Selection_1, Selection_2, res_prop_new_1, res_prop_new_2, innoc, p_rr, p_rs, p_sr, p_ss, inte, solution, solutiont
+
+        props_out = dict(
+            RR = p_rr,
+            SR = p_sr,
+            RS = p_rs,
+            SS = p_ss,
+        )
+
+        out = [Selection_1,
+                Selection_2,
+                res_prop_new_1,
+                res_prop_new_2,
+                innoc,
+                props_out,
+                inte,
+                solution,
+                solutiont]
+        
+        return out
 
 
 
@@ -342,8 +373,6 @@ class RunModel:
 
         self.dis_free_yield = None
 
-        self.sex_on = False
-
 
 
 
@@ -353,25 +382,25 @@ class RunModel:
     def primary_calculator(self,
                 res_prop_1,
                 res_prop_2,
-                p_rr=None,
-                p_rs=None,
-                p_sr=None,
-                p_ss=None):
+                proportions= None,
+                is_mixed_sex = PARAMS.mixed_sex):
 
-        # if p_rr is None and res_prop_1 is not None:
-        if not sex:
-            P_RR0 = res_prop_1*res_prop_2
-            P_RS0 = res_prop_1*(1-res_prop_2)
-            P_SR0 = (1-res_prop_1)*res_prop_2
-            P_SS0 = (1-res_prop_1)*(1-res_prop_2)
+        sex = dict(
+            RR = res_prop_1*res_prop_2,
+            RS = res_prop_1*(1-res_prop_2),
+            SR = (1-res_prop_1)*res_prop_2,
+            SS = (1-res_prop_1)*(1-res_prop_2)
+            )
+        
+        if not is_mixed_sex:
+            return sex
 
-        else:   
-            P_RR0 = ( PARAMS.sex_prop*   res_prop_1*   res_prop_2   + (1-PARAMS.sex_prop)*p_rr)
-            P_RS0 = ( PARAMS.sex_prop*   res_prop_1*(1-res_prop_2)  + (1-PARAMS.sex_prop)*p_rs)
-            P_SR0 = ( PARAMS.sex_prop*(1-res_prop_1)*  res_prop_2   + (1-PARAMS.sex_prop)*p_sr)
-            P_SS0 = ( PARAMS.sex_prop*(1-res_prop_1)*(1-res_prop_2) + (1-PARAMS.sex_prop)*p_ss)
-
-        return P_RR0, P_RS0, P_SR0, P_SS0
+        else:
+            asex = proportions
+            out = {}
+            for key in sex.keys():
+                out[key] = PARAMS.sex_prop*sex[key] + (1-PARAMS.sex_prop)*asex[key]
+            return out
 
 
     #----------------------------------------------------------------------------------------------
@@ -420,59 +449,101 @@ class RunModel:
             self.dis_free_yield = self.simulator.calculator_d_free()
         ##
         yield_vec = np.zeros(len(dose_11_vec))
-        selection_vec_1,selection_vec_2,innoc_vec, res_vec_1, res_vec_2, PRR, PRS, PSR, PSS = [np.zeros(len(dose_11_vec)+1) for i in range(9)]
+        
+        selection_vec_1, selection_vec_2, innoc_vec, res_vec_1, res_vec_2 = [np.zeros(len(dose_11_vec)+1) for i in range(5)]
         
         # array that has solution for each state variable for each year.
-        sol_array = np.zeros((ceil((PARAMS.T_GS87-PARAMS.T_emerge)/PARAMS.dt), PARAMS.no_variables, len(dose_11_vec))) 
+        sol_array = np.zeros((ceil((PARAMS.T_GS87-PARAMS.T_emerge)/PARAMS.dt), 
+                                PARAMS.no_variables,
+                                len(dose_11_vec))) 
         
         t_vec = np.zeros(ceil((PARAMS.T_GS87-PARAMS.T_emerge)/PARAMS.dt))
 
 
         if p_rr is None:
-            PRR[0]       = res_prop_1*res_prop_2
-            PRS[0]       = res_prop_1*(1-res_prop_2)
-            PSR[0]       = (1-res_prop_1)*res_prop_2
-            PSS[0]       = (1-res_prop_1)*(1-res_prop_2)
+            primary_inoculum = self.primary_calculator(res_prop_1, res_prop_2, is_mixed_sex=False)
 
             res_vec_1[0] = res_prop_1
             res_vec_2[0] = res_prop_2
 
         else:
-            PRR[0]       = p_rr
-            PRS[0]       = p_rs
-            PSR[0]       = p_sr
-            PSS[0]       = p_ss
+            primary_inoculum = dict(
+                RR = p_rr,
+                RS = p_rs,
+                SR  = p_sr,
+                SS = p_ss
+                )
+        
+        primary_lists = dict(
+            RR = [],
+            RS = [],
+            SR = [],
+            SS = []
+        )
+
+        for key in primary_lists.keys():
+            primary_lists[key].append(primary_inoculum[key])
 
         innoc_vec[0]   = PARAMS.init_den
 
         for i in range(len(dose_11_vec)):
-            if i==0 or (i>0 and yield_vec[i-1]>yield_stopper): # stops the solver after we drop below threshold
+            
+            # stop the solver after we drop below threshold
+            if not (i>0 and yield_vec[i-1]<yield_stopper): 
+
                 innoc_in = innoc_vec[i]
-                P_RR0 = PRR[i]
-                P_RS0 = PRS[i]
-                P_SR0 = PSR[i]
-                P_SS0 = PSS[i]
                 
                 if within_season_before:
-                    res_prop_1_in = P_RR0 + P_RS0
-                    res_prop_2_in = P_RR0 + P_SR0
-                    P_RR0 , P_RS0 , P_SR0, P_SS0 = self.primary_calculator(res_prop_1_in,res_prop_2_in,P_RR0,P_RS0,P_SR0,P_SS0)
+                    res_prop_1_in = primary_inoculum['RR'] + primary_inoculum['RS']
+                    res_prop_2_in = primary_inoculum['RR'] + primary_inoculum['SR']
+                    primary_inoculum = self.primary_calculator(res_prop_1_in, 
+                                                    res_prop_2_in,
+                                                    primary_inoculum)
+                    
+                    for key in primary_lists.keys():
+                        primary_lists[key][-1] = primary_inoculum[key]
                 
-                Selection_1, Selection_2, res_prop_new_1, res_prop_new_2, innoc_out, p_rr_out, p_rs_out, p_sr_out, p_ss_out, inte, solution, solutiont = solve_ode(dose_11=dose_11_vec[i],dose_12=dose_12_vec[i],dose_21=dose_21_vec[i],dose_22=dose_22_vec[i],P_RR0=P_RR0*innoc_in,P_RS0=P_RS0*innoc_in,P_SR0=P_SR0*innoc_in,P_SS0=P_SS0*innoc_in)
+                fung1_doses = dict(
+                    spray_1 = dose_11_vec[i],
+                    spray_2 = dose_12_vec[i]
+                    )
+                
+                fung2_doses = dict(
+                    spray_1 = dose_21_vec[i],
+                    spray_2 = dose_22_vec[i]
+                    )
+                
+                model_inoc = {}
+                for key in primary_inoculum.keys():
+                    model_inoc[key] = innoc_in*primary_lists[key][-1]
+
+                out = self.simulator.solve_ode(fung1_doses, fung2_doses, model_inoc)
+
+                [Selection_1,
+                 Selection_2,
+                 res_prop_new_1,
+                 res_prop_new_2,
+                 innoc_out,
+                 prop_out,
+                 inte,
+                 solution,
+                 solutiont] = out
+
                 Yield = 100*(inte/self.dis_free_yield)
                 yield_vec[i] = Yield
                 
                 if not within_season_before:
-                    res_prop_1_in = p_rr_out + p_rs_out
-                    res_prop_2_in = p_rr_out + p_sr_out
-                    p_rr_out , p_rs_out , p_sr_out, p_ss_out = self.primary_calculator(res_prop_1_in,res_prop_2_in,p_rr_out,p_rs_out,p_sr_out,p_ss_out)
+                    res_prop_1_in = prop_out['RR'] + prop_out['RS']
+                    res_prop_2_in = prop_out['RR'] + prop_out['SR']
+                    prop_out = self.primary_calculator(res_prop_1_in,
+                                            res_prop_2_in,
+                                            prop_out)
+
                 res_vec_1[i+1] = res_prop_new_1
                 res_vec_2[i+1] = res_prop_new_2
-                
-                PRR[i+1]       = p_rr_out
-                PRS[i+1]       = p_rs_out
-                PSR[i+1]       = p_sr_out
-                PSS[i+1]       = p_ss_out
+
+                for key in primary_lists.keys():                
+                    primary_lists[key].append(prop_out[key])
 
                 innoc_vec[i+1] = innoc_out
                 selection_vec_1[i+1] = Selection_1
@@ -489,10 +560,7 @@ class RunModel:
         dictionary = {
                 'res_vec_1': res_vec_1,
                 'res_vec_2': res_vec_2,
-                'PRR': PRR,
-                'PRS': PRS,
-                'PSR': PSR,
-                'PSS': PSS,
+                'primary_lists': primary_lists,
                 'yield_vec': yield_vec,
                 'innoc_vec': innoc_vec, 
                 'selection_vec_1': selection_vec_1, 

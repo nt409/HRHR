@@ -1,3 +1,5 @@
+from math import ceil
+
 # alpha: scale factor for omega (max effect)
 # of fungicides after resistance (partial res type 1),
 # or for curvature (partial res type 2)
@@ -50,10 +52,11 @@ class Parameters:
         self.T_GS87 = 2900
         
         self.nstepz = 10**3
-        self.dt = 10
+        self.dt = 20
+
+        self.t_points = ceil((self.T_GS87 - self.T_emerge)/self.dt)
         
         self.res_prop_calc_method = 'final_value'
-        self.strategy = 'mix'
         self.sex_prop = 1
         self.mixed_sex = False
         self.yield_threshold = 95
@@ -82,4 +85,4 @@ class Parameters:
 
 PARAMS = Parameters()
 
-params_dict = {parm: getattr(PARAMS, parm, None) for parm in vars(PARAMS)}
+params_dict = vars(PARAMS)

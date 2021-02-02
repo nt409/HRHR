@@ -20,7 +20,7 @@ from .params import PARAMS, params_dict
 #----------------------------------------------------------------------------------------------
 # Utility functions
 
-def object_dump(file_name,object_to_dump,object_type=None):
+def object_dump(file_name, object_to_dump, object_type=None):
     # check if file path exists - if not create
     outdir =  os.path.dirname(file_name)
     if not os.path.exists(outdir):
@@ -31,10 +31,10 @@ def object_dump(file_name,object_to_dump,object_type=None):
     
     if object_type == 'pickle':
         with open(file_name, 'wb') as handle:
-            pickle.dump(object_to_dump,handle,protocol=pickle.HIGHEST_PROTOCOL) # protocol?
+            pickle.dump(object_to_dump, handle, protocol=pickle.HIGHEST_PROTOCOL) # protocol?
     elif object_type=='json':
         with open(file_name, 'w') as handle:
-            json.dump(object_to_dump,handle)
+            json.dump(object_to_dump, handle)
     return None
 
 
@@ -95,14 +95,14 @@ class Simulator:
 
         dydt = [self.growth(A,t) - (self.senescence(t))*S -  S * (PARAMS.beta/A) * (  
                 (self.fcide(PARAMS.alpha_1*PARAMS.omega_1,PARAMS.alpha_1_C*PARAMS.theta_1,Fung1)) * (self.fcide(PARAMS.alpha_2*PARAMS.omega_2,PARAMS.alpha_2_C*PARAMS.theta_2,Fung2)) * (IR + PR)
-                + (self.fcide(PARAMS.alpha_1*PARAMS.omega_1,PARAMS.alpha_1_C*PARAMS.theta_1,Fung1)) * (self.fcide(                  PARAMS.omega_2,                    PARAMS.theta_2,Fung2)) * (IRS+PRS)
-                + (self.fcide(                  PARAMS.omega_1,                    PARAMS.theta_1,Fung1)) * (self.fcide(PARAMS.alpha_2*PARAMS.omega_2,PARAMS.alpha_2_C*PARAMS.theta_2,Fung2)) * (ISR + PSR)
-                + (self.fcide(                  PARAMS.omega_1,                    PARAMS.theta_1,Fung1)) * (self.fcide(                  PARAMS.omega_2,                    PARAMS.theta_2,Fung2)) * (IS + PS)  ),
+                + (self.fcide(PARAMS.alpha_1*PARAMS.omega_1,PARAMS.alpha_1_C*PARAMS.theta_1,Fung1)) * (self.fcide(               PARAMS.omega_2,                 PARAMS.theta_2,Fung2)) * (IRS+PRS)
+                + (self.fcide(               PARAMS.omega_1,                 PARAMS.theta_1,Fung1)) * (self.fcide(PARAMS.alpha_2*PARAMS.omega_2,PARAMS.alpha_2_C*PARAMS.theta_2,Fung2)) * (ISR + PSR)
+                + (self.fcide(               PARAMS.omega_1,                 PARAMS.theta_1,Fung1)) * (self.fcide(               PARAMS.omega_2,                 PARAMS.theta_2,Fung2)) * (IS + PS)  ),
             
             S*(PARAMS.beta/A) * (self.fcide(PARAMS.alpha_1*PARAMS.omega_1,PARAMS.alpha_1_C*PARAMS.theta_1,Fung1)) * (self.fcide(PARAMS.alpha_2*PARAMS.omega_2,PARAMS.alpha_2_C*PARAMS.theta_2,Fung2)) * (IR + PR)   - (self.senescence(t)) * ER  - PARAMS.gamma * (self.fcide(PARAMS.alpha_1*PARAMS.omega_1_L,PARAMS.alpha_1_C*PARAMS.theta_1_L,Fung1))*(self.fcide(PARAMS.alpha_2*PARAMS.omega_2_L,PARAMS.alpha_2_C*PARAMS.theta_2_L,Fung2)) * ER,
-            S*(PARAMS.beta/A) * (self.fcide(PARAMS.alpha_1*PARAMS.omega_1,PARAMS.alpha_1_C*PARAMS.theta_1,Fung1)) * (self.fcide(                  PARAMS.omega_2,                    PARAMS.theta_2,Fung2)) * (IRS + PRS) - (self.senescence(t)) * ERS - PARAMS.gamma * (self.fcide(PARAMS.alpha_1*PARAMS.omega_1_L,PARAMS.alpha_1_C*PARAMS.theta_1_L,Fung1))*(self.fcide(                  PARAMS.omega_2_L,                    PARAMS.theta_2_L,Fung2)) * ERS,
-            S*(PARAMS.beta/A) * (self.fcide(                  PARAMS.omega_1,                    PARAMS.theta_1,Fung1)) * (self.fcide(PARAMS.alpha_2*PARAMS.omega_2,PARAMS.alpha_2_C*PARAMS.theta_2,Fung2)) * (ISR + PSR) - (self.senescence(t)) * ESR - PARAMS.gamma * (self.fcide(                  PARAMS.omega_1_L,                    PARAMS.theta_1_L,Fung1))*(self.fcide(PARAMS.alpha_2*PARAMS.omega_2_L,PARAMS.alpha_2_C*PARAMS.theta_2_L,Fung2)) * ESR,
-            S*(PARAMS.beta/A) * (self.fcide(                  PARAMS.omega_1,                    PARAMS.theta_1,Fung1)) * (self.fcide(                  PARAMS.omega_2,                    PARAMS.theta_2,Fung2)) * (IS + PS)   - (self.senescence(t)) * ES  - PARAMS.gamma * (self.fcide(                  PARAMS.omega_1_L,                    PARAMS.theta_1_L,Fung1))*(self.fcide(                  PARAMS.omega_2_L,                    PARAMS.theta_2_L,Fung2)) * ES,
+            S*(PARAMS.beta/A) * (self.fcide(PARAMS.alpha_1*PARAMS.omega_1,PARAMS.alpha_1_C*PARAMS.theta_1,Fung1)) * (self.fcide(               PARAMS.omega_2,                 PARAMS.theta_2,Fung2)) * (IRS + PRS) - (self.senescence(t)) * ERS - PARAMS.gamma * (self.fcide(PARAMS.alpha_1*PARAMS.omega_1_L,PARAMS.alpha_1_C*PARAMS.theta_1_L,Fung1))*(self.fcide(               PARAMS.omega_2_L,                 PARAMS.theta_2_L,Fung2)) * ERS,
+            S*(PARAMS.beta/A) * (self.fcide(               PARAMS.omega_1,                 PARAMS.theta_1,Fung1)) * (self.fcide(PARAMS.alpha_2*PARAMS.omega_2,PARAMS.alpha_2_C*PARAMS.theta_2,Fung2)) * (ISR + PSR) - (self.senescence(t)) * ESR - PARAMS.gamma * (self.fcide(               PARAMS.omega_1_L,                 PARAMS.theta_1_L,Fung1))*(self.fcide(PARAMS.alpha_2*PARAMS.omega_2_L,PARAMS.alpha_2_C*PARAMS.theta_2_L,Fung2)) * ESR,
+            S*(PARAMS.beta/A) * (self.fcide(               PARAMS.omega_1,                 PARAMS.theta_1,Fung1)) * (self.fcide(               PARAMS.omega_2,                 PARAMS.theta_2,Fung2)) * (IS + PS)   - (self.senescence(t)) * ES  - PARAMS.gamma * (self.fcide(               PARAMS.omega_1_L,                 PARAMS.theta_1_L,Fung1))*(self.fcide(               PARAMS.omega_2_L,                 PARAMS.theta_2_L,Fung2)) * ES,
             
             PARAMS.gamma * (self.fcide(PARAMS.alpha_1*PARAMS.omega_1_L,PARAMS.alpha_1_C*PARAMS.theta_1_L,Fung1)) * (self.fcide(PARAMS.alpha_2*PARAMS.omega_2_L,PARAMS.alpha_2_C*PARAMS.theta_2_L,Fung2)) * ER   -  PARAMS.mu * IR,
             PARAMS.gamma * (self.fcide(PARAMS.alpha_1*PARAMS.omega_1_L,PARAMS.alpha_1_C*PARAMS.theta_1_L,Fung1)) * (self.fcide(               PARAMS.omega_2_L,                 PARAMS.theta_2_L,Fung2)) * ERS  -  PARAMS.mu * IRS,
@@ -165,7 +165,7 @@ class Simulator:
             else:
                 raise RuntimeError('ode solver unsuccessful')
         
-        yy2[:,ind] = sol.y
+        yy2[:, ind] = sol.y
         
         df_yield_integral = simps(yy2[0,:],tim2)
 
@@ -436,12 +436,12 @@ class RunModel:
         """
         Run HRHR model for one strategy
         """
-
+        
         if Config.load_saved:
-            exists = True
-            if exists:
-                print('would have loaded')
-                return None
+            filename = Config.config_string
+            if os.path.isfile(filename) and "single" in filename:
+                loaded_run = pickle.load(open(filename, 'rb'))
+                return loaded_run
 
         f1_doses = Config.fung1_doses
         f2_doses = Config.fung2_doses
@@ -559,6 +559,10 @@ class RunModel:
                 't_vec': t_vec
                 }
         
+        filename = Config.config_string
+        if "single" in filename:
+            object_dump(filename, model_output)
+        
         return model_output
 
 
@@ -569,10 +573,10 @@ class RunModel:
         """
 
         if ConfigG.load_saved:
-            exists = True
-            if exists:
-                print('would have loaded')
-                return None
+            filename = ConfigG.config_string
+            if os.path.isfile(filename) and "grid" in filename:
+                loaded_run = pickle.load(open(filename, 'rb'))
+                return loaded_run
         
 
         n_seasons = ConfigG.n_years
@@ -665,6 +669,10 @@ class RunModel:
                     'selection_arrays': selection_arrays,
                     'inoc_array': inoc_array,
                     't_vec': t_vec}
+        
+        filename = ConfigG.config_string
+        if "grid" in filename:
+            object_dump(filename, grid_output)
 
         return grid_output
 

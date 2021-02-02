@@ -3,7 +3,7 @@ class BaselineConfig:
 
         self.load_saved = True
 
-        self.folder_save = '../Outputs'
+        self.folder_save = '../outputs/saved_runs/'
         
         self.n_years = n_years
 
@@ -16,7 +16,7 @@ class BaselineConfig:
 
         self.within_season_before = within_season_before
 
-        self.save_string = f"{rp1}_{rp2}_plus_some_other_stuff"
+        self.save_string = f"{rp1}_{rp2}_{str(primary_inoculum)[0]}_{str(within_season_before)[0]}"
 
 
 
@@ -45,7 +45,8 @@ class SingleConfig(BaselineConfig):
             spray_2 = [d22]*n_years
             )
 
-        self.config_string = f"{self.folder_save}/{self.save_string}.pickle"
+        filename = f"single/{self.save_string}_doses={d11},{d12},{d21},{d22}"
+        self.config_string = self.folder_save + filename.replace(".", ",") + ".pickle"
 
 
 
@@ -65,4 +66,5 @@ class GridConfig(BaselineConfig):
 
         self.n_doses = n_doses
 
-        self.config_string = f"{self.folder_save}/{self.save_string}.pickle"
+        filename = f"grid/{self.save_string}_n_d={n_doses},{self.strategy}.pickle"
+        self.config_string = self.folder_save + filename.replace(".", ",") + ".pickle"

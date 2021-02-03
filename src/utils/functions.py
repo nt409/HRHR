@@ -1,14 +1,14 @@
 import numpy as np
 from math import exp, ceil, floor
-from scipy.integrate import odeint, simps, ode
-import matplotlib.pyplot as plt
+from scipy.integrate import simps, ode
 import pickle
 import json
 import os
-import pdb
+# import pdb
 import copy
+from scipy.optimize import fsolve
 
-from .params import PARAMS, params_dict
+from .params import PARAMS # , params_dict
 
 # * TOC
 # Utility functions
@@ -574,7 +574,7 @@ class RunModel:
 
         if ConfigG.load_saved:
             filename = ConfigG.config_string
-            if os.path.isfile(filename) and "grid" in filename:
+            if os.path.isfile(filename):
                 loaded_run = pickle.load(open(filename, 'rb'))
                 return loaded_run
         
@@ -608,8 +608,8 @@ class RunModel:
                 
                 if ConfigG.strategy == 'mix':
                     dose_f1s1_vec = 0.5*(i/(n_doses-1))*np.ones(n_seasons)
-                    dose_f1s2_vec = 0.5*(j/(n_doses-1))*np.ones(n_seasons)
-                    dose_f2s1_vec = 0.5*(i/(n_doses-1))*np.ones(n_seasons)
+                    dose_f1s2_vec = 0.5*(i/(n_doses-1))*np.ones(n_seasons)
+                    dose_f2s1_vec = 0.5*(j/(n_doses-1))*np.ones(n_seasons)
                     dose_f2s2_vec = 0.5*(j/(n_doses-1))*np.ones(n_seasons)
                 
                 elif ConfigG.strategy == 'alt_12':
@@ -671,8 +671,148 @@ class RunModel:
                     't_vec': t_vec}
         
         filename = ConfigG.config_string
-        if "grid" in filename:
-            object_dump(filename, grid_output)
+        object_dump(filename, grid_output)
+
+        return grid_output
+
+    
+    
+    def constant_effect(self, x, cont_radial, cont_perp):
+        out = (1- exp(-PARAMS.theta_1*x)) * (1- exp(-PARAMS.theta_2*cont_radial*x)) - cont_perp
+        return out
+
+
+    def master_loop_dose_space_coordinate(self, ConfigDS):
+        """
+        Run across grid
+        """
+
+        if ConfigDS.load_saved:
+            filename = ConfigDS.config_string
+            if os.path.isfile(filename):
+                loaded_run = pickle.load(open(filename, 'rb'))
+                return loaded_run
+        
+
+        n_seasons = ConfigDS.n_years
+        n_doses = ConfigDS.n_doses
+
+        ConfRun = copy.copy(ConfigDS)
+
+        if self.dis_free_yield is None:
+            self.dis_free_yield = self.simulator.find_disease_free_yield()
+        
+        LTY, TY, FY = [np.zeros((n_doses, n_doses)) for i in range(3)]
+        
+        yield_array = np.zeros((n_doses, n_doses, n_seasons))
+
+        res_arrays = {}
+        selection_arrays = {}
+        for key in ['f1', 'f2']:
+            res_arrays[key] = np.zeros((n_doses, n_doses, n_seasons+1))
+            selection_arrays[key] = np.zeros((n_doses, n_doses, n_seasons))
+
+        primary_strain_arrays = {}
+        for key in ['RR', 'RS', 'SR', 'SS']:
+            primary_strain_arrays[key] = np.zeros((n_doses, n_doses, n_seasons))
+        
+        inoc_array  = np.zeros((n_doses,n_doses,n_seasons+1))
+
+        # contour_perp = [2**(xx) for xx in np.linspace(-6, 0, n_doses)]
+        contour_perp = np.linspace(0, 1, n_doses+2)[1:-1]
+        contours_radial = [2**(n) for n in range(-floor(n_doses/2), floor(n_doses/2)+1, 1)]
+
+        f1_vals = np.zeros((n_doses, n_doses))
+        f2_vals = np.zeros((n_doses, n_doses))
+        
+        for i in range(n_doses):
+            for j in range(n_doses):
+
+
+                f1_val = fsolve(self.constant_effect, args=(contours_radial[j], contour_perp[i]), x0=0.001)[0]
+                f2_val = contours_radial[j]*f1_val
+
+                # f1_val = (contour_perp[i]*contours_radial[j])**(0.5)
+                # f2_val = (contour_perp[i]/contours_radial[j])**(0.5)
+
+                if f1_val>1 or f2_val>1:
+                    LTY[i,j] = None
+                    TY[i,j] = None
+                    FY[i,j] = None
+                    continue
+
+                if ConfigDS.strategy == 'mix':
+                    dose_f1s1_vec = 0.5*f1_val*np.ones(n_seasons)
+                    dose_f1s2_vec = 0.5*f1_val*np.ones(n_seasons)
+                    dose_f2s1_vec = 0.5*f2_val*np.ones(n_seasons)
+                    dose_f2s2_vec = 0.5*f2_val*np.ones(n_seasons)
+                
+                elif ConfigDS.strategy == 'alt_12':
+                    dose_f1s1_vec = f1_val*np.ones(n_seasons)
+                    dose_f1s2_vec = np.zeros(n_seasons)
+                    dose_f2s1_vec = np.zeros(n_seasons)
+                    dose_f2s2_vec = f2_val*np.ones(n_seasons)
+                
+                elif ConfigDS.strategy == 'alt_21':
+                    dose_f1s1_vec = np.zeros(n_seasons)
+                    dose_f1s2_vec = f1_val*np.ones(n_seasons)
+                    dose_f2s1_vec = f2_val*np.ones(n_seasons)
+                    dose_f2s2_vec = np.zeros(n_seasons)
+                
+
+                ConfRun.fung1_doses = dict(
+                    spray_1 = dose_f1s1_vec,
+                    spray_2 = dose_f1s2_vec
+                    )
+          
+                ConfRun.fung2_doses = dict(
+                    spray_1 = dose_f2s1_vec,
+                    spray_2 = dose_f2s2_vec
+                    )
+
+                one_tact_output =  self.master_loop_one_tactic(ConfRun)
+                
+                LTY[i,j] = self.lifetime_yield(one_tact_output['yield_vec'],one_tact_output['failure_year'])
+                TY[i,j] = self.total_yield(one_tact_output['yield_vec'],n_seasons)
+                FY[i,j] = one_tact_output['failure_year']
+                f1_vals[i,j] = f1_val
+                f2_vals[i,j] = f2_val
+
+
+                attr = {
+                    'yield_vec': yield_array,
+                    'res_vec_dict': res_arrays,
+                    'primary_lists': primary_strain_arrays,
+                    'selection_vec_dict': selection_arrays,
+                    'innoc_vec': inoc_array
+                    }
+
+                # update these variables
+                for key in attr.keys():
+                    if isinstance(attr[key], dict):
+                        for key_ in attr[key].keys():
+                            attr[key][key_][i,j,:] = one_tact_output[key][key_]
+                    else:
+                        attr[key][i,j,:] = one_tact_output[key]
+
+        t_vec = one_tact_output['t_vec']
+        
+        grid_output = {'LTY': LTY,
+                    'TY': TY,
+                    'FY': FY,
+                    'f1_vals': f1_vals,
+                    'f2_vals': f2_vals,
+                    'contour_perp': contour_perp,
+                    'contours_radial': contours_radial,
+                    'yield_array': yield_array,
+                    'res_arrays': res_arrays,
+                    'primary_strain_arrays': primary_strain_arrays,
+                    'selection_arrays': selection_arrays,
+                    'inoc_array': inoc_array,
+                    't_vec': t_vec}
+        
+        filename = ConfigDS.config_string
+        object_dump(filename, grid_output)
 
         return grid_output
 

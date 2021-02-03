@@ -16,7 +16,7 @@ class BaselineConfig:
 
         self.within_season_before = within_season_before
 
-        self.save_string = f"{rp1}_{rp2}_{str(primary_inoculum)[0]}_{str(within_season_before)[0]}"
+        self.save_string = f"n_y={n_years}_rps={rp1},{rp2}_{str(primary_inoculum)[0]}_{str(within_season_before)[0]}"
 
 
 

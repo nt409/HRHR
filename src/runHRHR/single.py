@@ -18,5 +18,6 @@ if res_freqs_single:
     fig.show()
 
 if single_year:
-    fig = single_year_plot(output)
+    indices_to_plot = list(range(16))
+    fig = single_year_plot(output, indices_to_plot)
     fig.show()

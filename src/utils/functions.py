@@ -1,5 +1,5 @@
 import numpy as np
-from math import exp, ceil, floor
+from math import exp, ceil, floor, pi, sin, cos
 from scipy.integrate import simps, ode
 import pickle
 import json
@@ -7,6 +7,7 @@ import os
 # import pdb
 import copy
 from scipy.optimize import fsolve
+import pandas as pd
 
 from .params import PARAMS # , params_dict
 
@@ -46,8 +47,11 @@ def object_open(file_name,object_type=None):
     
     if object_type=='pickle':
         object_to_load = pickle.load(open(file_name, 'rb'))
-    if object_type=='json':
+    elif object_type=='json':
         object_to_load = json.load(open(file_name))
+    else:
+        object_to_load = None
+
     return object_to_load
 
 
@@ -574,6 +578,7 @@ class RunModel:
 
         if ConfigG.load_saved:
             filename = ConfigG.config_string
+            print(filename, 'grid')
             if os.path.isfile(filename):
                 loaded_run = pickle.load(open(filename, 'rb'))
                 return loaded_run
@@ -682,6 +687,10 @@ class RunModel:
         return out
 
 
+
+
+
+
     def master_loop_dose_space_coordinate(self, ConfigDS):
         """
         Run across grid
@@ -689,6 +698,9 @@ class RunModel:
 
         if ConfigDS.load_saved:
             filename = ConfigDS.config_string
+            filename = filename.replace("grid", "dose_space")
+            print(filename, 'ds')
+
             if os.path.isfile(filename):
                 loaded_run = pickle.load(open(filename, 'rb'))
                 return loaded_run
@@ -812,9 +824,101 @@ class RunModel:
                     't_vec': t_vec}
         
         filename = ConfigDS.config_string
+        filename = filename.replace("grid", "dose_space")
         object_dump(filename, grid_output)
 
         return grid_output
+
+
+
+    def master_loop_radial(self, ConfigDS):
+        """
+        Run radially in dose space
+        """
+
+        if ConfigDS.load_saved:
+            filename = ConfigDS.config_string
+            filename = filename.replace("grid", "radial")
+            print(filename, 'rad')
+            if os.path.isfile(filename):
+                loaded_run = pickle.load(open(filename, 'rb'))
+                return loaded_run
+        
+
+        n_seasons = ConfigDS.n_years
+        n_doses = ConfigDS.n_doses
+
+        ConfRun = copy.copy(ConfigDS)
+
+        if self.dis_free_yield is None:
+            self.dis_free_yield = self.simulator.find_disease_free_yield()
+                
+        angles = np.linspace(0, pi/2, n_doses)
+        radius = np.linspace(0, 2**(0.5), n_doses+1)[1:]
+
+        row_list = []
+        
+        for i in range(n_doses):
+            for j in range(n_doses):
+
+                f1_val = radius[j]*cos(angles[i])
+                f2_val = radius[j]*sin(angles[i])
+
+                if f1_val>1 or f2_val>1:
+                    continue
+
+                if ConfigDS.strategy == 'mix':
+                    dose_f1s1_vec = 0.5*f1_val*np.ones(n_seasons)
+                    dose_f1s2_vec = 0.5*f1_val*np.ones(n_seasons)
+                    dose_f2s1_vec = 0.5*f2_val*np.ones(n_seasons)
+                    dose_f2s2_vec = 0.5*f2_val*np.ones(n_seasons)
+                
+                elif ConfigDS.strategy == 'alt_12':
+                    dose_f1s1_vec = f1_val*np.ones(n_seasons)
+                    dose_f1s2_vec = np.zeros(n_seasons)
+                    dose_f2s1_vec = np.zeros(n_seasons)
+                    dose_f2s2_vec = f2_val*np.ones(n_seasons)
+                
+                elif ConfigDS.strategy == 'alt_21':
+                    dose_f1s1_vec = np.zeros(n_seasons)
+                    dose_f1s2_vec = f1_val*np.ones(n_seasons)
+                    dose_f2s1_vec = f2_val*np.ones(n_seasons)
+                    dose_f2s2_vec = np.zeros(n_seasons)
+                
+
+                ConfRun.fung1_doses = dict(
+                    spray_1 = dose_f1s1_vec,
+                    spray_2 = dose_f1s2_vec
+                    )
+          
+                ConfRun.fung2_doses = dict(
+                    spray_1 = dose_f2s1_vec,
+                    spray_2 = dose_f2s2_vec
+                    )
+
+                one_tact_output =  self.master_loop_one_tactic(ConfRun)
+                
+                lty = self.lifetime_yield(one_tact_output['yield_vec'],one_tact_output['failure_year'])
+                ty = self.total_yield(one_tact_output['yield_vec'],n_seasons)
+                fy = one_tact_output['failure_year']
+
+                row_list.append(dict(d1=f1_val,
+                            d2=f2_val,
+                            LTY=lty,
+                            TY=ty,
+                            FY=fy,
+                            angle=angles[i],
+                            radius=radius[j],
+                            ))
+                
+        df_out = pd.DataFrame(row_list)
+
+        
+        filename = ConfigDS.config_string
+        filename = filename.replace("grid", "radial")
+        object_dump(filename, df_out)
+
+        return df_out
 
 
 

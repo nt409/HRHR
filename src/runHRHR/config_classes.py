@@ -3,7 +3,7 @@ class BaselineConfig:
 
         self.load_saved = True
 
-        self.folder_save = '../outputs/saved_runs/'
+        self.folder_save_run = '../outputs/saved_runs/'
         
         self.n_years = n_years
 
@@ -44,9 +44,17 @@ class SingleConfig(BaselineConfig):
             spray_1 = [d21]*n_years,
             spray_2 = [d22]*n_years
             )
+        
+        self.add_string()
+
+    def add_string(self):
+        d11 = self.fung1_doses['spray_1'][0]
+        d12 = self.fung1_doses['spray_2'][0]
+        d21 = self.fung2_doses['spray_1'][0]
+        d22 = self.fung2_doses['spray_2'][0]
 
         filename = f"single/{self.save_string}_doses={d11},{d12},{d21},{d22}"
-        self.config_string = self.folder_save + filename.replace(".", ",") + ".pickle"
+        self.config_string = self.folder_save_run + filename.replace(".", ",") + ".pickle"
 
 
 
@@ -66,5 +74,8 @@ class GridConfig(BaselineConfig):
 
         self.n_doses = n_doses
 
-        filename = f"grid/{self.save_string}_n_d={n_doses},{self.strategy}.pickle"
-        self.config_string = self.folder_save + filename.replace(".", ",") + ".pickle"
+        self.add_string()
+
+    def add_string(self):
+        filename = f"grid/{self.save_string}_n_d={self.n_doses},{self.strategy}"
+        self.config_string = self.folder_save_run + filename.replace(".", ",") + ".pickle"

@@ -8,9 +8,13 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.interpolate import RegularGridInterpolator
 import warnings
 
-from utils.plotter_HRHR    import Overlay_plotter, colourmap_fn
-from utils.functions_HRHR  import interpolate, master_loop_one_tactic, master_loop_grid_of_tactics
-from utils.parameters_HRHR import PARAMS
+from utils.plotting import Overlay_plotter, colourmap_fn
+from utils.functions import interpolate, master_loop_one_tactic, master_loop_grid_of_tactics
+from utils.params import PARAMS
+
+# * TOC
+# loads of other stuff
+# Dyn Prog?
 
 
 # #----------------------------------------------------------------------------------------------        
@@ -860,4 +864,102 @@ def C_contours(n_p=18,n_c=18,p_bottom=10**(-4),p_top=1-10**(-4),c_bottom=10**(-8
         fig5 = plt.figure()
         ax5 = fig5.gca(projection='3d')
         ax5.plot_wireframe(X,Y,Yield_vec)
+    return None
+
+
+
+
+
+# * Dyn Prog?
+
+#----------------------------------------------------------------------------------------------
+# def Z_metric(M1,M2):
+#     Z = np.zeros((M1.shape[0],M1.shape[1]))
+#     for i in range(M1.shape[0]):
+#         for j in range(M1.shape[1]):
+#             Z[i,j] = M1[i,j]/(M1[i,j] + M2[i,j])
+#     return Z
+
+
+#----------------------------------------------------------------------------------------------
+def Dose_tuplet_extractor(Selection_array_1,Selection_array_2,Res_array_1,Res_array_2,Yield,i_vec,j_vec,n_doses,separate = None):
+    cmap = plt.get_cmap('jet')
+    k = 0
+    if separate == 'iterate':            
+        R_tup1, R_tup2, SR_tup1, SR_tup2, Y_tup, L_tup, C_tup = [[None]*(len(i_vec)*len(j_vec)) for kk in range(7)]
+        for i in i_vec:
+            for j in j_vec:
+                l = k/(len(i_vec)*len(j_vec))
+                ii = floor(i*(n_doses-1))
+                jj = floor(j*(n_doses-1))
+                SR_tup1[k] = Selection_array_1[ii,jj,1:]
+                SR_tup2[k] = Selection_array_2[ii,jj,1:]
+                R_tup1[k] = Res_array_1[ii,jj,:]
+                R_tup2[k] = Res_array_2[ii,jj,:]
+                Y_tup[k] =Yield[ii,jj,:]
+                L_tup[k] = "Dose %s and %s" % (round(ii/(n_doses-1),4),round(jj/(n_doses-1),4))
+                C_tup[k] = cmap(l)
+                k = k+1     
+    else:
+        R_tup1, R_tup2, SR_tup1, SR_tup2, Y_tup, L_tup, C_tup = [[None]*(len(i_vec)) for kk in range(7)]
+        for i in range(len(i_vec)):
+            l = k/(len(i_vec))
+            ii = floor(i_vec[i]*(n_doses-1))
+            jj = floor(j_vec[i]*(n_doses-1))
+            SR_tup1[k] = Selection_array_1[ii,jj,1:]
+            SR_tup2[k] = Selection_array_2[ii,jj,1:]
+            R_tup1[k] = Res_array_1[ii,jj,:]
+            R_tup2[k] = Res_array_2[ii,jj,:]
+            Y_tup[k] =Yield[ii,jj,:]
+            L_tup[k] = "Dose %s and %s" % (ii/(n_doses-1),jj/(n_doses-1))
+            C_tup[k] = cmap(l)
+            k = k+1     
+    return SR_tup1,SR_tup2,R_tup1,R_tup2,Y_tup,L_tup,C_tup
+
+
+
+
+
+
+
+
+
+
+
+
+
+#----------------------------------------------------------------------------------------------
+def cluster_chunk(i, asex_dictionary, param_string_recursion):
+    
+    
+    # if self.dis_free_yield is None:
+        # self.dis_free_yield = self.simulator.find_disease_free_yield()
+    
+    asex_dictionary['phi_rr_val'] = asex_dictionary['phi_vec_rr'][i]
+    rec_string  = PARAMS.pickle_path + 'rec_logged' + param_string_recursion + ',phi_rr_val=' + str(round(asex_dictionary['phi_rr_val'],2)) + '.pickle'
+    
+    
+    #----------------------------------------------------------------------------------------------
+    n_p = asex_dictionary['phi_vec'].shape[0]
+    n_d = asex_dictionary['n_d']
+    prr2, prs2, psr2, Yield = [2*np.ones((n_p,n_p,n_d,n_d)) for ii in range(4)]
+    for j in range(n_p):
+        for k in range(n_p):
+            prr = 10**(asex_dictionary['phi_rr_val'])
+            prs = 10**(asex_dictionary['phi_vec'][j])
+            psr = 10**(asex_dictionary['phi_vec'][k])
+            pss = 1 - prr - prs - psr
+            if pss>0:
+                output = self.master_loop_grid_of_tactics(n_d,1,p_rr=prr,p_rs=prs,p_sr=psr,p_ss=pss,within_season_before=False)
+                prr2[j,k,:,:]  = output['PRR_array'][:,:,1] # only one season
+                prs2[j,k,:,:]  = output['PRS_array'][:,:,1] # only one season
+                psr2[j,k,:,:]  = output['PSR_array'][:,:,1] # only one season
+                Yield[j,k,:,:] = output['Yield'][:,:,0]     # only one season
+    #----------------------------------------------------------------------------------------------
+    dictionary = {'prr2': prr2, 'prs2': prs2, 'psr2': psr2, 'Yield': Yield}
+    ##
+    rec_dict_to_dump = {**dictionary, **asex_dictionary, **params_dict}
+    
+    object_dump(rec_string, rec_dict_to_dump)
+    
     return None

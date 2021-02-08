@@ -9,13 +9,12 @@ import copy
 from scipy.optimize import fsolve
 import pandas as pd
 
-from .params import PARAMS # , params_dict
+from .params import PARAMS
 
 # * TOC
 # Utility functions
 # class Simulator
 # class RunModel
-# Dyn Prog (?)
 
 
 #----------------------------------------------------------------------------------------------
@@ -66,8 +65,9 @@ def object_open(file_name,object_type=None):
 class Simulator:
     def __init__(self):
         pass
-
-    def growth(self, A, t):
+    
+    @staticmethod
+    def growth(A, t):
         if t>=PARAMS.T_emerge:
             grw = PARAMS.r*(PARAMS.k-A)
             return grw
@@ -76,13 +76,15 @@ class Simulator:
 
 
     #----------------------------------------------------------------------------------------------
-    def fcide(self, omega, theta, dose):
+    @staticmethod
+    def fcide(omega, theta, dose):
         effect = 1 - omega*(1 - exp(-theta*dose))
         return effect
 
 
     #----------------------------------------------------------------------------------------------
-    def senescence(self, t):
+    @staticmethod
+    def senescence(t):
         if t>=PARAMS.T_GS61:
             out = 0.005*((t-PARAMS.T_GS61)/(PARAMS.T_GS87-PARAMS.T_GS61)) + 0.1*exp(-0.02*(PARAMS.T_GS87-t))
             return out
@@ -183,7 +185,8 @@ class Simulator:
     
     
     #----------------------------------------------------------------------------------------------
-    def resist_prop_calculator(self, solution, solutiont=None, method=None):
+    @staticmethod
+    def resist_prop_calculator(solution, solutiont=None, method=None):
 
         res_props_out = {}
         strain_frequencies = {}
@@ -226,13 +229,14 @@ class Simulator:
 
 
     #----------------------------------------------------------------------------------------------
-    def inoculum_value(self, solution, solutiont=None):
+    @staticmethod
+    def inoculum_value(solution, solutiont=None):
         
         method = PARAMS.res_prop_calc_method
         
         if method is None or method=='final_value':
-            inoc = PARAMS.init_den*(PARAMS.den_frac +
-                    (1-PARAMS.den_frac)*PARAMS.innoc_frac*
+            inoc = PARAMS.init_den*((1-PARAMS.last_year_prop) +
+                    PARAMS.last_year_prop*PARAMS.inoc_frac*
                     (solution[-1,PARAMS.IR_ind]+solution[-1,PARAMS.IRS_ind]+
                         solution[-1,PARAMS.ISR_ind]+solution[-1,PARAMS.IS_ind])
                     )
@@ -240,8 +244,12 @@ class Simulator:
         elif method=='integrated':
             disease = simps(solution[:,PARAMS.IR_ind]+solution[:,PARAMS.IRS_ind] +
                 solution[:,PARAMS.ISR_ind]+solution[:,PARAMS.IS_ind],solutiont)
-            inoc = PARAMS.init_den*(PARAMS.den_frac + 
-                        (1-PARAMS.den_frac)*PARAMS.innoc_frac_integral * disease)
+            inoc = PARAMS.init_den*((1-PARAMS.last_year_prop) + 
+                        PARAMS.last_year_prop*PARAMS.inoc_frac_integral * disease)
+        
+        else:
+            raise Exception("inoculum method incorrect")
+
         return inoc
 
 
@@ -326,7 +334,7 @@ class Simulator:
         # #----------------------------------------------------------------------------------------------  
         final_res_dict, props_out = self.resist_prop_calculator(solution, solutiont, method=PARAMS.res_prop_calc_method) # gives either integral or final value
         
-        innoc = self.inoculum_value(solution, solutiont)
+        inoc = self.inoculum_value(solution, solutiont)
         
         initial_res_dict = dict(
             f1 = primary_inoc['RR'] + primary_inoc['RS'],
@@ -341,7 +349,7 @@ class Simulator:
 
         for key in ['f1','f2']:
             if initial_res_dict[key] > 0:
-                selection[key]    = final_res_dict[key]/(initial_res_dict[key]/PARAMS.init_den)
+                selection[key] = final_res_dict[key]/(initial_res_dict[key]/PARAMS.init_den)
 
         # get integral
         y_yield = y_list[-1]
@@ -352,7 +360,7 @@ class Simulator:
 
         out = dict(selection=selection,
                 final_res_dict=final_res_dict,
-                innoc=innoc,
+                inoc=inoc,
                 props_out=props_out,
                 yield_integral=yield_integral,
                 solution=solution,
@@ -389,11 +397,16 @@ class RunModel:
 
 
     #----------------------------------------------------------------------------------------------
-    def primary_calculator(self,
+    @staticmethod
+    def primary_calculator(
+                Config,
                 res_prop_1,
                 res_prop_2,
-                proportions= None,
-                is_mixed_sex = PARAMS.mixed_sex):
+                proportions=None,
+                ):
+        
+        is_mixed_sex = Config.is_mixed_sex
+        sex_prop = Config.sex_prop
 
         sex = dict(
             RR = res_prop_1*res_prop_2,
@@ -401,20 +414,28 @@ class RunModel:
             SR = (1-res_prop_1)*res_prop_2,
             SS = (1-res_prop_1)*(1-res_prop_2)
             )
+
+        # print(sex, 'sex')
+        # print(proportions, 'asex')
         
-        if not is_mixed_sex:
+        if not is_mixed_sex or proportions is None:
+            print('sex')
             return sex
 
         else:
+            print('mixed')
             asex = proportions
             out = {}
             for key in sex.keys():
-                out[key] = PARAMS.sex_prop*sex[key] + (1-PARAMS.sex_prop)*asex[key]
+                out[key] = sex_prop*sex[key] + (1 - sex_prop)*asex[key]
+                # print(out[key], sex[key], asex[key], key)
+            
             return out
 
 
     #----------------------------------------------------------------------------------------------
-    def lifetime_yield(self, Y_vec, F_y):
+    @staticmethod
+    def lifetime_yield(Y_vec, F_y):
         i = 1
         j = 0
         while i < F_y:
@@ -424,7 +445,8 @@ class RunModel:
         return j
 
     #----------------------------------------------------------------------------------------------
-    def total_yield(self, Y_vec, numberofseasons):
+    @staticmethod
+    def total_yield(Y_vec, numberofseasons):
         i = 1
         j = 0
         while i<=numberofseasons:
@@ -461,7 +483,7 @@ class RunModel:
         
         yield_vec = np.zeros(n_years)
         
-        innoc_vec = np.zeros(n_years+1)
+        inoc_vec = np.zeros(n_years+1)
 
         res_vec_dict = dict(
             f1 = [res_props['f1']],
@@ -476,7 +498,7 @@ class RunModel:
         t_vec = np.zeros(PARAMS.t_points)
 
         if primary_inoculum is None:
-            primary_inoculum = self.primary_calculator(res_props['f1'], res_props['f2'], is_mixed_sex=False)
+            primary_inoculum = self.primary_calculator(Config, res_props['f1'], res_props['f2'])
         
 
         selection_vec_dict = dict(
@@ -484,29 +506,24 @@ class RunModel:
             f2 = []
             )
 
-        primary_lists = {}
+        # post-sex from previous year
+        start_of_season = {}
+        # pre-sex
+        end_of_season = {}
         for key in primary_inoculum.keys():
-            primary_lists[key] = []
+            start_of_season[key] = np.zeros(n_years+1)
+            end_of_season[key] = np.zeros(n_years+1)
         
-        innoc_vec[0]   = PARAMS.init_den
+        inoc_vec[0]   = PARAMS.init_den
 
         strain_freqs = primary_inoculum
 
         for i in range(n_years):
             
             # stop the solver after we drop below threshold
-            if not (i>0 and yield_vec[i-1]< self.yield_stopper): 
+            if not (i>0 and yield_vec[i-1] < self.yield_stopper): 
 
-                innoc_in = innoc_vec[i]
-                
-                if Config.within_season_before:
-                    # sex/asex before each season
-                    res_prop_1_start = strain_freqs['RR'] + strain_freqs['RS']
-                    res_prop_2_start = strain_freqs['RR'] + strain_freqs['SR']
-                    
-                    strain_freqs = self.primary_calculator(res_prop_1_start, 
-                                                    res_prop_2_start,
-                                                    strain_freqs)
+                inoc_in = inoc_vec[i]
                     
                 fung1_doses = dict(
                     spray_1 = f1_doses['spray_1'][i],
@@ -520,25 +537,30 @@ class RunModel:
                 
                 model_inoc_in = {}
                 for key in primary_inoculum.keys():
-                    model_inoc_in[key] = innoc_in*strain_freqs[key]
-                    primary_lists[key].append(strain_freqs[key])
+                    model_inoc_in[key] = inoc_in*strain_freqs[key]
+                    start_of_season[key][i] = strain_freqs[key]
                 
                 output = self.simulator.solve_ode(fung1_doses, fung2_doses, model_inoc_in)
 
                 yield_vec[i] = 100*(output['yield_integral']/self.dis_free_yield)
                 
-                strain_freqs = output['props_out']
+                freqs_out = output['props_out']
+                for key in freqs_out.keys():
+                    end_of_season[key][i] = freqs_out[key]
                 
-                if not Config.within_season_before:
-                    # sex/asex after each season
-                    res_prop_1_end = strain_freqs['RR'] + strain_freqs['RS']
-                    res_prop_2_end = strain_freqs['RR'] + strain_freqs['SR']
-                    strain_freqs = self.primary_calculator(res_prop_1_end,
-                                            res_prop_2_end,
-                                            strain_freqs)
+                # sex/asex after each season
+                res_prop_1_end = output['props_out']['RR'] + output['props_out']['RS']
+                res_prop_2_end = output['props_out']['RR'] + output['props_out']['SR']
 
-                innoc_vec[i+1] = output['innoc']
+                # get next year's primary inoc - after SR step
+                strain_freqs = self.primary_calculator(
+                                        Config,
+                                        res_prop_1_end,
+                                        res_prop_2_end,
+                                        freqs_out)
 
+                inoc_vec[i+1] = output['inoc']
+                
                 for key in ['f1', 'f2']:
                     selection_vec_dict[key].append(output['selection'][key])
                     res_vec_dict[key].append(output['final_res_dict'][key])
@@ -554,9 +576,10 @@ class RunModel:
         
         model_output = {
                 'res_vec_dict': res_vec_dict,
-                'primary_lists': primary_lists,
+                'start_of_season': start_of_season,
+                'end_of_season': end_of_season,
                 'yield_vec': yield_vec,
-                'innoc_vec': innoc_vec, 
+                'inoc_vec': inoc_vec, 
                 'selection_vec_dict': selection_vec_dict, 
                 'failure_year': failure_year, 
                 'sol_array': sol_array, 
@@ -602,9 +625,9 @@ class RunModel:
             res_arrays[key] = np.zeros((n_doses, n_doses, n_seasons+1))
             selection_arrays[key] = np.zeros((n_doses, n_doses, n_seasons))
 
-        primary_strain_arrays = {}
+        start_freqs = {}
         for key in ['RR', 'RS', 'SR', 'SS']:
-            primary_strain_arrays[key] = np.zeros((n_doses, n_doses, n_seasons))
+            start_freqs[key] = np.zeros((n_doses, n_doses, n_seasons))
         
         inoc_array  = np.zeros((n_doses,n_doses,n_seasons+1))
         
@@ -650,9 +673,9 @@ class RunModel:
                 attr = {
                     'yield_vec': yield_array,
                     'res_vec_dict': res_arrays,
-                    'primary_lists': primary_strain_arrays,
+                    'start_of_season': start_freqs,
                     'selection_vec_dict': selection_arrays,
-                    'innoc_vec': inoc_array
+                    'inoc_vec': inoc_array
                     }
 
                 # update these variables
@@ -670,7 +693,7 @@ class RunModel:
                     'FY': FY,
                     'yield_array': yield_array,
                     'res_arrays': res_arrays,
-                    'primary_strain_arrays': primary_strain_arrays,
+                    'start_freqs': start_freqs,
                     'selection_arrays': selection_arrays,
                     'inoc_array': inoc_array,
                     't_vec': t_vec}
@@ -681,8 +704,8 @@ class RunModel:
         return grid_output
 
     
-    
-    def constant_effect(self, x, cont_radial, cont_perp):
+    @staticmethod
+    def constant_effect(x, cont_radial, cont_perp):
         out = (1- exp(-PARAMS.theta_1*x)) * (1- exp(-PARAMS.theta_2*cont_radial*x)) - cont_perp
         return out
 
@@ -724,9 +747,9 @@ class RunModel:
             res_arrays[key] = np.zeros((n_doses, n_doses, n_seasons+1))
             selection_arrays[key] = np.zeros((n_doses, n_doses, n_seasons))
 
-        primary_strain_arrays = {}
+        start_freqs = {}
         for key in ['RR', 'RS', 'SR', 'SS']:
-            primary_strain_arrays[key] = np.zeros((n_doses, n_doses, n_seasons))
+            start_freqs[key] = np.zeros((n_doses, n_doses, n_seasons))
         
         inoc_array  = np.zeros((n_doses,n_doses,n_seasons+1))
 
@@ -794,9 +817,9 @@ class RunModel:
                 attr = {
                     'yield_vec': yield_array,
                     'res_vec_dict': res_arrays,
-                    'primary_lists': primary_strain_arrays,
+                    'start_of_season': start_freqs,
                     'selection_vec_dict': selection_arrays,
-                    'innoc_vec': inoc_array
+                    'inoc_vec': inoc_array
                     }
 
                 # update these variables
@@ -818,7 +841,7 @@ class RunModel:
                     'contours_radial': contours_radial,
                     'yield_array': yield_array,
                     'res_arrays': res_arrays,
-                    'primary_strain_arrays': primary_strain_arrays,
+                    'start_freqs': start_freqs,
                     'selection_arrays': selection_arrays,
                     'inoc_array': inoc_array,
                     't_vec': t_vec}
@@ -923,99 +946,3 @@ class RunModel:
 
 
 
-
-
-
-# * Dyn Prog?
-
-#----------------------------------------------------------------------------------------------
-# def Z_metric(M1,M2):
-#     Z = np.zeros((M1.shape[0],M1.shape[1]))
-#     for i in range(M1.shape[0]):
-#         for j in range(M1.shape[1]):
-#             Z[i,j] = M1[i,j]/(M1[i,j] + M2[i,j])
-#     return Z
-
-
-#----------------------------------------------------------------------------------------------
-def Dose_tuplet_extractor(Selection_array_1,Selection_array_2,Res_array_1,Res_array_2,Yield,i_vec,j_vec,n_doses,separate = None):
-    cmap = plt.get_cmap('jet')
-    k = 0
-    if separate == 'iterate':            
-        R_tup1, R_tup2, SR_tup1, SR_tup2, Y_tup, L_tup, C_tup = [[None]*(len(i_vec)*len(j_vec)) for kk in range(7)]
-        for i in i_vec:
-            for j in j_vec:
-                l = k/(len(i_vec)*len(j_vec))
-                ii = floor(i*(n_doses-1))
-                jj = floor(j*(n_doses-1))
-                SR_tup1[k] = Selection_array_1[ii,jj,1:]
-                SR_tup2[k] = Selection_array_2[ii,jj,1:]
-                R_tup1[k] = Res_array_1[ii,jj,:]
-                R_tup2[k] = Res_array_2[ii,jj,:]
-                Y_tup[k] =Yield[ii,jj,:]
-                L_tup[k] = "Dose %s and %s" % (round(ii/(n_doses-1),4),round(jj/(n_doses-1),4))
-                C_tup[k] = cmap(l)
-                k = k+1     
-    else:
-        R_tup1, R_tup2, SR_tup1, SR_tup2, Y_tup, L_tup, C_tup = [[None]*(len(i_vec)) for kk in range(7)]
-        for i in range(len(i_vec)):
-            l = k/(len(i_vec))
-            ii = floor(i_vec[i]*(n_doses-1))
-            jj = floor(j_vec[i]*(n_doses-1))
-            SR_tup1[k] = Selection_array_1[ii,jj,1:]
-            SR_tup2[k] = Selection_array_2[ii,jj,1:]
-            R_tup1[k] = Res_array_1[ii,jj,:]
-            R_tup2[k] = Res_array_2[ii,jj,:]
-            Y_tup[k] =Yield[ii,jj,:]
-            L_tup[k] = "Dose %s and %s" % (ii/(n_doses-1),jj/(n_doses-1))
-            C_tup[k] = cmap(l)
-            k = k+1     
-    return SR_tup1,SR_tup2,R_tup1,R_tup2,Y_tup,L_tup,C_tup
-
-
-
-
-
-
-
-
-
-
-
-
-
-#----------------------------------------------------------------------------------------------
-def cluster_chunk(i, asex_dictionary, param_string_recursion):
-    
-    
-    # if self.dis_free_yield is None:
-        # self.dis_free_yield = self.simulator.find_disease_free_yield()
-    
-    asex_dictionary['phi_rr_val'] = asex_dictionary['phi_vec_rr'][i]
-    rec_string  = PARAMS.pickle_path + 'rec_logged' + param_string_recursion + ',phi_rr_val=' + str(round(asex_dictionary['phi_rr_val'],2)) + '.pickle'
-    
-    
-    #----------------------------------------------------------------------------------------------
-    n_p = asex_dictionary['phi_vec'].shape[0]
-    n_d = asex_dictionary['n_d']
-    prr2, prs2, psr2, Yield = [2*np.ones((n_p,n_p,n_d,n_d)) for ii in range(4)]
-    for j in range(n_p):
-        for k in range(n_p):
-            prr = 10**(asex_dictionary['phi_rr_val'])
-            prs = 10**(asex_dictionary['phi_vec'][j])
-            psr = 10**(asex_dictionary['phi_vec'][k])
-            pss = 1 - prr - prs - psr
-            if pss>0:
-                output = self.master_loop_grid_of_tactics(n_d,1,p_rr=prr,p_rs=prs,p_sr=psr,p_ss=pss,within_season_before=False)
-                prr2[j,k,:,:]  = output['PRR_array'][:,:,1] # only one season
-                prs2[j,k,:,:]  = output['PRS_array'][:,:,1] # only one season
-                psr2[j,k,:,:]  = output['PSR_array'][:,:,1] # only one season
-                Yield[j,k,:,:] = output['Yield'][:,:,0]     # only one season
-    #----------------------------------------------------------------------------------------------
-    dictionary = {'prr2': prr2, 'prs2': prs2, 'psr2': psr2, 'Yield': Yield}
-    ##
-    rec_dict_to_dump = {**dictionary, **asex_dictionary, **params_dict}
-    
-    object_dump(rec_string, rec_dict_to_dump)
-    
-    return None

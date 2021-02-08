@@ -247,7 +247,8 @@ def SR_by_dose_plot(data):
         x = np.asarray(filt_df.dose)
         y = np.asarray(filt_df.SR)
         
-        line = go.Scatter(x=x, y=y, 
+        line = go.Scatter(x=x, 
+                y=y, 
                 name=f"Resistance frequency: {str(rr)}",
                 line=dict(color=color))
 

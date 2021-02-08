@@ -35,7 +35,7 @@ See Mendeley
 
 1. Heat map/dose ratio plot
 
-1. Along equal selection contour... changes in SR according to dose and RF - for sex or no sex **TODO**
+1. Along equal selection contour... changes in SR according to dose and RF - *for sex or no sex* **TODO**
 
 ###### When does this recommendation work?
 

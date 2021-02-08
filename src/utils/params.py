@@ -39,11 +39,13 @@ class Parameters:
         self.delta_1 = 1.11*10**(-2)
         self.delta_2 = 1.11*10**(-2)
         
-        self.init_den = 1.1*10**(-2)/4.2
+        self.init_den = 1.09*10**(-2)/4.2
         
+        # inoculum
         self.innoc_frac = 8
         self.innoc_frac_integral = 0.06
-        self.den_frac = 1
+        # proportion of inoculum density explicitly from last year's epidemic
+        self.last_year_prop = 0
         
         self.T_emerge = 1212
         self.T_GS32 = 1456
@@ -57,8 +59,7 @@ class Parameters:
         self.t_points = ceil((self.T_GS87 - self.T_emerge)/self.dt)
         
         self.res_prop_calc_method = 'final_value'
-        self.sex_prop = 1
-        self.mixed_sex = False
+
         self.yield_threshold = 95
         
         self.JSON_path = 'HR_HR/Asexual_config/JSON/'
@@ -84,5 +85,3 @@ class Parameters:
 
 
 PARAMS = Parameters()
-
-params_dict = vars(PARAMS)

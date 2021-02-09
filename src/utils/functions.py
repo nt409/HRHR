@@ -415,20 +415,14 @@ class RunModel:
             SS = (1-res_prop_1)*(1-res_prop_2)
             )
 
-        # print(sex, 'sex')
-        # print(proportions, 'asex')
-        
         if not is_mixed_sex or proportions is None:
-            print('sex')
             return sex
 
         else:
-            print('mixed')
             asex = proportions
             out = {}
             for key in sex.keys():
                 out[key] = sex_prop*sex[key] + (1 - sex_prop)*asex[key]
-                # print(out[key], sex[key], asex[key], key)
             
             return out
 
@@ -627,7 +621,7 @@ class RunModel:
 
         start_freqs = {}
         for key in ['RR', 'RS', 'SR', 'SS']:
-            start_freqs[key] = np.zeros((n_doses, n_doses, n_seasons))
+            start_freqs[key] = np.zeros((n_doses, n_doses, n_seasons+1))
         
         inoc_array  = np.zeros((n_doses,n_doses,n_seasons+1))
         

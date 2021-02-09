@@ -38,6 +38,12 @@ attrs_dict = {
 
 LABEL_COLOR = "rgb(110,110,110)"
 
+strain_attrs = dict(SS=dict(color="rgb(34,140,34)", dash="dot", longname='Double sensitive'),
+                RS=dict(color="rgb(20,20,200)", dash="dash", longname='Single resistant (RS)'),
+                SR=dict(color="rgb(200,20,20)", dash="dash", longname='Single resistant (SR)'),
+                RR=dict(color="rgb(50,50,50)", dash="solid", longname='Double resistant'),
+                )
+
 #----------------------------------------------------------------------------------------------
 # * Utility functions
 
@@ -208,6 +214,100 @@ def yield_res_freqs_plot(data):
 
     return fig
 
+def plot_frequencies(data):
+    names = list(data['end_of_season'].keys())
+    names.remove("SS")
+    traces = []
+
+    year = 4
+
+    legend_entries = [f"Start of season {year}",
+                       f"End of season {year} (before sexual reproduction)", 
+                       f"Start of season {year+1} (after SR step)"]
+    
+    for key, yr, legend_entry in zip(['start_of_season', 'end_of_season', 'start_of_season'],
+                    [year, year, year+1],
+                    legend_entries):
+        
+        y = []
+        for ff in names:
+            y.append(log10(data[key][ff][int(yr)]))
+
+        bar = go.Bar(x=names,
+                        y=y,
+                        name=legend_entry
+                    )
+        
+        traces.append(bar)
+
+    fig = go.Figure(data=traces, layout=standard_layout(True))
+    fig.update_layout(legend=dict(x=0.4,
+                            y=0.1,
+                            bgcolor="rgba(255,255,255,0.5)"))
+    fig.update_layout(barmode='group')
+    fig.update_xaxes(title="Pathogen strain")
+    fig.update_yaxes(title="Frequency (log base 10)")
+    
+
+
+    return fig
+
+def plot_frequencies_over_time(data):
+    traces = []
+
+    rf = data['start_of_season']
+    rf2 = data['end_of_season']
+
+    keys = list(rf.keys())
+    keys.reverse()
+    for key in keys:
+        y = []
+        x = []
+
+        x2 = []
+        y2 = []
+        
+        for i in range(10):
+            y.append(log10(rf[key][i]/(1-rf[key][i])))
+            y.append(log10(rf2[key][i]/(1-rf2[key][i])))
+            x.append(i)
+            x.append(i+0.5)
+            
+            y2.append(log10(rf[key][i]/(1-rf[key][i])))
+        
+        x2 = list(range(len(y)))
+
+        line = go.Scatter(x=x,
+                        y=y, 
+                        name=strain_attrs[key]['longname'],
+                        line=dict(color=strain_attrs[key]['color'],
+                                dash=strain_attrs[key]['dash'])
+                        )
+        
+        scatter = go.Scatter(x=x2,
+                        y=y2, 
+                        name=strain_attrs[key]['longname'],
+                        line=dict(color=strain_attrs[key]['color'],
+                                dash=strain_attrs[key]['dash']),
+                        showlegend=False,
+                        mode="markers",
+                        )
+        
+        traces.append(line)
+        traces.append(scatter)
+
+
+    fig = go.Figure(data=traces, layout=standard_layout(True))
+    fig.update_xaxes(title="Year")
+    fig.update_yaxes(title="Frequency (logistic scale)")
+
+    
+    fig.update_layout(legend=dict(x=0.07,
+                        y=0.8,
+                        font=dict(size=18),
+                        bgcolor="rgba(255,255,255,0.5)"))
+
+    return fig
 
 # End of single Tactic
 

@@ -42,8 +42,8 @@ class Parameters:
         self.init_den = 1.09*10**(-2)/4.2
         
         # inoculum
-        self.innoc_frac = 8
-        self.innoc_frac_integral = 0.06
+        self.inoc_frac = 8
+        self.inoc_frac_integral = 0.06
         # proportion of inoculum density explicitly from last year's epidemic
         self.last_year_prop = 0
         

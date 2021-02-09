@@ -8,7 +8,7 @@ from .config_classes import SingleConfig
 SR_by_dose = True
 
 doses = np.linspace(0, 1, 10)
-freqs = [10**(-5), 0.01, 0.02, 0.05, 0.1]
+freqs = [10**(-5), 0.01, 0.02, 0.05, 0.1, 0.2]
 
 
 

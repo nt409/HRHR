@@ -1,3 +1,4 @@
+import itertools
 import numpy as np
 from math import exp, ceil, floor, pi, sin, cos
 from scipy.integrate import simps, ode
@@ -10,6 +11,7 @@ from scipy.optimize import fsolve
 import pandas as pd
 
 from .params import PARAMS
+from runHRHR.config_classes import SingleConfig
 
 # * TOC
 # Utility functions
@@ -38,33 +40,146 @@ def object_dump(file_name, object_to_dump, object_type=None):
     return None
 
 
-#----------------------------------------------------------------------------------------------
-def object_open(file_name,object_type=None):
-    #default pickle
-    if object_type is None:
-        object_type='pickle'
+# def object_open(file_name, object_type=None):
+#     #default pickle
+#     if object_type is None:
+#         object_type='pickle'
     
-    if object_type=='pickle':
-        object_to_load = pickle.load(open(file_name, 'rb'))
-    elif object_type=='json':
-        object_to_load = json.load(open(file_name))
-    else:
-        object_to_load = None
+#     if object_type=='pickle':
+#         object_to_load = pickle.load(open(file_name, 'rb'))
+#     elif object_type=='json':
+#         object_to_load = json.load(open(file_name))
+#     else:
+#         object_to_load = None
 
-    return object_to_load
+#     return object_to_load
 
 
+def get_SR_by_doses(doses, freqs):
+    outputs = {}
+    for dose, rf in itertools.product(doses, freqs):
+        ConfigSingleRun = SingleConfig(1, rf, rf, dose, dose, dose, dose)
+        output = RunModel().master_loop_one_tactic(ConfigSingleRun)
+        outputs[f"dose={dose},rf={rf}"] = output
+
+
+    conf_str = ConfigSingleRun.config_string
+    str_freqs = [str(round(f,2)) for f in freqs]
+    str_doses = [str(round(d,2)) for d in doses]
+
+    middle_string = ("=" + ",_".join(str_freqs) +
+                "_doses=" + ",_".join(str_doses))
+    middle_string = middle_string.replace(".", ",")
+
+    conf_str = ("=".join(conf_str.split("=")[0:2]) + 
+            middle_string + conf_str.split("=")[-1])
+
+    conf_str = conf_str.replace("saved_runs", "figures")
+    conf_str = conf_str.replace("pickle", "png")
+    
+    return outputs, conf_str
+
+
+
+
+def process_changing_fcide(data):
+    row_list = []
+
+    for key in data.keys():
+        FY = data[key]['failure_year']
+        dose = key.split("dose=")[1].split(",")[0]
+        dose = float(dose)
+        
+        curve = key.split("curve=")[1]
+        curve = float(curve)
+
+        row = dict(FY=FY, curve=curve, dose=dose)
+        row_list.append(row)
+    
+    out = pd.DataFrame(row_list)
+    return out
+
+
+
+def dataframe_to_matrix(df, xname, yname, zname):
+    x = df[xname].unique()
+    y = df[yname].unique()
+
+    z = -2*np.ones((len(y), len(x)))
+
+    x_inds = range(len(x))
+    y_inds = range(len(y))
+
+    for i, j in itertools.product(x_inds, y_inds):
+        zz = df[(df[xname]==x[i]) & (df[yname]==y[j])]
+        filtered = zz[zname]
+        if len(filtered):
+            z[j, i] = float(filtered)
+    
+    return x, y, z
+
+
+
+def changing_fcide_dose_curve(doses, curvatures, rf):
+    
+    outputs = {}
+    for dose, curve in itertools.product(doses, curvatures):
+        ConfigSingleRun = SingleConfig(20, rf, rf, dose, dose, dose, dose)
+        
+        fungicide_params = dict(
+            omega_1 = PARAMS.omega_2,
+            omega_2 = PARAMS.omega_2,
+            theta_1 = curve,
+            theta_2 = curve,
+        )
+        output = RunModel(fungicide_params).master_loop_one_tactic(ConfigSingleRun)
+        outputs[f"dose={dose},curve={curve}"] = output
+
+
+    df = process_changing_fcide(outputs)
+    x, y, z = dataframe_to_matrix(df, 'dose', 'curve', 'FY')
+    
+    conf_str = ConfigSingleRun.config_string
+    
+    str_curves = [str(round(f,2)) for f in curvatures]
+    str_doses = [str(round(d,2)) for d in doses]
+
+    middle_string = ("doses=" + ",_".join(str_doses) + 
+                "_curv=" + ",_".join(str_curves))
+    
+    middle_string = middle_string.replace(".", ",")
+
+
+    conf_str = (conf_str.split("doses=")[0] + 
+            middle_string + ".png")
+
+    conf_str = conf_str.replace("saved_runs", "figures")
+    # conf_str = conf_str.replace("pickle", "png")
+    print(conf_str)
+
+    return x, y, z, conf_str
 
 # End of utility functions
 
 
 
 
-
 #----------------------------------------------------------------------------------------------
 class Simulator:
-    def __init__(self):
-        pass
+    def __init__(self, fungicide_params):
+        if fungicide_params is None:
+            self.omega_1 = PARAMS.omega_1
+            self.omega_2 = PARAMS.omega_2
+            
+            self.theta_1 = PARAMS.theta_1
+            self.theta_2 = PARAMS.theta_2
+
+        else:
+            self.omega_1 = fungicide_params['omega_1']
+            self.omega_2 = fungicide_params['omega_2']
+            
+            self.theta_1 = fungicide_params['theta_1']
+            self.theta_2 = fungicide_params['theta_2']
     
     @staticmethod
     def growth(A, t):
@@ -100,27 +215,27 @@ class Simulator:
         A = S + ER + ERS + ESR + ES + IR + IRS + ISR + IS + R
 
         dydt = [self.growth(A,t) - (self.senescence(t))*S -  S * (PARAMS.beta/A) * (  
-                (self.fcide(PARAMS.alpha_1*PARAMS.omega_1,PARAMS.alpha_1_C*PARAMS.theta_1,Fung1)) * (self.fcide(PARAMS.alpha_2*PARAMS.omega_2,PARAMS.alpha_2_C*PARAMS.theta_2,Fung2)) * (IR + PR)
-                + (self.fcide(PARAMS.alpha_1*PARAMS.omega_1,PARAMS.alpha_1_C*PARAMS.theta_1,Fung1)) * (self.fcide(               PARAMS.omega_2,                 PARAMS.theta_2,Fung2)) * (IRS+PRS)
-                + (self.fcide(               PARAMS.omega_1,                 PARAMS.theta_1,Fung1)) * (self.fcide(PARAMS.alpha_2*PARAMS.omega_2,PARAMS.alpha_2_C*PARAMS.theta_2,Fung2)) * (ISR + PSR)
-                + (self.fcide(               PARAMS.omega_1,                 PARAMS.theta_1,Fung1)) * (self.fcide(               PARAMS.omega_2,                 PARAMS.theta_2,Fung2)) * (IS + PS)  ),
+                  (self.fcide(PARAMS.alpha_1*self.omega_1,PARAMS.alpha_1_C*self.theta_1,Fung1)) * (self.fcide(PARAMS.alpha_2*self.omega_2,PARAMS.alpha_2_C*self.theta_2,Fung2)) * (IR + PR)
+                + (self.fcide(PARAMS.alpha_1*self.omega_1,PARAMS.alpha_1_C*self.theta_1,Fung1)) * (self.fcide(               self.omega_2,                 self.theta_2,Fung2)) * (IRS + PRS)
+                + (self.fcide(               self.omega_1,                 self.theta_1,Fung1)) * (self.fcide(PARAMS.alpha_2*self.omega_2,PARAMS.alpha_2_C*self.theta_2,Fung2)) * (ISR + PSR)
+                + (self.fcide(               self.omega_1,                 self.theta_1,Fung1)) * (self.fcide(               self.omega_2,                 self.theta_2,Fung2)) * (IS + PS)),
             
-            S*(PARAMS.beta/A) * (self.fcide(PARAMS.alpha_1*PARAMS.omega_1,PARAMS.alpha_1_C*PARAMS.theta_1,Fung1)) * (self.fcide(PARAMS.alpha_2*PARAMS.omega_2,PARAMS.alpha_2_C*PARAMS.theta_2,Fung2)) * (IR + PR)   - (self.senescence(t)) * ER  - PARAMS.gamma * (self.fcide(PARAMS.alpha_1*PARAMS.omega_1_L,PARAMS.alpha_1_C*PARAMS.theta_1_L,Fung1))*(self.fcide(PARAMS.alpha_2*PARAMS.omega_2_L,PARAMS.alpha_2_C*PARAMS.theta_2_L,Fung2)) * ER,
-            S*(PARAMS.beta/A) * (self.fcide(PARAMS.alpha_1*PARAMS.omega_1,PARAMS.alpha_1_C*PARAMS.theta_1,Fung1)) * (self.fcide(               PARAMS.omega_2,                 PARAMS.theta_2,Fung2)) * (IRS + PRS) - (self.senescence(t)) * ERS - PARAMS.gamma * (self.fcide(PARAMS.alpha_1*PARAMS.omega_1_L,PARAMS.alpha_1_C*PARAMS.theta_1_L,Fung1))*(self.fcide(               PARAMS.omega_2_L,                 PARAMS.theta_2_L,Fung2)) * ERS,
-            S*(PARAMS.beta/A) * (self.fcide(               PARAMS.omega_1,                 PARAMS.theta_1,Fung1)) * (self.fcide(PARAMS.alpha_2*PARAMS.omega_2,PARAMS.alpha_2_C*PARAMS.theta_2,Fung2)) * (ISR + PSR) - (self.senescence(t)) * ESR - PARAMS.gamma * (self.fcide(               PARAMS.omega_1_L,                 PARAMS.theta_1_L,Fung1))*(self.fcide(PARAMS.alpha_2*PARAMS.omega_2_L,PARAMS.alpha_2_C*PARAMS.theta_2_L,Fung2)) * ESR,
-            S*(PARAMS.beta/A) * (self.fcide(               PARAMS.omega_1,                 PARAMS.theta_1,Fung1)) * (self.fcide(               PARAMS.omega_2,                 PARAMS.theta_2,Fung2)) * (IS + PS)   - (self.senescence(t)) * ES  - PARAMS.gamma * (self.fcide(               PARAMS.omega_1_L,                 PARAMS.theta_1_L,Fung1))*(self.fcide(               PARAMS.omega_2_L,                 PARAMS.theta_2_L,Fung2)) * ES,
+            S*(PARAMS.beta/A) * (self.fcide(PARAMS.alpha_1*self.omega_1,PARAMS.alpha_1_C*self.theta_1,Fung1)) * (self.fcide(PARAMS.alpha_2*self.omega_2,PARAMS.alpha_2_C*self.theta_2,Fung2)) * (IR + PR)   - (self.senescence(t)) * ER  - PARAMS.gamma * (self.fcide(PARAMS.alpha_1*self.omega_1,PARAMS.alpha_1_C*self.theta_1,Fung1))*(self.fcide(PARAMS.alpha_2*self.omega_2,PARAMS.alpha_2_C*self.theta_2,Fung2)) * ER,
+            S*(PARAMS.beta/A) * (self.fcide(PARAMS.alpha_1*self.omega_1,PARAMS.alpha_1_C*self.theta_1,Fung1)) * (self.fcide(               self.omega_2,                 self.theta_2,Fung2)) * (IRS + PRS) - (self.senescence(t)) * ERS - PARAMS.gamma * (self.fcide(PARAMS.alpha_1*self.omega_1,PARAMS.alpha_1_C*self.theta_1,Fung1))*(self.fcide(               self.omega_2,                 self.theta_2,Fung2)) * ERS,
+            S*(PARAMS.beta/A) * (self.fcide(               self.omega_1,                 self.theta_1,Fung1)) * (self.fcide(PARAMS.alpha_2*self.omega_2,PARAMS.alpha_2_C*self.theta_2,Fung2)) * (ISR + PSR) - (self.senescence(t)) * ESR - PARAMS.gamma * (self.fcide(               self.omega_1,                 self.theta_1,Fung1))*(self.fcide(PARAMS.alpha_2*self.omega_2,PARAMS.alpha_2_C*self.theta_2,Fung2)) * ESR,
+            S*(PARAMS.beta/A) * (self.fcide(               self.omega_1,                 self.theta_1,Fung1)) * (self.fcide(               self.omega_2,                 self.theta_2,Fung2)) * (IS + PS)   - (self.senescence(t)) * ES  - PARAMS.gamma * (self.fcide(               self.omega_1,                 self.theta_1,Fung1))*(self.fcide(               self.omega_2,                 self.theta_2,Fung2)) * ES,
             
-            PARAMS.gamma * (self.fcide(PARAMS.alpha_1*PARAMS.omega_1_L,PARAMS.alpha_1_C*PARAMS.theta_1_L,Fung1)) * (self.fcide(PARAMS.alpha_2*PARAMS.omega_2_L,PARAMS.alpha_2_C*PARAMS.theta_2_L,Fung2)) * ER   -  PARAMS.mu * IR,
-            PARAMS.gamma * (self.fcide(PARAMS.alpha_1*PARAMS.omega_1_L,PARAMS.alpha_1_C*PARAMS.theta_1_L,Fung1)) * (self.fcide(               PARAMS.omega_2_L,                 PARAMS.theta_2_L,Fung2)) * ERS  -  PARAMS.mu * IRS,
-            PARAMS.gamma * (self.fcide(               PARAMS.omega_1_L,                 PARAMS.theta_1_L,Fung1)) * (self.fcide(PARAMS.alpha_2*PARAMS.omega_2_L,PARAMS.alpha_2_C*PARAMS.theta_2_L,Fung2)) * ESR  -  PARAMS.mu * ISR,
-            PARAMS.gamma * (self.fcide(               PARAMS.omega_1_L,                 PARAMS.theta_1_L,Fung1)) * (self.fcide(               PARAMS.omega_2_L,                 PARAMS.theta_2_L,Fung2)) * ES   -  PARAMS.mu * IS,
+            PARAMS.gamma * (self.fcide(PARAMS.alpha_1*self.omega_1,PARAMS.alpha_1_C*self.theta_1,Fung1)) * (self.fcide(PARAMS.alpha_2*self.omega_2,PARAMS.alpha_2_C*self.theta_2,Fung2)) * ER   -  PARAMS.mu * IR,
+            PARAMS.gamma * (self.fcide(PARAMS.alpha_1*self.omega_1,PARAMS.alpha_1_C*self.theta_1,Fung1)) * (self.fcide(               self.omega_2,                 self.theta_2,Fung2)) * ERS  -  PARAMS.mu * IRS,
+            PARAMS.gamma * (self.fcide(               self.omega_1,                 self.theta_1,Fung1)) * (self.fcide(PARAMS.alpha_2*self.omega_2,PARAMS.alpha_2_C*self.theta_2,Fung2)) * ESR  -  PARAMS.mu * ISR,
+            PARAMS.gamma * (self.fcide(               self.omega_1,                 self.theta_1,Fung1)) * (self.fcide(               self.omega_2,                 self.theta_2,Fung2)) * ES   -  PARAMS.mu * IS,
             
             PARAMS.mu * (IR + IRS + ISR + IS)   +  (self.senescence(t)) * (S + ER + ERS + ESR + ES),
             
-            -PARAMS.nu * PR,
-            -PARAMS.nu * PRS,
-            -PARAMS.nu * PSR,
-            -PARAMS.nu * PS,
+            - PARAMS.nu * PR,
+            - PARAMS.nu * PRS,
+            - PARAMS.nu * PSR,
+            - PARAMS.nu * PS,
             
             -PARAMS.delta_1 * Fung1,
             -PARAMS.delta_2 * Fung2
@@ -134,7 +249,7 @@ class Simulator:
 
         y0   = [PARAMS.S_0] + [0]*(PARAMS.no_variables-1)
 
-        sol  = ode(self.ode_system,jac=None).set_integrator('dopri5',nsteps= PARAMS.nstepz)
+        sol  = ode(self.ode_system, jac=None).set_integrator('dopri5', nsteps=PARAMS.nstepz)
         
         t0 = PARAMS.T_emerge
         t1 = PARAMS.T_GS61
@@ -384,8 +499,9 @@ class Simulator:
 
 
 class RunModel:
-    def __init__(self):
-        self.simulator = Simulator()
+    def __init__(self, fungicide_params=None):
+
+        self.simulator = Simulator(fungicide_params)
 
         self.dis_free_yield = None
 
@@ -700,6 +816,7 @@ class RunModel:
     
     @staticmethod
     def constant_effect(x, cont_radial, cont_perp):
+        print("nb this uses PARAMS curvatures and omega=1")
         out = (1- exp(-PARAMS.theta_1*x)) * (1- exp(-PARAMS.theta_2*cont_radial*x)) - cont_perp
         return out
 
@@ -936,6 +1053,14 @@ class RunModel:
         object_dump(filename, df_out)
 
         return df_out
+
+
+
+
+
+
+# End of RunModel class
+
 
 
 

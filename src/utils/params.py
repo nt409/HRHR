@@ -8,10 +8,11 @@ from math import ceil
 class Parameters:
     def __init__(self):
         self.omega_1 = 1
-        self.omega_1_L = 1
         self.omega_2 = 1
-        self.omega_2_L = 1
-
+        
+        # partial resistance on 
+        # - asymptote (PR type 1)
+        # - curvature (PR type 2)
         self.alpha_1 = 0
         self.alpha_1_C = 1
         self.alpha_2 = 0
@@ -22,9 +23,14 @@ class Parameters:
         t2 = 9.6
         
         self.theta_1 = legal_dose*t1
-        self.theta_1_L = legal_dose*t1
         self.theta_2 = legal_dose*t2
-        self.theta_2_L = legal_dose*t2
+        
+        # effect on latent period different?
+        # self.omega_1_L = 1
+        # self.omega_2_L = 1
+        
+        # self.theta_1_L = legal_dose*t1
+        # self.theta_2_L = legal_dose*t2
 
         self.r = 1.26*10**(-2)
         self.k = 1

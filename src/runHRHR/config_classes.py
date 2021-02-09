@@ -1,3 +1,14 @@
+def get_conf_string(folder, filename):
+    conf_str = folder + filename.replace(".", ",") + ".pickle"
+    config_string = conf_str
+
+    conf_str2 = conf_str.replace("saved_runs", "figures")
+    conf_str2 = conf_str2.replace("pickle", "png")
+    config_string_img = conf_str2
+
+    return config_string, config_string_img
+
+
 class BaselineConfig:
     def __init__(self, n_years, rp1, rp2, primary_inoculum, zeroth_season_reproduction):
 
@@ -5,7 +16,7 @@ class BaselineConfig:
 
         self.folder_save_run = '../outputs/saved_runs/'
 
-        self.sex_prop = 0
+        self.sex_prop = 1
         self.is_mixed_sex = True
         
         self.n_years = n_years
@@ -19,7 +30,11 @@ class BaselineConfig:
 
         self.zeroth_season_reproduction = zeroth_season_reproduction
 
-        self.save_string = f"n_y={n_years}_rps={rp1},{rp2}_{str(primary_inoculum)[0]}_{str(zeroth_season_reproduction)[0]}"
+        self.save_string = f"Ny={n_years}" + \
+            f"Rps={rp1},_{rp2}_" + \
+            f"PI={str(primary_inoculum)[0]}_" + \
+            f"0th={str(zeroth_season_reproduction)[0]}_" + \
+            f"Sex={self.sex_prop}"
 
 
 
@@ -57,7 +72,8 @@ class SingleConfig(BaselineConfig):
         d22 = self.fung2_doses['spray_2'][0]
 
         filename = f"single/{self.save_string}_doses={d11},{d12},{d21},{d22}"
-        self.config_string = self.folder_save_run + filename.replace(".", ",") + ".pickle"
+        self.config_string, self.config_string_img = get_conf_string(self.folder_save_run, filename)
+
 
 
 
@@ -80,5 +96,6 @@ class GridConfig(BaselineConfig):
         self.add_string()
 
     def add_string(self):
-        filename = f"grid/{self.save_string}_n_d={self.n_doses},{self.strategy}"
-        self.config_string = self.folder_save_run + filename.replace(".", ",") + ".pickle"
+        filename = f"grid/{self.save_string}_Nd={self.n_doses}_S={self.strategy}"
+        self.config_string, self.config_string_img = get_conf_string(self.folder_save_run, filename)
+        

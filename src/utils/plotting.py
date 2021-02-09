@@ -12,6 +12,7 @@ from .params import PARAMS
 # Utility functions
 # Single Tactic
 # Changing dose
+# Changing fcide
 # Grid of tactics
 # Dose space
 
@@ -68,7 +69,7 @@ TITLE_MAP = dict(
 #----------------------------------------------------------------------------------------------
 # * Single Tactic
 
-def yield_by_year(data):
+def yield_by_year(data, conf_str):
     traces = []
     
     y = data['yield_vec']
@@ -86,12 +87,14 @@ def yield_by_year(data):
     fig.update_xaxes(title="Year")
     fig.update_yaxes(title="Yield")
 
-    return fig
+    fig.show()
+    filename = conf_str.replace("/single/", "/single/yield_by_year/")
+    fig.write_image(filename)
 
 
 
 
-def res_freqs_single_t_plot(data):
+def res_freqs_single_t_plot(data, conf_str):
     traces = []
 
     titles = dict(
@@ -116,11 +119,13 @@ def res_freqs_single_t_plot(data):
     fig.update_xaxes(title="Year")
     fig.update_yaxes(title="Resistant frequency")
 
-    return fig
+    fig.show()
+    filename = conf_str.replace("/single/", "/single/res_freqs/")
+    fig.write_image(filename)
 
 
 
-def single_year_plot(data, indices):
+def single_year_plot(data, indices, conf_str):
     traces = []
     
     for ind in indices:
@@ -141,9 +146,13 @@ def single_year_plot(data, indices):
     fig.update_xaxes(title="Time (degree-days)")
     fig.update_yaxes(title="Amount")
 
-    return fig
+    fig.show()
+    filename = conf_str.replace("/single/", "/single/within_season/")
+    fig.write_image(filename)
 
-def yield_res_freqs_plot(data):
+
+
+def yield_res_freqs_plot(data, conf_str):
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True)
     
     rf_traces = []
@@ -212,9 +221,13 @@ def yield_res_freqs_plot(data):
                             # yref="paper",
                             bgcolor="rgba(255,255,255,0.5)"))
 
-    return fig
+    fig.show()
+    filename = conf_str.replace("/single/", "/single/yield_rf/")
+    fig.write_image(filename)
 
-def plot_frequencies(data):
+
+
+def plot_frequencies(data, conf_str):
     names = list(data['end_of_season'].keys())
     names.remove("SS")
     traces = []
@@ -248,11 +261,13 @@ def plot_frequencies(data):
     fig.update_xaxes(title="Pathogen strain")
     fig.update_yaxes(title="Frequency (log base 10)")
     
+    fig.show()
+    filename = conf_str.replace("/single/", "/single/strain_freqs/")
+    fig.write_image(filename)
 
 
-    return fig
 
-def plot_frequencies_over_time(data):
+def plot_frequencies_over_time(data, conf_str):
     traces = []
 
     rf = data['start_of_season']
@@ -307,14 +322,18 @@ def plot_frequencies_over_time(data):
                         font=dict(size=18),
                         bgcolor="rgba(255,255,255,0.5)"))
 
-    return fig
+    fig.show()
+    filename = conf_str.replace("/single/", "/single/strain_freqs/overtime")
+    fig.write_image(filename)
+
+
 
 # End of single Tactic
 
 #----------------------------------------------------------------------------------------------
 # * Changing dose
 
-def SR_by_dose_plot(data):
+def SR_by_dose_plot(data, conf_str):
     rows_list = []
 
     for key in data.keys():
@@ -394,14 +413,50 @@ def SR_by_dose_plot(data):
     fig.update_xaxes(title="Dose")
     fig.update_yaxes(title="Selection ratio")
 
-    return fig
+    fig.show()
+    filename = conf_str.replace("/single/", "/changing_dose/equal_ratio/")
+    fig.write_image(filename)
 
 # End of Changing dose
 
 #----------------------------------------------------------------------------------------------
+# * Changing fcide
+
+def fcide_grid(x, y, z, conf_str):
+    traces = []
+    
+    # z = np.transpose(data[to_plot])
+
+    trace = go.Heatmap(
+        x = x,
+        y = y,
+        z = z,
+        colorbar=dict(
+            title = "Failure year",
+            titleside = 'right',
+        )
+    )
+
+    traces.append(trace)
+
+    fig = go.Figure(data=traces, layout=standard_layout(False))
+
+    fig.update_layout(width=660, height=600)
+
+    fig.update_xaxes(title="Dose")
+    fig.update_yaxes(title="Curvature")
+
+    fig.show()
+
+    filename = conf_str.replace("/single/", "/changing_fcide/curve_dose/")
+    fig.write_image(filename)
+
+# End of Changing fcide
+
+#----------------------------------------------------------------------------------------------
 # * Grid of tactics
 
-def dose_grid_heatmap(data, Config, to_plot):
+def dose_grid_heatmap(data, Config, to_plot, conf_str):
     traces = []
     
     x = np.linspace(0, 1, Config.n_doses)
@@ -431,13 +486,15 @@ def dose_grid_heatmap(data, Config, to_plot):
     fig.update_xaxes(title="Dose (fungicide 1)")
     fig.update_yaxes(title="Dose (fungicide 2)")
 
-    return fig
+    fig.show()
+    filename = conf_str.replace("/grid/", "/grid/dose_grid/")
+    fig.write_image(filename)
 
 
 
 
 
-def dose_grid_heatmap_with_log_ratio(data, Config, to_plot):
+def dose_grid_heatmap_with_log_ratio(data, Config, to_plot, conf_str):
     """
     Lines on heatmap, and then log ratio of RFs at break down
     """
@@ -601,7 +658,9 @@ def dose_grid_heatmap_with_log_ratio(data, Config, to_plot):
     fig.update_xaxes(title="Dose (fungicide 1)", row=1, col=2)
     fig.update_yaxes(title="Dose (fungicide 2)", row=1, col=2)
 
-    return fig
+    fig.show()
+    filename = conf_str.replace("/grid/", "/grid/dose_grid_LR/")
+    fig.write_image(filename)
 
 
 # End of grid of tactics
@@ -610,7 +669,7 @@ def dose_grid_heatmap_with_log_ratio(data, Config, to_plot):
 #----------------------------------------------------------------------------------------------
 # * Dose space
 
-def dose_space_contour(data, to_plot):
+def dose_space_contour(data, to_plot, conf_str):
     traces = []
     
     x = [log2(xx) for xx in data['contours_radial']]
@@ -648,7 +707,9 @@ def dose_space_contour(data, to_plot):
         showgrid=False,
         )
 
-    return fig
+    fig.show()
+    filename = conf_str.replace("/grid/", "/dose_space/yield_by_year/")
+    fig.write_image(filename)
 
 
 def radial(radial_data, grid_data, Config):
@@ -761,6 +822,9 @@ def radial(radial_data, grid_data, Config):
     fig.update_xaxes(title="Dose (fungicide 1)", row=1, col=2)
     fig.update_yaxes(title="Dose (fungicide 2)", row=1, col=2)
 
-    return fig
+    fig.show()
+    conf_str = Config.config_string
+    filename = conf_str.replace("/grid/", "/dose_space/radial/")
+    fig.write_image(filename)
 
 # End of Dose space

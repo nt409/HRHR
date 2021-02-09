@@ -63,7 +63,7 @@ def get_SR_by_doses(doses, freqs):
         outputs[f"dose={dose},rf={rf}"] = output
 
 
-    conf_str = ConfigSingleRun.config_string
+    conf_str = ConfigSingleRun.config_string_img
     str_freqs = [str(round(f,2)) for f in freqs]
     str_doses = [str(round(d,2)) for d in doses]
 
@@ -74,34 +74,30 @@ def get_SR_by_doses(doses, freqs):
     conf_str = ("=".join(conf_str.split("=")[0:2]) + 
             middle_string + conf_str.split("=")[-1])
 
-    conf_str = conf_str.replace("saved_runs", "figures")
-    conf_str = conf_str.replace("pickle", "png")
     
     return outputs, conf_str
 
 
 
 
-def process_changing_fcide(data):
+def process_changing_fcide(data, xname, yname, zname):
     row_list = []
 
     for key in data.keys():
-        FY = data[key]['failure_year']
-        dose = key.split("dose=")[1].split(",")[0]
-        dose = float(dose)
+        zz = data[key][zname]
+        xx = key.split(f"{xname}=")[1].split(",")[0]
+        xx = float(xx)
         
-        curve = key.split("curve=")[1]
-        curve = float(curve)
+        yy = key.split(f"{yname}=")[1]
+        yy = float(yy)
 
-        row = dict(FY=FY, curve=curve, dose=dose)
+        row = {xname: xx,
+                yname: yy,
+                zname: zz}
         row_list.append(row)
     
-    out = pd.DataFrame(row_list)
-    return out
+    df = pd.DataFrame(row_list)
 
-
-
-def dataframe_to_matrix(df, xname, yname, zname):
     x = df[xname].unique()
     y = df[yname].unique()
 
@@ -120,14 +116,14 @@ def dataframe_to_matrix(df, xname, yname, zname):
 
 
 
-def changing_fcide_dose_curve(doses, curvatures, rf):
+def changing_fcide_dose_curve(doses, curvatures, rf, NY):
     
     outputs = {}
     for dose, curve in itertools.product(doses, curvatures):
-        ConfigSingleRun = SingleConfig(20, rf, rf, dose, dose, dose, dose)
+        ConfigSingleRun = SingleConfig(NY, rf, rf, dose, dose, dose, dose)
         
         fungicide_params = dict(
-            omega_1 = PARAMS.omega_2,
+            omega_1 = PARAMS.omega_1,
             omega_2 = PARAMS.omega_2,
             theta_1 = curve,
             theta_2 = curve,
@@ -136,10 +132,9 @@ def changing_fcide_dose_curve(doses, curvatures, rf):
         outputs[f"dose={dose},curve={curve}"] = output
 
 
-    df = process_changing_fcide(outputs)
-    x, y, z = dataframe_to_matrix(df, 'dose', 'curve', 'FY')
+    x, y, z = process_changing_fcide(outputs, 'dose', 'curve', 'failure_year')
     
-    conf_str = ConfigSingleRun.config_string
+    conf_str = ConfigSingleRun.config_string_img
     
     str_curves = [str(round(f,2)) for f in curvatures]
     str_doses = [str(round(d,2)) for d in doses]
@@ -153,9 +148,41 @@ def changing_fcide_dose_curve(doses, curvatures, rf):
     conf_str = (conf_str.split("doses=")[0] + 
             middle_string + ".png")
 
-    conf_str = conf_str.replace("saved_runs", "figures")
-    # conf_str = conf_str.replace("pickle", "png")
-    print(conf_str)
+    return x, y, z, conf_str
+
+
+def changing_fcide_curve_asymp(curvatures, asymps, rf, NY):
+    
+    outputs = {}
+    for curve, asymp in itertools.product(curvatures, asymps):
+        ConfigSingleRun = SingleConfig(NY, rf, rf, 1, 1, 1, 1)
+        
+        fungicide_params = dict(
+            omega_1 = asymp,
+            omega_2 = asymp,
+            theta_1 = curve,
+            theta_2 = curve,
+        )
+        output = RunModel(fungicide_params).master_loop_one_tactic(ConfigSingleRun)
+        outputs[f"curve={curve},asymp={asymp}"] = output
+
+
+    x, y, z = process_changing_fcide(outputs, 'curve', 'asymp', 'failure_year')
+
+    
+    conf_str = ConfigSingleRun.config_string_img
+    
+    str_curves = [str(round(f,2)) for f in curvatures]
+    str_asymp = [str(round(d,2)) for d in asymps]
+
+    middle_string = ("asymp=" + ",_".join(str_asymp) + 
+                "_curv=" + ",_".join(str_curves))
+    
+    middle_string = middle_string.replace(".", ",")
+
+
+    conf_str = (conf_str.split("asymp=")[0] + 
+            middle_string + ".png")
 
     return x, y, z, conf_str
 

@@ -10,7 +10,7 @@ res_freqs_single = False
 yield_res_freqs = True
 single_year = False
 freq_plot = False
-freq_time_plot = True
+freq_time_plot = False
 
 # run
 

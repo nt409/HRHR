@@ -1,14 +1,14 @@
 from .config_classes import SingleConfig, GridConfig
 
-n_years = 20
+n_years = 30
 
-res_f1 = 10**(-3)
-res_f2 = 10**(-3)
+res_f1 = 10**(-5)
+res_f2 = 10**(-5)
 
-d11 = 0.9
-d12 = 0.9
-d21 = 0.9
-d22 = 0.9
+d11 = 1
+d12 = 1
+d21 = 1
+d22 = 1
 
 n_grid = 7
 

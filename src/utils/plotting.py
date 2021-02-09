@@ -422,7 +422,7 @@ def SR_by_dose_plot(data, conf_str):
 #----------------------------------------------------------------------------------------------
 # * Changing fcide
 
-def fcide_grid(x, y, z, conf_str):
+def fcide_grid(x, y, z, conf_str, labels):
     traces = []
     
     # z = np.transpose(data[to_plot])
@@ -443,8 +443,8 @@ def fcide_grid(x, y, z, conf_str):
 
     fig.update_layout(width=660, height=600)
 
-    fig.update_xaxes(title="Dose")
-    fig.update_yaxes(title="Curvature")
+    fig.update_xaxes(title=labels['x'])
+    fig.update_yaxes(title=labels['y'])
 
     fig.show()
 

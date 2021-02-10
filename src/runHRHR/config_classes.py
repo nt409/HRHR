@@ -16,7 +16,7 @@ class BaselineConfig:
 
         self.folder_save_run = '../outputs/saved_runs/'
 
-        self.sex_prop = 1
+        self.sex_prop = 0
         self.is_mixed_sex = True
         
         self.n_years = n_years

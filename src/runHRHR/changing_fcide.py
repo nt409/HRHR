@@ -3,7 +3,7 @@ import numpy as np
 from utils.functions import changing_fcide_dose_curve, changing_fcide_curve_asymp
 from utils.plotting import fcide_grid
 
-curv_dose = True
+curv_dose = False
 curv_asymp = True
 
 NY = 30
@@ -12,6 +12,7 @@ N = 10
 # plot
 
 if curv_dose:
+    # should use same N to emphasise symmetry
     doses = np.linspace(0, 1, N+1)[1:]
     curvatures = np.linspace(0, 10, N+1)[1:]
     rf = 10**(-3)
@@ -22,6 +23,7 @@ if curv_dose:
 
 
 if curv_asymp:
+    # can use different N
     asymps = np.linspace(0, 1, N+1)[1:]
     curvatures = np.linspace(0, 9.6, N+1)[1:]
     rf = 10**(-3)

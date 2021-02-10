@@ -7,7 +7,7 @@ curv_dose = True
 curv_asymp = True
 
 NY = 30
-N = 5
+N = 10
 
 # plot
 
@@ -29,4 +29,3 @@ if curv_asymp:
     x, y, z, conf_str = changing_fcide_curve_asymp(curvatures, asymps, rf, NY)
     labels = dict(x="Curvature", y="Asymptote")
     fcide_grid(x, y, z, conf_str, labels)
-    

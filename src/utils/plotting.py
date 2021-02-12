@@ -35,6 +35,7 @@ attrs_dict = {
     }
 
 LABEL_COLOR = "rgb(110,110,110)"
+NULL_HEATMAP_COLOUR = "rgb(100, 100, 100)"
 
 strain_attrs = dict(SS=dict(color="rgb(34,140,34)", dash="dot", longname='Double sensitive'),
                 RS=dict(color="rgb(20,20,200)", dash="dash", longname='Single resistant (RS)'),
@@ -552,8 +553,8 @@ def dose_grid_heatmap_with_log_ratio(data, Config, to_plot, conf_str):
         y = yheat,
         z = z,
         colorscale=[
-            [0, "rgb(100, 100, 100)"],
-            [1/np.amax(z), "rgb(100, 100, 100)"],
+            [0, NULL_HEATMAP_COLOUR],
+            [1/np.amax(z), NULL_HEATMAP_COLOUR],
             [1/np.amax(z), "rgb(0, 0, 100)"],
             [1, "rgb(255, 255, 0)"],
         ],
@@ -801,10 +802,16 @@ def radial(radial_data, grid_data, Config):
 
     z = np.transpose(grid_data['FY'])
 
-    heatmap = go.Heatmap(
+    heatmap = go.Contour(
         x = x,
         y = y,
         z = z,
+        colorscale=[
+            [0, NULL_HEATMAP_COLOUR],
+            [1/np.amax(z), NULL_HEATMAP_COLOUR],
+            [1/np.amax(z), "rgb(0, 0, 100)"],
+            [1, "rgb(255, 255, 0)"],
+        ],
         colorbar=dict(
             title = TITLE_MAP['FY'],
             titleside = 'right',
@@ -816,7 +823,8 @@ def radial(radial_data, grid_data, Config):
     angles = list(radial_data.angle.unique())
     
     for ind, angle in enumerate(angles):
-        data_use = radial_data[radial_data["angle"]==angle]
+        data_use = radial_data[(radial_data["angle"]==angle) & (radial_data['FY']>0)]
+        
         xx = list(data_use.d1)
         yy = list(data_use.d2)
         
@@ -899,11 +907,14 @@ def radial(radial_data, grid_data, Config):
     fig.update_xaxes(title="Mixture strength<br>(radius measured from origin)", row=1, col=1)
     fig.update_yaxes(title="Failure year", row=1, col=1)
 
-    fig.update_xaxes(title="Dose (fungicide 1)", row=1, col=2)
-    fig.update_yaxes(title="Dose (fungicide 2)", row=1, col=2)
+    dx = 0.01
+    dy = 0.01
+
+    fig.update_xaxes(title="Dose (fungicide 1)", range=[0-dx,1+dx], row=1, col=2, showgrid=False)
+    fig.update_yaxes(title="Dose (fungicide 2)", range=[0-dy,1+dy], row=1, col=2, showgrid=False)
 
     fig.show()
-    conf_str = Config.config_string
+    conf_str = Config.config_string_img
     filename = conf_str.replace("/grid/", "/dose_space/radial/")
     fig.write_image(filename)
 

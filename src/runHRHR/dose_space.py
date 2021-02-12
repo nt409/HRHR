@@ -19,12 +19,15 @@ if dose_grid_plot:
 
 if radial_plot:
     ConfigGridRun.n_angles = 5
-    ConfigGridRun.n_radii = 7
+    ConfigGridRun.n_radii = 10
+    
+    ext_string = f"_Nr={ConfigGridRun.n_radii},Na={ConfigGridRun.n_angles}"
+    ConfigGridRun.add_string(extra_detail=ext_string)
 
     radial_output = RunModel().master_loop_radial(ConfigGridRun)
     
     ConfigGridRun.n_doses = 10
-    ConfigGridRun.add_string()
+
     grid_output = RunModel().master_loop_grid_of_tactics(ConfigGridRun)
 
     radial(radial_output, grid_output, ConfigGridRun)

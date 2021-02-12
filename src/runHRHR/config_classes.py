@@ -11,7 +11,7 @@ def get_conf_string(folder, filename):
 class BaselineConfig:
     def __init__(self, n_years, rp1, rp2, primary_inoculum, zeroth_season_reproduction):
 
-        self.load_saved = False
+        self.load_saved = True
 
         self.folder_save_run = '../outputs/saved_runs/'
 
@@ -33,9 +33,14 @@ class BaselineConfig:
         rp1 = self.res_props['f1']
         rp2 = self.res_props['f2']
 
+        if self.primary_inoculum is None:
+            inoc_str = "N"
+        else:
+            inoc_str = "Y"
+
         self.save_string = f"Ny={self.n_years}_" + \
             f"Rps={rp1},_{rp2}_" + \
-            f"PI={str(self.primary_inoculum)[0]}_" + \
+            f"PI={inoc_str}_" + \
             f"0th={str(self.zeroth_season_reproduction)[0]}_" + \
             f"Sex={self.sex_prop}"
 
@@ -68,7 +73,7 @@ class SingleConfig(BaselineConfig):
         
         self.add_string()
 
-    def add_string(self):
+    def add_string(self, extra_detail=None):
         d11 = self.fung1_doses['spray_1'][0]
         d12 = self.fung1_doses['spray_2'][0]
         d21 = self.fung2_doses['spray_1'][0]
@@ -76,6 +81,9 @@ class SingleConfig(BaselineConfig):
 
         self.add_baseline_str()
         filename = f"single/{self.save_string}_doses={d11},{d12},{d21},{d22}"
+        if extra_detail is not None:
+            filename = filename + extra_detail
+
         self.config_string, self.config_string_img = get_conf_string(self.folder_save_run, filename)
 
 
@@ -99,8 +107,12 @@ class GridConfig(BaselineConfig):
 
         self.add_string()
 
-    def add_string(self):
+    def add_string(self, extra_detail=None):
         self.add_baseline_str()
         filename = f"grid/{self.save_string}_Nd={self.n_doses}_S={self.strategy}"
+        
+        if extra_detail is not None:
+            filename = filename + extra_detail
+        
         self.config_string, self.config_string_img = get_conf_string(self.folder_save_run, filename)
         

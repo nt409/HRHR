@@ -884,7 +884,7 @@ class RunModel:
         
         inoc_array  = np.zeros((n_doses,n_doses,n_seasons+1))
         
-        for f1_ind in range(n_doses):
+        for f1_ind in tqdm(range(n_doses)):
             for f2_ind in range(n_doses):
 
                 fung1_doses, fung2_doses = self.get_doses(
@@ -992,7 +992,7 @@ class RunModel:
         f1_vals = np.zeros((n_doses, n_doses))
         f2_vals = np.zeros((n_doses, n_doses))
         
-        for i in range(n_doses):
+        for i in tqdm(range(n_doses)):
             for j in range(n_doses):
 
 
@@ -1087,15 +1087,20 @@ class RunModel:
             self.dis_free_yield = self.simulator.find_disease_free_yield()
                 
         angles = np.linspace(0, pi/2, n_angles)
-        radius = np.linspace(0, 2**(0.5), n_radii+1)[1:]
+        radii = np.linspace(0, 2**(0.5), n_radii+1)[1:]
 
         row_list = []
         
-        for ang in range(n_angles):
-            for rad in range(n_radii):
+        for angle in tqdm(angles):
+            for radius in radii:
 
-                f1_val = radius[rad]*cos(angles[ang])
-                f2_val = radius[rad]*sin(angles[ang])
+                f1_val = radius*cos(angle)
+                f2_val = radius*sin(angle)
+
+                if radius==2**0.5 and angle==pi/4:
+                    # floating point error meant this important point missed without this
+                    f1_val=1
+                    f2_val=1
 
                 if f1_val>1 or f2_val>1:
                     continue
@@ -1117,8 +1122,8 @@ class RunModel:
                             LTY=lty,
                             TY=ty,
                             FY=fy,
-                            angle=angles[ang],
-                            radius=radius[rad],
+                            angle=angle,
+                            radius=radius,
                             ))
                 
         df_out = pd.DataFrame(row_list)

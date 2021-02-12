@@ -10,8 +10,8 @@ d12 = 1
 d21 = 1
 d22 = 1
 
-n_grid = 7
 
+n_grid = 13
 
 ConfigSingleRun = SingleConfig(n_years, res_f1, res_f2, d11, d12, d21, d22)
 ConfigGridRun    =  GridConfig(n_years, res_f1, res_f2, n_grid)

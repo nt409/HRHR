@@ -4,7 +4,7 @@ from .config import ConfigGridRun
 
 # which plot
 
-dose_grid_plot = True
+dose_grid_plot = False
 radial_plot = True
 
 # plot
@@ -18,6 +18,9 @@ if dose_grid_plot:
     
 
 if radial_plot:
+    ConfigGridRun.n_angles = 5
+    ConfigGridRun.n_radii = 7
+
     radial_output = RunModel().master_loop_radial(ConfigGridRun)
     
     ConfigGridRun.n_doses = 10

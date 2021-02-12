@@ -9,12 +9,15 @@ import os
 import copy
 from scipy.optimize import fsolve
 import pandas as pd
+from tqdm import tqdm
 
 from .params import PARAMS
 from runHRHR.config_classes import SingleConfig
 
 # * TOC
 # Utility functions
+# Changing doses fns
+# Changing fcide fns
 # class Simulator
 # class RunModel
 
@@ -55,6 +58,11 @@ def object_dump(file_name, object_to_dump, object_type=None):
 #     return object_to_load
 
 
+# End of utility functions
+
+
+# * changing doses fns
+
 def get_SR_by_doses(doses, freqs):
     outputs = {}
     for dose, rf in itertools.product(doses, freqs):
@@ -77,26 +85,38 @@ def get_SR_by_doses(doses, freqs):
     
     return outputs, conf_str
 
+# End of changing doses fns
 
 
 
-def process_changing_fcide(data, xname, yname, zname):
-    row_list = []
+# * changing fcide fns
 
-    for key in data.keys():
-        zz = data[key][zname]
-        xx = key.split(f"{xname}=")[1].split(",")[0]
-        xx = float(xx)
-        
-        yy = key.split(f"{yname}=")[1]
-        yy = float(yy)
+def get_cf_filename(Config, vars, names):
+    c_string = Config.config_string.split(".pickle")[0]
+    c_string = c_string.replace("single/", "changing_fcide/")
 
-        row = {xname: xx,
-                yname: yy,
-                zname: zz}
-        row_list.append(row)
+    out = c_string
+    my_folder = ""
+    for var, name in zip(vars,names):
+        my_str = f"_{name}={round(var[0],2)},{round(var[-1],2)},{round(len(var),2)}"
+        out += my_str
+        my_folder += name + "_"
     
-    df = pd.DataFrame(row_list)
+    out = out.replace(".", ",")
+    out = out.replace(",,/", "../")
+
+    out_file = out + ".pickle"
+
+    out_img = out + ".png"
+    out_img = out_img.replace("saved_runs/changing_fcide/", 
+                    f"figures/changing_fcide/{my_folder[:-1]}/")
+    
+    return out_file, out_img
+
+
+
+
+def process_changing_fcide(df, xname, yname, zname, wname=None):
 
     x = df[xname].unique()
     y = df[yname].unique()
@@ -110,84 +130,152 @@ def process_changing_fcide(data, xname, yname, zname):
         zz = df[(df[xname]==x[i]) & (df[yname]==y[j])]
         filtered = zz[zname]
         if len(filtered):
-            z[j, i] = float(filtered)
+            if wname is None:
+                z[j, i] = float(filtered)
+            else:
+                if max(zz[wname])>0:
+                    w_filt = zz[zz[wname]==max(zz[wname])]
+                    best_ones = w_filt[zname]
+                    print(w_filt)
+                    use = np.mean(best_ones)
+                    z[j, i] = float(use)
+                else:
+                    z[j, i] = None
     
     return x, y, z
 
 
 
+
+
 def changing_fcide_dose_curve(doses, curvatures, rf, NY):
+
+    ConfigSingleRun = SingleConfig(NY, rf, rf, 0, 0, 0, 0)
     
-    outputs = {}
-    for dose, curve in itertools.product(doses, curvatures):
-        ConfigSingleRun = SingleConfig(NY, rf, rf, dose, dose, dose, dose)
+    filename, filename_img = get_cf_filename(ConfigSingleRun,
+                                [doses,
+                                curvatures],
+                                ["doses",
+                                "curv"])
+    
+    if ConfigSingleRun.load_saved and os.path.isfile(filename):
+        print("loading df")
+        df = pickle.load(open(filename, 'rb'))
+    else:
+        print("running to find df")
+
+
+        rows = []
+        for dose, curve in itertools.product(doses, curvatures):
+            ConfigSingleRun = SingleConfig(NY, rf, rf, dose, dose, dose, dose)
+            
+            ConfigSingleRun.load_saved = False
+            
+            fungicide_params = dict(
+                omega_1 = PARAMS.omega_1,
+                omega_2 = PARAMS.omega_2,
+                theta_1 = curve,
+                theta_2 = curve,
+            )
+            output = RunModel(fungicide_params).master_loop_one_tactic(ConfigSingleRun)
+            
+            FY = output['failure_year']
+            rows.append(dict(dose=dose, curve=curve, failure_year=FY))
         
-        fungicide_params = dict(
-            omega_1 = PARAMS.omega_1,
-            omega_2 = PARAMS.omega_2,
-            theta_1 = curve,
-            theta_2 = curve,
-        )
-        output = RunModel(fungicide_params).master_loop_one_tactic(ConfigSingleRun)
-        outputs[f"dose={dose},curve={curve}"] = output
+        df = pd.DataFrame(rows)
 
+        object_dump(filename, df)
 
-    x, y, z = process_changing_fcide(outputs, 'dose', 'curve', 'failure_year')
+    x, y, z = process_changing_fcide(df, 'dose', 'curve', 'failure_year')
     
-    conf_str = ConfigSingleRun.config_string_img
-    
-    str_curves = [str(round(f,2)) for f in curvatures]
-    str_doses = [str(round(d,2)) for d in doses]
-
-    middle_string = ("doses=" + ",_".join(str_doses) + 
-                "_curv=" + ",_".join(str_curves))
-    
-    middle_string = middle_string.replace(".", ",")
-
-
-    conf_str = (conf_str.split("doses=")[0] + 
-            middle_string + ".png")
-
-    return x, y, z, conf_str
+    return x, y, z, filename_img
 
 
 def changing_fcide_curve_asymp(curvatures, asymps, rf, NY):
     
-    outputs = {}
-    for curve, asymp in itertools.product(curvatures, asymps):
-        ConfigSingleRun = SingleConfig(NY, rf, rf, 1, 1, 1, 1)
+    ConfigSingleRun = SingleConfig(NY, rf, rf, 1, 1, 1, 1)
+    
+    filename, filename_img = get_cf_filename(ConfigSingleRun,
+                                [curvatures,
+                                asymps],
+                                ["curv",
+                                "asymp"])
+    
+    if ConfigSingleRun.load_saved and os.path.isfile(filename):
+        print("loading df")
+        df = pickle.load(open(filename, 'rb'))
+    else:
+        print("running to find df")
         
-        fungicide_params = dict(
-            omega_1 = asymp,
-            omega_2 = asymp,
-            theta_1 = curve,
-            theta_2 = curve,
-        )
-        output = RunModel(fungicide_params).master_loop_one_tactic(ConfigSingleRun)
-        outputs[f"curve={curve},asymp={asymp}"] = output
+        ConfigSingleRun.load_saved = False
 
+        rows = []
+        for curve, asymp in itertools.product(curvatures, asymps):
+            
+            fungicide_params = dict(
+                omega_1 = asymp,
+                omega_2 = asymp,
+                theta_1 = curve,
+                theta_2 = curve,
+            )
+            output = RunModel(fungicide_params).master_loop_one_tactic(ConfigSingleRun)
+            FY = output['failure_year']
+            rows.append(dict(curve=curve, asymp=asymp, failure_year=FY))
 
-    x, y, z = process_changing_fcide(outputs, 'curve', 'asymp', 'failure_year')
+        df = pd.DataFrame(rows)
 
+        object_dump(filename, df)
+
+    x, y, z = process_changing_fcide(df, 'curve', 'asymp', 'failure_year')
     
-    conf_str = ConfigSingleRun.config_string_img
+    return x, y, z, filename_img
+
+
+
+def changing_fcide_sexp_asymp_curv(sex_props,
+                            asymps, curvatures, rf, NY):
     
-    str_curves = [str(round(f,2)) for f in curvatures]
-    str_asymp = [str(round(d,2)) for d in asymps]
+    ConfigSingleRun = SingleConfig(NY, rf, rf, 1, 1, 1, 1)
 
-    middle_string = ("asymp=" + ",_".join(str_asymp) + 
-                "_curv=" + ",_".join(str_curves))
+    filename, filename_img = get_cf_filename(ConfigSingleRun,
+                                [sex_props,
+                                asymps,
+                                curvatures],
+                                ["sex-p",
+                                "asymp",
+                                "curv"])
     
-    middle_string = middle_string.replace(".", ",")
+    if ConfigSingleRun.load_saved and os.path.isfile(filename):
+        print("loading df")
+        df = pickle.load(open(filename, 'rb'))
+    else:
+        print("running to find df")
+        rows = []
+        ConfigSingleRun.load_saved = False
 
+        for sex_p, curve, asymp in tqdm(itertools.product(sex_props, curvatures, asymps)):
 
-    conf_str = (conf_str.split("asymp=")[0] + 
-            middle_string + ".png")
+            ConfigSingleRun.sex_prop = sex_p
+            
+            fungicide_params = dict(
+                omega_1 = asymp,
+                omega_2 = asymp,
+                theta_1 = curve,
+                theta_2 = curve,
+            )
+            output = RunModel(fungicide_params).master_loop_one_tactic(ConfigSingleRun)
+            FY = output['failure_year']
+            rows.append(dict(sex_p=sex_p, curve=curve, asymp=asymp, failure_year=FY))
 
-    return x, y, z, conf_str
+        df = pd.DataFrame(rows)
 
-# End of utility functions
+        object_dump(filename, df)
+    
+    x, y, z = process_changing_fcide(df, 'sex_p', 'asymp', 'curve', wname="failure_year")
+    
+    return x, y, z, filename_img
 
+# End of changing fcide fns
 
 
 
@@ -548,7 +636,7 @@ class RunModel:
                 proportions=None,
                 ):
         
-        is_mixed_sex = Config.is_mixed_sex
+        # is_mixed_sex = Config.is_mixed_sex
         sex_prop = Config.sex_prop
 
         sex = dict(
@@ -558,7 +646,7 @@ class RunModel:
             SS = (1-res_prop_1)*(1-res_prop_2)
             )
 
-        if not is_mixed_sex or proportions is None:
+        if proportions is None:
             return sex
 
         else:
@@ -570,28 +658,57 @@ class RunModel:
             return out
 
 
-    #----------------------------------------------------------------------------------------------
+
     @staticmethod
     def lifetime_yield(Y_vec, F_y):
-        i = 1
-        j = 0
-        while i < F_y:
-            j = j+Y_vec[i-1]
-            i = i+1
-        j = j/100
-        return j
+        return sum(Y_vec[:(F_y+1)])/100
 
-    #----------------------------------------------------------------------------------------------
+
     @staticmethod
-    def total_yield(Y_vec, numberofseasons):
-        i = 1
-        j = 0
-        while i<=numberofseasons:
-            j = j+Y_vec[i-1]
-            i = i+1
-        j = j/100
-        return j
+    def total_yield(Y_vec):
+        return sum(Y_vec)/100
 
+
+    @staticmethod
+    def get_doses(my_strategy, f1_val, f2_val, n_doses, n_seasons):
+        if n_doses is not None:
+            conc_f1 = f1_val/(n_doses-1)
+            conc_f2 = f2_val/(n_doses-1)
+        else:
+            conc_f1 = f1_val
+            conc_f2 = f2_val
+
+        if my_strategy == 'mix':
+            doses_f1s1 = 0.5*conc_f1*np.ones(n_seasons)
+            doses_f1s2 = 0.5*conc_f1*np.ones(n_seasons)
+            doses_f2s1 = 0.5*conc_f2*np.ones(n_seasons)
+            doses_f2s2 = 0.5*conc_f2*np.ones(n_seasons)
+                
+        elif my_strategy == 'alt_12':
+            doses_f1s1 = conc_f1*np.ones(n_seasons)
+            doses_f1s2 = np.zeros(n_seasons)
+            doses_f2s1 = np.zeros(n_seasons)
+            doses_f2s2 = conc_f2*np.ones(n_seasons)
+        
+        elif my_strategy == 'alt_21':
+            doses_f1s1 = np.zeros(n_seasons)
+            doses_f1s2 = conc_f1*np.ones(n_seasons)
+            doses_f2s1 = conc_f2*np.ones(n_seasons)
+            doses_f2s2 = np.zeros(n_seasons)
+        
+        else:
+            raise Exception("incorrect strategy named")
+        
+        fung1_doses = dict(
+                    spray_1 = doses_f1s1,
+                    spray_2 = doses_f1s2
+                    )
+          
+        fung2_doses = dict(
+            spray_1 = doses_f2s1,
+            spray_2 = doses_f2s2
+            )
+        return fung1_doses, fung2_doses
 
 
 
@@ -738,7 +855,6 @@ class RunModel:
 
         if ConfigG.load_saved:
             filename = ConfigG.config_string
-            print(filename, 'grid')
             if os.path.isfile(filename):
                 loaded_run = pickle.load(open(filename, 'rb'))
                 return loaded_run
@@ -768,43 +884,21 @@ class RunModel:
         
         inoc_array  = np.zeros((n_doses,n_doses,n_seasons+1))
         
-        for i in range(n_doses):
-            for j in range(n_doses):
-                
-                if ConfigG.strategy == 'mix':
-                    dose_f1s1_vec = 0.5*(i/(n_doses-1))*np.ones(n_seasons)
-                    dose_f1s2_vec = 0.5*(i/(n_doses-1))*np.ones(n_seasons)
-                    dose_f2s1_vec = 0.5*(j/(n_doses-1))*np.ones(n_seasons)
-                    dose_f2s2_vec = 0.5*(j/(n_doses-1))*np.ones(n_seasons)
-                
-                elif ConfigG.strategy == 'alt_12':
-                    dose_f1s1_vec = (i/(n_doses-1))*np.ones(n_seasons)
-                    dose_f1s2_vec = np.zeros(n_seasons)
-                    dose_f2s1_vec = np.zeros(n_seasons)
-                    dose_f2s2_vec = (j/(n_doses-1))*np.ones(n_seasons)
-                
-                elif ConfigG.strategy == 'alt_21':
-                    dose_f1s1_vec = np.zeros(n_seasons)
-                    dose_f1s2_vec = (j/(n_doses-1))*np.ones(n_seasons)
-                    dose_f2s1_vec = (i/(n_doses-1))*np.ones(n_seasons)
-                    dose_f2s2_vec = np.zeros(n_seasons)
-                
+        for f1_ind in range(n_doses):
+            for f2_ind in range(n_doses):
 
-                ConfRun.fung1_doses = dict(
-                    spray_1 = dose_f1s1_vec,
-                    spray_2 = dose_f1s2_vec
-                    )
-          
-                ConfRun.fung2_doses = dict(
-                    spray_1 = dose_f2s1_vec,
-                    spray_2 = dose_f2s2_vec
-                    )
+                fung1_doses, fung2_doses = self.get_doses(
+                                ConfigG.strategy, f1_ind, f2_ind, n_doses, n_seasons)               
+
+                ConfRun.fung1_doses = fung1_doses
+                ConfRun.fung2_doses = fung2_doses
 
                 one_tact_output =  self.master_loop_one_tactic(ConfRun)
                 
-                LTY[i,j] = self.lifetime_yield(one_tact_output['yield_vec'],one_tact_output['failure_year'])
-                TY[i,j] = self.total_yield(one_tact_output['yield_vec'],n_seasons)
-                FY[i,j] = one_tact_output['failure_year']
+                
+                LTY[f1_ind,f2_ind] = self.lifetime_yield(one_tact_output['yield_vec'],one_tact_output['failure_year'])
+                TY[f1_ind,f2_ind] = self.total_yield(one_tact_output['yield_vec'])
+                FY[f1_ind,f2_ind] = one_tact_output['failure_year']
 
 
                 attr = {
@@ -819,9 +913,9 @@ class RunModel:
                 for key in attr.keys():
                     if isinstance(attr[key], dict):
                         for key_ in attr[key].keys():
-                            attr[key][key_][i,j,:] = one_tact_output[key][key_]
+                            attr[key][key_][f1_ind,f2_ind,:] = one_tact_output[key][key_]
                     else:
-                        attr[key][i,j,:] = one_tact_output[key]
+                        attr[key][f1_ind,f2_ind,:] = one_tact_output[key]
 
         t_vec = one_tact_output['t_vec']
         
@@ -914,39 +1008,16 @@ class RunModel:
                     FY[i,j] = None
                     continue
 
-                if ConfigDS.strategy == 'mix':
-                    dose_f1s1_vec = 0.5*f1_val*np.ones(n_seasons)
-                    dose_f1s2_vec = 0.5*f1_val*np.ones(n_seasons)
-                    dose_f2s1_vec = 0.5*f2_val*np.ones(n_seasons)
-                    dose_f2s2_vec = 0.5*f2_val*np.ones(n_seasons)
-                
-                elif ConfigDS.strategy == 'alt_12':
-                    dose_f1s1_vec = f1_val*np.ones(n_seasons)
-                    dose_f1s2_vec = np.zeros(n_seasons)
-                    dose_f2s1_vec = np.zeros(n_seasons)
-                    dose_f2s2_vec = f2_val*np.ones(n_seasons)
-                
-                elif ConfigDS.strategy == 'alt_21':
-                    dose_f1s1_vec = np.zeros(n_seasons)
-                    dose_f1s2_vec = f1_val*np.ones(n_seasons)
-                    dose_f2s1_vec = f2_val*np.ones(n_seasons)
-                    dose_f2s2_vec = np.zeros(n_seasons)
-                
+                fung1_doses, fung2_doses = self.get_doses(
+                                        ConfigDS.strategy, f1_val, f2_val, None, n_seasons)
 
-                ConfRun.fung1_doses = dict(
-                    spray_1 = dose_f1s1_vec,
-                    spray_2 = dose_f1s2_vec
-                    )
-          
-                ConfRun.fung2_doses = dict(
-                    spray_1 = dose_f2s1_vec,
-                    spray_2 = dose_f2s2_vec
-                    )
+                ConfRun.fung1_doses = fung1_doses
+                ConfRun.fung2_doses = fung2_doses
 
                 one_tact_output =  self.master_loop_one_tactic(ConfRun)
                 
                 LTY[i,j] = self.lifetime_yield(one_tact_output['yield_vec'],one_tact_output['failure_year'])
-                TY[i,j] = self.total_yield(one_tact_output['yield_vec'],n_seasons)
+                TY[i,j] = self.total_yield(one_tact_output['yield_vec'])
                 FY[i,j] = one_tact_output['failure_year']
                 f1_vals[i,j] = f1_val
                 f2_vals[i,j] = f2_val
@@ -1007,60 +1078,38 @@ class RunModel:
         
 
         n_seasons = ConfigDS.n_years
-        n_doses = ConfigDS.n_doses
+        n_angles = ConfigDS.n_angles
+        n_radii = ConfigDS.n_radii
 
         ConfRun = copy.copy(ConfigDS)
 
         if self.dis_free_yield is None:
             self.dis_free_yield = self.simulator.find_disease_free_yield()
                 
-        angles = np.linspace(0, pi/2, n_doses)
-        radius = np.linspace(0, 2**(0.5), n_doses+1)[1:]
+        angles = np.linspace(0, pi/2, n_angles)
+        radius = np.linspace(0, 2**(0.5), n_radii+1)[1:]
 
         row_list = []
         
-        for i in range(n_doses):
-            for j in range(n_doses):
+        for ang in range(n_angles):
+            for rad in range(n_radii):
 
-                f1_val = radius[j]*cos(angles[i])
-                f2_val = radius[j]*sin(angles[i])
+                f1_val = radius[rad]*cos(angles[ang])
+                f2_val = radius[rad]*sin(angles[ang])
 
                 if f1_val>1 or f2_val>1:
                     continue
+                
+                fung1_doses, fung2_doses = self.get_doses(
+                                        ConfigDS.strategy, f1_val, f2_val, None, n_seasons)
 
-                if ConfigDS.strategy == 'mix':
-                    dose_f1s1_vec = 0.5*f1_val*np.ones(n_seasons)
-                    dose_f1s2_vec = 0.5*f1_val*np.ones(n_seasons)
-                    dose_f2s1_vec = 0.5*f2_val*np.ones(n_seasons)
-                    dose_f2s2_vec = 0.5*f2_val*np.ones(n_seasons)
-                
-                elif ConfigDS.strategy == 'alt_12':
-                    dose_f1s1_vec = f1_val*np.ones(n_seasons)
-                    dose_f1s2_vec = np.zeros(n_seasons)
-                    dose_f2s1_vec = np.zeros(n_seasons)
-                    dose_f2s2_vec = f2_val*np.ones(n_seasons)
-                
-                elif ConfigDS.strategy == 'alt_21':
-                    dose_f1s1_vec = np.zeros(n_seasons)
-                    dose_f1s2_vec = f1_val*np.ones(n_seasons)
-                    dose_f2s1_vec = f2_val*np.ones(n_seasons)
-                    dose_f2s2_vec = np.zeros(n_seasons)
-                
-
-                ConfRun.fung1_doses = dict(
-                    spray_1 = dose_f1s1_vec,
-                    spray_2 = dose_f1s2_vec
-                    )
-          
-                ConfRun.fung2_doses = dict(
-                    spray_1 = dose_f2s1_vec,
-                    spray_2 = dose_f2s2_vec
-                    )
+                ConfRun.fung1_doses = fung1_doses
+                ConfRun.fung2_doses = fung2_doses
 
                 one_tact_output =  self.master_loop_one_tactic(ConfRun)
                 
-                lty = self.lifetime_yield(one_tact_output['yield_vec'],one_tact_output['failure_year'])
-                ty = self.total_yield(one_tact_output['yield_vec'],n_seasons)
+                lty = self.lifetime_yield(one_tact_output['yield_vec'], one_tact_output['failure_year'])
+                ty = self.total_yield(one_tact_output['yield_vec'])
                 fy = one_tact_output['failure_year']
 
                 row_list.append(dict(d1=f1_val,
@@ -1068,8 +1117,8 @@ class RunModel:
                             LTY=lty,
                             TY=ty,
                             FY=fy,
-                            angle=angles[i],
-                            radius=radius[j],
+                            angle=angles[ang],
+                            radius=radius[rad],
                             ))
                 
         df_out = pd.DataFrame(row_list)

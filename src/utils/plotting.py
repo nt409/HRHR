@@ -1,10 +1,8 @@
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import itertools
 import numpy as np
 import pandas as pd
-from math import log2, floor, log10, pi
-import unicodedata
+from math import log2, floor, log10, pi, ceil
 
 from .params import PARAMS
 
@@ -16,7 +14,6 @@ from .params import PARAMS
 # Grid of tactics
 # Dose space
 
-pi_str = unicodedata.lookup("GREEK SMALL LETTER PI")
 
 attrs_dict = {
     str(PARAMS.S_ind): dict(name='Susceptible', colour='green'),
@@ -169,6 +166,7 @@ def yield_res_freqs_plot(data, conf_str):
         line = go.Scatter(
             x = x,
             y = y,
+            mode="lines+markers",
             name = f"Resistance to {titles[key].lower()}"
         )
 
@@ -186,6 +184,7 @@ def yield_res_freqs_plot(data, conf_str):
         x = x,
         y = y,
         line=dict(color="green"),
+        mode="lines+markers",
         name="Yield",
         showlegend=False,
     )
@@ -268,39 +267,74 @@ def plot_frequencies(data, conf_str):
 
 
 def plot_frequencies_over_time(data, conf_str):
+    """
+    Logit scale, all strain freqs vs year.
+
+    Within season and between season points.
+    """
+    
+    season_frac = 0.75
+    
     traces = []
+    shapes = []
 
-    rf = data['start_of_season']
-    rf2 = data['end_of_season']
+    rf_s = data['start_of_season']
+    rf_e = data['end_of_season']
 
-    keys = list(rf.keys())
+    n_yr_run = len(rf_s['RR']) - 1
+    
+    keys = list(rf_s.keys())
     keys.reverse()
+
+    # generate y upper/lower for shaded backgd
+    min_ = 1
+    max_ = 0
+    for key in keys:
+        min_ = min(np.amin(rf_s[key][:n_yr_run]), np.amin(rf_e[key][:n_yr_run]), min_)
+        max_ = max(np.amax(rf_s[key][:n_yr_run]), np.amax(rf_e[key][:n_yr_run]), max_)
+    
+    shape_min = log10(min_/(1-min_)) - 0.2
+    shape_max = log10(max_/(1-max_)) + 0.2
+    
+
     for key in keys:
         y = []
         x = []
 
-        x2 = []
-        y2 = []
+        x_scat = []
+        y_scat = []
         
-        for i in range(10):
-            y.append(log10(rf[key][i]/(1-rf[key][i])))
-            y.append(log10(rf2[key][i]/(1-rf2[key][i])))
+        for i in range(n_yr_run):
             x.append(i)
-            x.append(i+0.5)
-            
-            y2.append(log10(rf[key][i]/(1-rf[key][i])))
-        
-        x2 = list(range(len(y)))
+            y.append(log10(rf_s[key][i]/(1-rf_s[key][i])))
 
+            y_scat.append(log10(rf_s[key][i]/(1-rf_s[key][i])))
+            
+            if i!=n_yr_run-1:
+                x.append(i+season_frac)
+                y.append(log10(rf_e[key][i]/(1-rf_e[key][i])))
+                
+            
+                shapes.append(go.Scatter(x=[i+season_frac, i+1, i+1, i+season_frac],
+                                y=[shape_min, shape_min, shape_max, shape_max],
+                                fill="toself",
+                                mode="lines",
+                                showlegend=False,
+                                line=dict(width=0, color="rgb(230,250,255)")))
+
+        x_scat = list(range(len(y)))
+
+        
         line = go.Scatter(x=x,
-                        y=y, 
+                        y=y,
+                        mode="lines",
                         name=strain_attrs[key]['longname'],
                         line=dict(color=strain_attrs[key]['color'],
                                 dash=strain_attrs[key]['dash'])
                         )
         
-        scatter = go.Scatter(x=x2,
-                        y=y2, 
+        scatter = go.Scatter(x=x_scat,
+                        y=y_scat, 
                         name=strain_attrs[key]['longname'],
                         line=dict(color=strain_attrs[key]['color'],
                                 dash=strain_attrs[key]['dash']),
@@ -311,11 +345,11 @@ def plot_frequencies_over_time(data, conf_str):
         traces.append(line)
         traces.append(scatter)
 
+    traces = shapes + traces
 
     fig = go.Figure(data=traces, layout=standard_layout(True))
     fig.update_xaxes(title="Year")
-    fig.update_yaxes(title="Frequency (logistic scale)")
-
+    fig.update_yaxes(title="Frequency (logit scale)")
     
     fig.update_layout(legend=dict(x=0.07,
                         y=0.8,
@@ -422,17 +456,15 @@ def SR_by_dose_plot(data, conf_str):
 #----------------------------------------------------------------------------------------------
 # * Changing fcide
 
-def fcide_grid(x, y, z, conf_str, labels):
+def fcide_grid(x, y, z, filename, labels):
     traces = []
-    
-    # z = np.transpose(data[to_plot])
 
     trace = go.Heatmap(
         x = x,
         y = y,
         z = z,
         colorbar=dict(
-            title = "Failure year",
+            title = labels['cbar'],
             titleside = 'right',
         )
     )
@@ -447,8 +479,6 @@ def fcide_grid(x, y, z, conf_str, labels):
     fig.update_yaxes(title=labels['y'])
 
     fig.show()
-
-    filename = conf_str.replace("/single/", "/changing_fcide/curve_dose/")
     fig.write_image(filename)
 
 # End of Changing fcide
@@ -504,50 +534,68 @@ def dose_grid_heatmap_with_log_ratio(data, Config, to_plot, conf_str):
     subplot1_traces = []
     subplot2_traces = []
     
-    x = np.linspace(0, 1, Config.n_doses)
-    y = np.linspace(0, 1, Config.n_doses)
+    xheat = np.linspace(0, 1, Config.n_doses)
+    yheat = np.linspace(0, 1, Config.n_doses)
 
     z = np.transpose(data[to_plot])
 
-    heatmap = go.Heatmap(
-        x = x,
-        y = y,
+    subplot2_traces.append(go.Scatter(
+        x=[-0.3,-0.31],
+        y=[-0.3,-0.31],
+        line=dict(color="blue", dash="dash"),
+        mode="lines",
+        name="Equal selection"
+    ))
+
+    heatmap = go.Contour(
+        x = xheat,
+        y = yheat,
         z = z,
+        colorscale=[
+            [0, "rgb(100, 100, 100)"],
+            [1/np.amax(z), "rgb(100, 100, 100)"],
+            [1/np.amax(z), "rgb(0, 0, 100)"],
+            [1, "rgb(255, 255, 0)"],
+        ],
         colorbar=dict(
             title = TITLE_MAP[to_plot], # title here
             titleside = 'right',
-            # len=0.4,
-            # y=0.58,
-            # yanchor="bottom",
         )
     )
 
     subplot2_traces.append(heatmap)
     
 
-    # add lines on plot
+    # add lines on heatmap
     up_to_2 = np.linspace(0,2,2*Config.n_doses-1)
     ind0 = 0
     mn = 0
-    mx = 255
+    mx = 220
 
     colors = {}
-
+    inds_list = []
+    
     for ind in range(len(up_to_2)):
 
-        dose_line_non_0 = False
+        dose_line_all_0 = True
         
         for i in range(ind):
             j = ind-i
             if i<z.shape[0] and j<z.shape[1] and z[i,j]>0:
-                dose_line_non_0 = True
+                dose_line_all_0 = False
 
-        if not dose_line_non_0:
+        if dose_line_all_0:
             ind0 = ind
             continue
+        
+        n_left = ceil((len(up_to_2) - ind0)/5)
+        # only actually want 5 lines total
+        if not (ind - 1 -ind0) % n_left == 0:
+            continue
 
-        clr = mn + (mx-mn)* (ind-ind0)/(len(up_to_2)-ind0-1)
-        colors[ind] = f"rgba(0,{255-clr},{clr},0.8)"
+        clr = mn + (mx-mn)* (ind -1 -ind0)/(len(up_to_2) - ind0 - 1)
+
+        colors[ind] = f"rgba({255-clr},{0},{255-clr},0.8)"
         
         xx = up_to_2[:ind+1]
         xx = [x for x in xx if (x<=1 and x>=0)]
@@ -556,6 +604,8 @@ def dose_grid_heatmap_with_log_ratio(data, Config, to_plot, conf_str):
         if len(yy)==Config.n_doses:
             yy = [y for y in yy if (y<=1)]
             xx = xx[len(xx)-len(yy):]
+        
+        inds_list.append(ind)
 
         ds = round(up_to_2[ind], 2)
         subplot2_traces.append(
@@ -567,13 +617,16 @@ def dose_grid_heatmap_with_log_ratio(data, Config, to_plot, conf_str):
             )
             )
 
-    # col 2    
+    
+    # col 1 
     for trace in subplot2_traces:
         fig.add_trace(trace, row=1, col=2)
     
+    
+    eq_sel = np.zeros(z.shape)
 
     FY = data["FY"]
-    for ind in range(ind0,len(up_to_2)):
+    for ind in range(len(up_to_2)):
         x = []
         y = []
 
@@ -590,20 +643,40 @@ def dose_grid_heatmap_with_log_ratio(data, Config, to_plot, conf_str):
 
                     x.append(log10(s1/s2))
                     y.append(fy)
+
+                    eq_sel[j, i] = log10(s1/s2)
+                else:
+                    eq_sel[j, i] = None
                 
-        if not x:
+        if not x or not (ind in inds_list):
             continue
         
         line = go.Scatter(x=x,
                         y=y,
                         showlegend=False,
-                        # mode='markers',
                         line=dict(color=colors[ind]))
         subplot1_traces.append(line)
     
     for trace in subplot1_traces:
         fig.add_trace(trace, row=1, col=1)
+    
+    eq_contour = go.Contour(x=xheat,
+                    y=yheat,
+                    z=eq_sel,
+                    contours=dict(start=0, end=0),
+                    contours_coloring='lines',
+                    line=dict(width=2, dash="dash"),
+                    colorscale=["blue", "blue"],
 
+                    # hacky way to remove second colorbar
+                    colorbar=dict(x=0.42, len=0.1, 
+                            tickfont=dict(size=1,
+                                color="rgba(0,0,0,0)"
+                                )), 
+                    # name="Equal<br>selection"
+                    )
+
+    fig.add_trace(eq_contour, row=1, col=2)
 
     annotz = []
 
@@ -655,8 +728,15 @@ def dose_grid_heatmap_with_log_ratio(data, Config, to_plot, conf_str):
     fig.update_xaxes(title="Log ratio of resistance<br>frequencies at breakdown", row=1, col=1)
     fig.update_yaxes(title="Failure year", row=1, col=1)
     
-    fig.update_xaxes(title="Dose (fungicide 1)", row=1, col=2)
-    fig.update_yaxes(title="Dose (fungicide 2)", row=1, col=2)
+    # if heatmap not contour use [0-dx, 1+dx] etc
+    # is order correct? shape[0]/[1]
+    # dx = 0.5*(1/(-1+z.shape[1]))
+    # dy = 0.5*(1/(-1+z.shape[0]))
+    dx = 0.01
+    dy = 0.01
+    
+    fig.update_xaxes(title="Dose (fungicide 1)", range=[0-dx,1+dx], row=1, col=2, showgrid=False)
+    fig.update_yaxes(title="Dose (fungicide 2)", range=[0-dy,1+dy], row=1, col=2, showgrid=False)
 
     fig.show()
     filename = conf_str.replace("/grid/", "/grid/dose_grid_LR/")

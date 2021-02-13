@@ -1,3 +1,4 @@
+from numpy.core.numerictypes import sctype2char
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
@@ -525,7 +526,7 @@ def dose_grid_heatmap(data, Config, to_plot, conf_str):
 
 
 
-def dose_grid_heatmap_with_log_ratio(data, Config, to_plot, conf_str):
+def dose_sum_LR(data, Config, to_plot, conf_str):
     """
     Lines on heatmap, and then log ratio of RFs at break down
     """
@@ -625,9 +626,11 @@ def dose_grid_heatmap_with_log_ratio(data, Config, to_plot, conf_str):
     
     
     eq_sel = np.zeros(z.shape)
-
+    eq_fy = np.zeros(z.shape)
+    
     FY = data["FY"]
     for ind in range(len(up_to_2)):
+        x_fy = []
         x = []
         y = []
 
@@ -646,8 +649,15 @@ def dose_grid_heatmap_with_log_ratio(data, Config, to_plot, conf_str):
                     y.append(fy)
 
                     eq_sel[j, i] = log10(s1/s2)
+
+                    s1_y1 = data['selection_arrays']['f1'][i,j,1]
+                    s2_y1 = data['selection_arrays']['f2'][i,j,1]
+
+                    x_fy.append(log10(s1_y1/s2_y1))
+                    eq_fy[j, i] = log10(s1_y1/s2_y1)
                 else:
                     eq_sel[j, i] = None
+                    eq_fy[j, i] = None
                 
         if not x or not (ind in inds_list):
             continue
@@ -655,8 +665,17 @@ def dose_grid_heatmap_with_log_ratio(data, Config, to_plot, conf_str):
         line = go.Scatter(x=x,
                         y=y,
                         showlegend=False,
-                        line=dict(color=colors[ind]))
+                        # name=f"ds3 {round(up_to_2[ind],2)}",
+                        line=dict(color=colors[ind], dash="solid"))
         subplot1_traces.append(line)
+        
+        line_fy = go.Scatter(x=x_fy,
+                        y=y,
+                        showlegend=False,
+                        line=dict(color=colors[ind], dash="dot"),
+                        # name=f"ds2 {round(up_to_2[ind],2)}"
+                        )
+        subplot1_traces.append(line_fy)
     
     for trace in subplot1_traces:
         fig.add_trace(trace, row=1, col=1)
@@ -666,18 +685,35 @@ def dose_grid_heatmap_with_log_ratio(data, Config, to_plot, conf_str):
                     z=eq_sel,
                     contours=dict(start=0, end=0),
                     contours_coloring='lines',
-                    line=dict(width=2, dash="dash"),
                     colorscale=["blue", "blue"],
+                    
+                    line=dict(width=2, dash="dash"),
 
                     # hacky way to remove second colorbar
                     colorbar=dict(x=0.42, len=0.1, 
                             tickfont=dict(size=1,
                                 color="rgba(0,0,0,0)"
                                 )), 
-                    # name="Equal<br>selection"
+                    )
+
+    eq_fy_contour = go.Contour(x=xheat,
+                    y=yheat,
+                    z=eq_fy,
+                    contours=dict(start=0, end=0),
+                    contours_coloring='lines',
+                    colorscale=["black", "black"],
+                    
+                    line=dict(width=2, dash="dot"),
+
+                    # hacky way to remove second colorbar
+                    colorbar=dict(x=0.42, len=0.1, 
+                            tickfont=dict(size=1,
+                                color="rgba(0,0,0,0)"
+                                )), 
                     )
 
     fig.add_trace(eq_contour, row=1, col=2)
+    # fig.add_trace(eq_fy_contour, row=1, col=2)
 
     annotz = []
 
@@ -715,12 +751,14 @@ def dose_grid_heatmap_with_log_ratio(data, Config, to_plot, conf_str):
 
 
     fig.update_layout(standard_layout(True))
-    fig.update_layout(width=1500, 
+    fig.update_layout(width=1360, 
                         height=650,
                         annotations=annotz,
-                        legend=dict(x=1.15,
-                                    y=0.5,
-                                    yanchor="middle",
+                        legend=dict(
+                                    x=0.36,
+                                    # x=1.2,
+                                    y=0.95,
+                                    yanchor="top",
                                     font=dict(size=14)
                                     ),
                         font=dict(size=20)
@@ -740,7 +778,7 @@ def dose_grid_heatmap_with_log_ratio(data, Config, to_plot, conf_str):
     fig.update_yaxes(title="Dose (fungicide 2)", range=[0-dy,1+dy], row=1, col=2, showgrid=False)
 
     fig.show()
-    filename = conf_str.replace("/grid/", "/grid/dose_grid_LR/")
+    filename = conf_str.replace("/grid/", "/dose_space/dose_sum/")
     fig.write_image(filename)
 
 
@@ -892,10 +930,10 @@ def radial(radial_data, grid_data, Config):
         ))
 
     fig.update_layout(standard_layout(True))
-    fig.update_layout(width=1500,
+    fig.update_layout(width=1360,
                         height=650,
-                        legend=dict(x=1.15,
-                                    y=0.5,
+                        legend=dict(x=0.35,
+                                    y=0.2,
                                     yanchor="middle",
                                     font=dict(size=14)
                                     ),

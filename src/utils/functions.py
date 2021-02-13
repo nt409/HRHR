@@ -848,7 +848,7 @@ class RunModel:
 
 
     #----------------------------------------------------------------------------------------------
-    def master_loop_grid_of_tactics(self, ConfigG):
+    def grid_of_tactics(self, ConfigG):
         """
         Run across grid
         """

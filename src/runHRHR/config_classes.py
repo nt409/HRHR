@@ -15,7 +15,7 @@ class BaselineConfig:
 
         self.folder_save_run = '../outputs/saved_runs/'
 
-        self.sex_prop = 1
+        self.sex_prop = 0
         
         self.n_years = n_years
 

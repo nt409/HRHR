@@ -1,11 +1,10 @@
 from utils.functions import RunModel
-from utils.plotting import dose_grid_heatmap, dose_grid_heatmap_with_log_ratio
+from utils.plotting import dose_grid_heatmap
 from .config import ConfigGridRun
 
 # which plots
 
 dose_grid_plot = False
-dose_grid_plot_with_log_ratio = True
 
 
 
@@ -13,23 +12,8 @@ dose_grid_plot_with_log_ratio = True
 
 if dose_grid_plot:
     to_plot = 'FY'
-    output = RunModel().master_loop_grid_of_tactics(ConfigGridRun)
+    output = RunModel().grid_of_tactics(ConfigGridRun)
 
     conf_str = ConfigGridRun.config_string_img
     dose_grid_heatmap(output, ConfigGridRun, to_plot, conf_str)
 
-
-if dose_grid_plot_with_log_ratio:
-    to_plot = 'FY'
-    
-    ConfigGridRun.n_doses = 13
-    ConfigGridRun.add_string()
-    conf_str = ConfigGridRun.config_string_img
-
-    output = RunModel().master_loop_grid_of_tactics(ConfigGridRun)
-
-
-    dose_grid_heatmap_with_log_ratio(output,
-                                ConfigGridRun,
-                                to_plot,
-                                conf_str)

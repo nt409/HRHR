@@ -19,8 +19,8 @@ from runHRHR.config_classes import SingleConfig
 # Changing doses fns
 # Changing fcide fns
 # class Simulator
-# class RunModel
-# classes based on RunModel
+# class RunSingleTactic
+# classes based on RunMultipleTactics
 
 
 #----------------------------------------------------------------------------------------------
@@ -68,7 +68,7 @@ def get_SR_by_doses(doses, freqs):
     outputs = {}
     for dose, rf in itertools.product(doses, freqs):
         ConfigSingleRun = SingleConfig(1, rf, rf, dose, dose, dose, dose)
-        output = RunModel().run_single_tactic(ConfigSingleRun)
+        output = RunSingleTactic().run_single_tactic(ConfigSingleRun)
         outputs[f"dose={dose},rf={rf}"] = output
 
 
@@ -181,7 +181,7 @@ def changing_fcide_dose_curve(doses, curvatures, rf, NY):
                 theta_1 = curve,
                 theta_2 = curve,
             )
-            output = RunModel(fungicide_params).run_single_tactic(ConfigSingleRun)
+            output = RunSingleTactic(fungicide_params).run_single_tactic(ConfigSingleRun)
             
             FY = output['failure_year']
             rows.append(dict(dose=dose, curve=curve, failure_year=FY))
@@ -222,7 +222,7 @@ def changing_fcide_curve_asymp(curvatures, asymps, rf, NY):
                 theta_1 = curve,
                 theta_2 = curve,
             )
-            output = RunModel(fungicide_params).run_single_tactic(ConfigSingleRun)
+            output = RunSingleTactic(fungicide_params).run_single_tactic(ConfigSingleRun)
             FY = output['failure_year']
             rows.append(dict(curve=curve, asymp=asymp, failure_year=FY))
 
@@ -267,7 +267,7 @@ def changing_fcide_sexp_asymp_curv(sex_props,
                 theta_1 = curve,
                 theta_2 = curve,
             )
-            output = RunModel(fungicide_params).run_single_tactic(ConfigSingleRun)
+            output = RunSingleTactic(fungicide_params).run_single_tactic(ConfigSingleRun)
             FY = output['failure_year']
             rows.append(dict(sex_p=sex_p, curve=curve, asymp=asymp, failure_year=FY))
 
@@ -651,9 +651,9 @@ class GetDoses:
 
 
 
-# * RunModel class
+# * RunSingleTactic class
 
-class RunModel:
+class RunSingleTactic:
     def __init__(self):
 
         self.sim = Simulator(None)
@@ -849,18 +849,6 @@ class RunModel:
             self.failure_year = yr+1
 
 
-    # for multi tactics only
-    @staticmethod
-    def _lifetime_yield(Y_vec, F_y):
-        return sum(Y_vec[:(F_y+1)])/100
-
-    # for multi tactics only
-    @staticmethod
-    def _total_yield(Y_vec):
-        return sum(Y_vec)/100
-
-
-
     def _update_selection_vec_dict(self, output):
         for key in ['f1', 'f2']:
             self.selection_vec_dict[key].append(output['selection'][key])
@@ -901,6 +889,7 @@ class RunModel:
         self.inoc_vec[yr+1] = output['inoc']
 
         self._update_selection_vec_dict(output)
+
         self._update_res_vec_dict(output)
         
         self.sol_array[:,:,yr] = output['solution']
@@ -924,8 +913,8 @@ class RunModel:
 
         self._initialise_variables_single_run(Config)
 
+
         for yr in range(self.n_years):
-            
             # stop the solver after we drop below threshold
             if not (yr>0 and self.yield_vec[yr-1] < self.yield_stopper): 
 
@@ -958,10 +947,30 @@ class RunModel:
         return model_output
 
 
-# End of RunModel
+# End of RunSingleTactic
 
 
-class RunGrid(RunModel):
+# * RunMultipleTactics
+
+class RunMultipleTactics:
+    def __init__(self):
+        self.sing_tact = RunSingleTactic()
+
+    # for multi tactics only
+    @staticmethod
+    def _lifetime_yield(Y_vec, F_y):
+        return sum(Y_vec[:(F_y+1)])/100
+
+
+    # for multi tactics only
+    @staticmethod
+    def _total_yield(Y_vec):
+        return sum(Y_vec)/100
+
+
+
+
+class RunGrid(RunMultipleTactics):
 
     def grid_of_tactics(self, ConfigG):
         """
@@ -1005,7 +1014,7 @@ class RunGrid(RunModel):
                 ConfRun.fung1_doses = fung1_doses
                 ConfRun.fung2_doses = fung2_doses
 
-                one_tact_output =  self.run_single_tactic(ConfRun)
+                one_tact_output =  self.sing_tact.run_single_tactic(ConfRun)
                 
                 
                 LTY[f1_ind,f2_ind] = self._lifetime_yield(one_tact_output['yield_vec'],one_tact_output['failure_year'])
@@ -1055,10 +1064,7 @@ class RunGrid(RunModel):
 
 
 
-class RunDoseSpace(RunModel):
-    # def __init__(self, fungicide_params):
-    #     super().__init__(fungicide_params)
-
+class RunDoseSpace(RunMultipleTactics):
 
     def master_loop_dose_space_coordinate(self, ConfigDS):
         """
@@ -1125,7 +1131,7 @@ class RunDoseSpace(RunModel):
                 ConfRun.fung1_doses = fung1_doses
                 ConfRun.fung2_doses = fung2_doses
 
-                one_tact_output =  self.run_single_tactic(ConfRun)
+                one_tact_output =  self.sing_tact.run_single_tactic(ConfRun)
                 
                 LTY[i,j] = self._lifetime_yield(one_tact_output['yield_vec'],one_tact_output['failure_year'])
                 TY[i,j] = self._total_yield(one_tact_output['yield_vec'])
@@ -1174,9 +1180,7 @@ class RunDoseSpace(RunModel):
 
 
 
-class RunRadial(RunModel):
-    # def __init__(self, fungicide_params):
-    #     super().__init__(fungicide_params)
+class RunRadial(RunMultipleTactics):
 
     def master_loop_radial(self, ConfigDS):
         """
@@ -1223,7 +1227,7 @@ class RunRadial(RunModel):
                 ConfRun.fung1_doses = fung1_doses
                 ConfRun.fung2_doses = fung2_doses
 
-                one_tact_output =  self.run_single_tactic(ConfRun)
+                one_tact_output =  self.sing_tact.run_single_tactic(ConfRun)
                 
                 lty = self._lifetime_yield(one_tact_output['yield_vec'], one_tact_output['failure_year'])
                 ty = self._total_yield(one_tact_output['yield_vec'])
@@ -1252,7 +1256,7 @@ class RunRadial(RunModel):
 
 
 
-# End of RunModel classes
+# End of RunMultipleTactics classes
 
 
 

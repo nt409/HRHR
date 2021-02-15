@@ -1,4 +1,4 @@
-from utils.functions import RunModel
+from utils.functions import RunDoseSpace, RunGrid, RunRadial
 from utils.plotting import dose_space_contour, radial, \
     dose_sum_LR
 from .config import ConfigGridRun
@@ -13,7 +13,7 @@ dose_sum_plot = True
 # plot
 
 if dose_grid_plot:
-    output = RunModel().master_loop_dose_space_coordinate(ConfigGridRun)
+    output = RunDoseSpace().master_loop_dose_space_coordinate(ConfigGridRun)
 
     to_plot = 'LTY'
     conf_str = ConfigGridRun.config_string_img
@@ -28,7 +28,7 @@ if dose_sum_plot:
     ConfigGridRun.add_string()
     conf_str = ConfigGridRun.config_string_img
 
-    output = RunModel().grid_of_tactics(ConfigGridRun)
+    output = RunGrid().grid_of_tactics(ConfigGridRun)
 
 
     dose_sum_LR(output,
@@ -44,10 +44,10 @@ if radial_plot:
     ext_string = f"_Nr={ConfigGridRun.n_radii},Na={ConfigGridRun.n_angles}"
     ConfigGridRun.add_string(extra_detail=ext_string)
 
-    radial_output = RunModel().master_loop_radial(ConfigGridRun)
+    radial_output = RunRadial().master_loop_radial(ConfigGridRun)
     
     ConfigGridRun.n_doses = 10
 
-    grid_output = RunModel().grid_of_tactics(ConfigGridRun)
+    grid_output = RunGrid().grid_of_tactics(ConfigGridRun)
 
     radial(radial_output, grid_output, ConfigGridRun)

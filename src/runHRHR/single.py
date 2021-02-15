@@ -7,17 +7,18 @@ from .config_classes import SingleConfig
 
 # which plots
 
-yield_single = False
+yield_single = True
 res_freqs_single = False
 yield_res_freqs = False
 single_year = False
 freq_plot = False
-freq_time_plot = True
+freq_time_plot = False
 
 # run
 bools = [yield_single, res_freqs_single, single_year, freq_plot]
-if all(bools):
-    output = RunModel().master_loop_one_tactic(ConfigSingleRun)
+
+if any(bools):
+    output = RunModel().run_single_tactic(ConfigSingleRun)
 
 
 # plots
@@ -32,7 +33,7 @@ if yield_res_freqs:
     rf2 = 10**(-2)
     ConfigYRF = SingleConfig(20, rf1, rf2, 1, 1, 1, 1)
 
-    output = RunModel().master_loop_one_tactic(ConfigYRF)
+    output = RunModel().run_single_tactic(ConfigYRF)
 
     yield_res_freqs_plot(output, ConfigYRF.config_string_img)
     
@@ -57,7 +58,7 @@ if freq_time_plot:
     ConfigFTP.sex_prop = 0
     ConfigFTP.add_string()
 
-    output = RunModel().master_loop_one_tactic(ConfigFTP)
+    output = RunModel().run_single_tactic(ConfigFTP)
 
     plot_frequencies_over_time(output, ConfigFTP.config_string_img)
 

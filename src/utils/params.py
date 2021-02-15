@@ -13,10 +13,11 @@ class Parameters:
         # partial resistance on 
         # - asymptote (PR type 1)
         # - curvature (PR type 2)
-        self.alpha_1 = 0
-        self.alpha_1_C = 1
-        self.alpha_2 = 0
-        self.alpha_2_C = 1
+        
+        # self.alpha_1 = 0
+        # self.alpha_1_C = 1
+        # self.alpha_2 = 0
+        # self.alpha_2_C = 1
         
         legal_dose = 1
         t1 = 9.6

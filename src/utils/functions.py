@@ -580,70 +580,85 @@ class Simulator:
 
 # * Dose class
 
-class GetDoses:
+class FungicideStrategy:
     def __init__(self, my_strategy, n_seasons):
         self.n_seasons = n_seasons
         self.my_strategy = my_strategy
 
-    def _get_mixed_doses(self, conc):
-        fung_doses = dict(
-            spray_1 = 0.5*conc*np.ones(self.n_seasons),
-            spray_2 = 0.5*conc*np.ones(self.n_seasons)
+
+    def _get_mixed_doses(self):        
+        self.fung1_doses = dict(
+            spray_1 = 0.5*self.conc_f1*np.ones(self.n_seasons),
+            spray_2 = 0.5*self.conc_f1*np.ones(self.n_seasons)
             )
-        return fung_doses
+        self.fung2_doses = dict(
+            spray_1 = 0.5*self.conc_f2*np.ones(self.n_seasons),
+            spray_2 = 0.5*self.conc_f2*np.ones(self.n_seasons)
+            )
 
 
     def _get_alt_12_doses(self):
-        fung1_doses = dict(
+        self.fung1_doses = dict(
             spray_1 = self.conc_f1*np.ones(self.n_seasons),
             spray_2 = np.zeros(self.n_seasons)
             )
-        fung2_doses = dict(
+        self.fung2_doses = dict(
             spray_1 = np.zeros(self.n_seasons),
             spray_2 = self.conc_f2*np.ones(self.n_seasons)
             )
-        return fung1_doses, fung2_doses
     
 
     def _get_alt_21_doses(self):
-        fung1_doses = dict(
+        self.fung1_doses = dict(
             spray_1 = np.zeros(self.n_seasons),
             spray_2 = self.conc_f1*np.ones(self.n_seasons)
             )
-        fung2_doses = dict(
+        self.fung2_doses = dict(
             spray_1 = self.conc_f2*np.ones(self.n_seasons),
             spray_2 = np.zeros(self.n_seasons)
             )
-        return fung1_doses, fung2_doses
 
 
-    def set_conc(self, f1_val, f2_val, n_doses):
+
+    def _set_grid_concs(self, f1_val, f2_val, n_doses):
+        self.conc_f1 = f1_val/(n_doses-1)
+        self.conc_f2 = f2_val/(n_doses-1)
+
+
+    def _set_regular_concs(self, f1_val, f2_val):
+        self.conc_f1 = f1_val
+        self.conc_f2 = f2_val
+
+
+    def _set_concs(self, f1_val, f2_val, n_doses):
         if n_doses is not None:
-            self.conc_f1 = f1_val/(n_doses-1)
-            self.conc_f2 = f2_val/(n_doses-1)
+            self._set_grid_concs(f1_val, f2_val, n_doses)
         else:
-            self.conc_f1 = f1_val
-            self.conc_f2 = f2_val
+            self._set_regular_concs(f1_val, f2_val)
 
 
-    def get_doses(self, f1_val, f2_val, n_doses):
-
-        self.set_conc(f1_val, f2_val, n_doses)
-
-        if self.my_strategy == 'mix':
-            fung1_doses = self._get_mixed_doses(self.conc_f1)
-            fung2_doses = self._get_mixed_doses(self.conc_f2)
+    def _dose_for_this_strategy(self):
+        if self.my_strategy=='mix':
+            self._get_mixed_doses()
                 
-        elif self.my_strategy == 'alt_12':
-            fung1_doses, fung2_doses = self._get_alt_12_doses()
+        elif self.my_strategy=='alt_12':
+            self._get_alt_12_doses()
         
-        elif self.my_strategy == 'alt_21':
-            fung1_doses, fung2_doses = self._get_alt_21_doses()
+        elif self.my_strategy=='alt_21':
+            self._get_alt_21_doses()
         
         else:
             raise Exception("incorrect strategy named")
 
-        return fung1_doses, fung2_doses
+
+
+    def get_doses(self, f1_val, f2_val, n_doses):
+
+        self._set_concs(f1_val, f2_val, n_doses)
+
+        self._dose_for_this_strategy()      
+
+        return self.fung1_doses, self.fung2_doses
 
 
 
@@ -775,7 +790,7 @@ class RunSingleTactic:
 
 
     @staticmethod
-    def load_single_tactic(filename):
+    def _load_single_tactic(filename):
         if os.path.isfile(filename) and "single" in filename:
             loaded_run = pickle.load(open(filename, 'rb'))
             return loaded_run
@@ -848,6 +863,17 @@ class RunSingleTactic:
                 (self.failure_year==0)):
             self.failure_year = yr+1
 
+    
+    def _loop_over_years(self, Config):
+        for yr in range(self.n_years):
+            # stop the solver after we drop below threshold
+            if not (yr>0 and self.yield_vec[yr-1] < self.yield_stopper): 
+                self._run_single_year(Config, yr)
+        
+        if min(self.yield_vec)>PARAMS.yield_threshold:
+            self.failure_year = -1
+
+
 
     def _update_selection_vec_dict(self, output):
         for key in ['f1', 'f2']:
@@ -896,37 +922,7 @@ class RunSingleTactic:
         self.t_vec = output['solutiont']
 
 
-
-
-
-    def run_single_tactic(self, Config):
-        """
-        Run HRHR model for one strategy
-        """
-        
-        filename = Config.config_string
-        
-        if Config.load_saved:
-            loaded_run = self.load_single_tactic(filename)
-            if loaded_run is not None:
-                return loaded_run
-
-        self._initialise_variables_single_run(Config)
-
-
-        for yr in range(self.n_years):
-            # stop the solver after we drop below threshold
-            if not (yr>0 and self.yield_vec[yr-1] < self.yield_stopper): 
-
-                self._run_single_year(Config, yr)
-        
-
-
-        if min(self.yield_vec)>PARAMS.yield_threshold:
-            self.failure_year = -1
-        
-
-
+    def _save_single(self):
         model_output = {
                 'res_vec_dict': self.res_vec_dict,
                 'start_of_season': self.start_of_season,
@@ -938,16 +934,39 @@ class RunSingleTactic:
                 'sol_array': self.sol_array, 
                 't_vec': self.t_vec
                 }
+
+        if "single" in self.filename:
+            object_dump(self.filename, model_output)
         
+        return model_output
 
 
-        if "single" in filename:
-            object_dump(filename, model_output)
+    def run_single_tactic(self, Config):
+        """
+        Run HRHR model for one strategy
+        """
+        
+        self.filename = Config.config_string
+        
+        if Config.load_saved:
+            loaded_run = self._load_single_tactic(self.filename)
+            if loaded_run is not None:
+                return loaded_run
+
+        self._initialise_variables_single_run(Config)
+
+        self._loop_over_years(Config)
+        
+        model_output = self._save_single()
         
         return model_output
 
 
 # End of RunSingleTactic
+
+
+
+
 
 
 # * RunMultipleTactics
@@ -956,106 +975,145 @@ class RunMultipleTactics:
     def __init__(self):
         self.sing_tact = RunSingleTactic()
 
-    # for multi tactics only
+
     @staticmethod
     def _lifetime_yield(Y_vec, F_y):
         return sum(Y_vec[:(F_y+1)])/100
 
 
-    # for multi tactics only
     @staticmethod
     def _total_yield(Y_vec):
         return sum(Y_vec)/100
 
+    @staticmethod
+    def _load_multi_tactic(filename):
+        if os.path.isfile(filename):
+            loaded_run = pickle.load(open(filename, 'rb'))
+            return loaded_run
+        else:
+            return None
+
+
+    def _initialise_multi_vars(self, n_doses, n_years):
+        self.LTY, self.TY, self.FY = [np.zeros((n_doses, n_doses))]*3
+        
+        self.yield_array = np.zeros((n_doses, n_doses, n_years))
+
+        self.res_arrays = {}
+        self.selection_arrays = {}
+        for key in ['f1', 'f2']:
+            self.res_arrays[key] = np.zeros((n_doses, n_doses, n_years+1))
+            self.selection_arrays[key] = np.zeros((n_doses, n_doses, n_years))
+
+        self.start_freqs = {}
+        for key in ['RR', 'RS', 'SR', 'SS']:
+            self.start_freqs[key] = np.zeros((n_doses, n_doses, n_years+1))
+        
+        self.inoc_array  = np.zeros((n_doses, n_doses, n_years+1))
+
+    
+    def _get_fung_strat(self, Conf):
+        self.fung_strat = FungicideStrategy(Conf.strategy, Conf.n_years)
+
+    def _update_LTY_TY_FY(self, output, f1_ind, f2_ind):
+        self.LTY[f1_ind,f2_ind] = self._lifetime_yield(output['yield_vec'],output['failure_year'])
+        self.TY[f1_ind,f2_ind] = self._total_yield(output['yield_vec'])
+        self.FY[f1_ind,f2_ind] = output['failure_year']
+
+
+    def _update_other_vars(self, output, f1_ind, f2_ind):
+        
+        vars_to_update = {
+            'yield_vec': self.yield_array,
+            'res_vec_dict': self.res_arrays,
+            'start_of_season': self.start_freqs,
+            'selection_vec_dict': self.selection_arrays,
+            'inoc_vec': self.inoc_array
+            }
+
+        for key in vars_to_update.keys():
+            to_update = vars_to_update[key]
+            if key in ['res_vec_dict', 'start_of_season', 'selection_vec_dict']:
+                for key_ in to_update.keys():
+                    to_update[key_][f1_ind,f2_ind,:] = output[key][key_]
+            else:
+                to_update[f1_ind,f2_ind,:] = output[key]
+
+
+
+    
+    def _post_process_multi(self, output, f1_ind, f2_ind):
+        self._update_LTY_TY_FY(output, f1_ind, f2_ind)
+        self._update_other_vars(output, f1_ind, f2_ind)
+
+
+    
 
 
 
 class RunGrid(RunMultipleTactics):
+
+    def _run_the_grid(self, Conf):
+        
+        for f1_ind in tqdm(range(Conf.n_doses)):
+            for f2_ind in range(Conf.n_doses):
+
+                Conf.fung1_doses, Conf.fung2_doses = self.fung_strat.get_doses(
+                                                    f1_ind, f2_ind, Conf.n_doses)
+
+                one_tact_output =  self.sing_tact.run_single_tactic(Conf)
+                
+                self._post_process_multi(one_tact_output, f1_ind, f2_ind)
+
+        self.t_vec = one_tact_output['t_vec']
+
+
+    def _save_grid(self):
+        grid_output = {'LTY': self.LTY,
+                    'TY': self.TY,
+                    'FY': self.FY,
+                    'yield_array': self.yield_array,
+                    'res_arrays': self.res_arrays,
+                    'start_freqs': self.start_freqs,
+                    'selection_arrays': self.selection_arrays,
+                    'inoc_array': self.inoc_array,
+                    't_vec': self.t_vec}
+        
+        object_dump(self.filename, grid_output)
+        
+        return grid_output
+
 
     def grid_of_tactics(self, ConfigG):
         """
         Run across grid
         """
 
+        self.filename = ConfigG.config_string
+
         if ConfigG.load_saved:
-            filename = ConfigG.config_string
-            if os.path.isfile(filename):
-                loaded_run = pickle.load(open(filename, 'rb'))
+            loaded_run = self._load_multi_tactic(self.filename)
+            if loaded_run is not None:
                 return loaded_run
-        
 
-        n_seasons = ConfigG.n_years
-        n_doses = ConfigG.n_doses
+        Conf = copy.copy(ConfigG)
 
-        ConfRun = copy.copy(ConfigG)
+        self._get_fung_strat(Conf)
 
-        LTY, TY, FY = [np.zeros((n_doses,n_doses))]*3
-        
-        yield_array = np.zeros((n_doses, n_doses, n_seasons))
+        self._initialise_multi_vars(Conf.n_doses, Conf.n_years)
 
-        res_arrays = {}
-        selection_arrays = {}
-        for key in ['f1', 'f2']:
-            res_arrays[key] = np.zeros((n_doses, n_doses, n_seasons+1))
-            selection_arrays[key] = np.zeros((n_doses, n_doses, n_seasons))
+        self._run_the_grid(Conf)
 
-        start_freqs = {}
-        for key in ['RR', 'RS', 'SR', 'SS']:
-            start_freqs[key] = np.zeros((n_doses, n_doses, n_seasons+1))
-        
-        inoc_array  = np.zeros((n_doses,n_doses,n_seasons+1))
-        
-        for f1_ind in tqdm(range(n_doses)):
-            for f2_ind in range(n_doses):
-
-                fung1_doses, fung2_doses = GetDoses(ConfigG.strategy, 
-                                n_seasons).get_doses(f1_ind, f2_ind, n_doses)
-
-                ConfRun.fung1_doses = fung1_doses
-                ConfRun.fung2_doses = fung2_doses
-
-                one_tact_output =  self.sing_tact.run_single_tactic(ConfRun)
-                
-                
-                LTY[f1_ind,f2_ind] = self._lifetime_yield(one_tact_output['yield_vec'],one_tact_output['failure_year'])
-                TY[f1_ind,f2_ind] = self._total_yield(one_tact_output['yield_vec'])
-                FY[f1_ind,f2_ind] = one_tact_output['failure_year']
-
-
-                attr = {
-                    'yield_vec': yield_array,
-                    'res_vec_dict': res_arrays,
-                    'start_of_season': start_freqs,
-                    'selection_vec_dict': selection_arrays,
-                    'inoc_vec': inoc_array
-                    }
-
-                # update these variables
-                for key in attr.keys():
-                    if isinstance(attr[key], dict):
-                        for key_ in attr[key].keys():
-                            attr[key][key_][f1_ind,f2_ind,:] = one_tact_output[key][key_]
-                    else:
-                        attr[key][f1_ind,f2_ind,:] = one_tact_output[key]
-
-        t_vec = one_tact_output['t_vec']
-        
-        grid_output = {'LTY': LTY,
-                    'TY': TY,
-                    'FY': FY,
-                    'yield_array': yield_array,
-                    'res_arrays': res_arrays,
-                    'start_freqs': start_freqs,
-                    'selection_arrays': selection_arrays,
-                    'inoc_array': inoc_array,
-                    't_vec': t_vec}
-        
-        filename = ConfigG.config_string
-        object_dump(filename, grid_output)
+        grid_output = self._save_grid()
 
         return grid_output
 
     
+
+
+
+class RunDoseSpace(RunMultipleTactics):
+  
     @staticmethod
     def constant_effect(x, cont_radial, cont_perp):
         print("nb this uses PARAMS curvatures and omega=1")
@@ -1063,150 +1121,107 @@ class RunGrid(RunMultipleTactics):
         return out
 
 
+    def _initialise_dose_space(self, n_doses):
 
-class RunDoseSpace(RunMultipleTactics):
+        self.contour_perp = np.linspace(0, 1, n_doses+2)[1:-1]
+        self.contours_radial = [2**(n) for n in range(-floor(n_doses/2), floor(n_doses/2)+1, 1)]
 
-    def master_loop_dose_space_coordinate(self, ConfigDS):
+        self.f1_vals = np.zeros((n_doses, n_doses))
+        self.f2_vals = np.zeros((n_doses, n_doses))
+
+
+    def _run_dose_space(self, Conf):
+        
+        self._get_fung_strat(Conf)
+
+        self._initialise_dose_space(Conf.n_doses)     
+        
+        for i in tqdm(range(Conf.n_doses)):
+            for j in range(Conf.n_doses):
+
+                f1_val = fsolve(self.constant_effect, 
+                                args=(self.contours_radial[j],
+                                      self.contour_perp[i]), x0=0.001)[0]
+
+                f2_val = self.contours_radial[j]*f1_val
+
+                if f1_val>1 or f2_val>1:
+                    self.LTY[i,j] = None
+                    self.TY[i,j] = None
+                    self.FY[i,j] = None
+                    continue
+
+                Conf.fung1_doses, Conf.fung2_doses = self.fung_strat.get_doses(
+                                                            f1_val, f2_val, None)
+
+                one_tact_output =  self.sing_tact.run_single_tactic(Conf)
+                
+                self.f1_vals[i,j] = f1_val
+                self.f2_vals[i,j] = f2_val
+                
+                self._post_process_multi(one_tact_output, i, j)
+                
+        self.t_vec = one_tact_output['t_vec']
+
+    def _save_dose_space(self):
+        ds_output = {'LTY': self.LTY,
+                    'TY': self.TY,
+                    'FY': self.FY,
+                    'f1_vals': self.f1_vals,
+                    'f2_vals': self.f2_vals,
+                    'contour_perp': self.contour_perp,
+                    'contours_radial': self.contours_radial,
+                    'yield_array': self.yield_array,
+                    'res_arrays': self.res_arrays,
+                    'start_freqs': self.start_freqs,
+                    'selection_arrays': self.selection_arrays,
+                    'inoc_array': self.inoc_array,
+                    't_vec': self.t_vec}
+
+        object_dump(self.filename, ds_output)
+
+        return ds_output
+
+
+
+    def run_loop(self, ConfigDS):
         """
         Run across grid
         """
-
-        if ConfigDS.load_saved:
-            filename = ConfigDS.config_string
-            filename = filename.replace("grid", "dose_space")
-            print(filename, 'ds')
-
-            if os.path.isfile(filename):
-                loaded_run = pickle.load(open(filename, 'rb'))
-                return loaded_run
-        
-
-        n_seasons = ConfigDS.n_years
-        n_doses = ConfigDS.n_doses
-
-        ConfRun = copy.copy(ConfigDS)
-
-        LTY, TY, FY = [np.zeros((n_doses, n_doses))]*3
-        
-        yield_array = np.zeros((n_doses, n_doses, n_seasons))
-
-        res_arrays = {}
-        selection_arrays = {}
-        for key in ['f1', 'f2']:
-            res_arrays[key] = np.zeros((n_doses, n_doses, n_seasons+1))
-            selection_arrays[key] = np.zeros((n_doses, n_doses, n_seasons))
-
-        start_freqs = {}
-        for key in ['RR', 'RS', 'SR', 'SS']:
-            start_freqs[key] = np.zeros((n_doses, n_doses, n_seasons))
-        
-        inoc_array  = np.zeros((n_doses,n_doses,n_seasons+1))
-
-        # contour_perp = [2**(xx) for xx in np.linspace(-6, 0, n_doses)]
-        contour_perp = np.linspace(0, 1, n_doses+2)[1:-1]
-        contours_radial = [2**(n) for n in range(-floor(n_doses/2), floor(n_doses/2)+1, 1)]
-
-        f1_vals = np.zeros((n_doses, n_doses))
-        f2_vals = np.zeros((n_doses, n_doses))
-        
-        for i in tqdm(range(n_doses)):
-            for j in range(n_doses):
-
-
-                f1_val = fsolve(self.constant_effect, args=(contours_radial[j], contour_perp[i]), x0=0.001)[0]
-                f2_val = contours_radial[j]*f1_val
-
-                # f1_val = (contour_perp[i]*contours_radial[j])**(0.5)
-                # f2_val = (contour_perp[i]/contours_radial[j])**(0.5)
-
-                if f1_val>1 or f2_val>1:
-                    LTY[i,j] = None
-                    TY[i,j] = None
-                    FY[i,j] = None
-                    continue
-
-                fung1_doses, fung2_doses = GetDoses(ConfigDS.strategy, 
-                                n_seasons).get_doses(f1_val, f2_val, None)
-
-                ConfRun.fung1_doses = fung1_doses
-                ConfRun.fung2_doses = fung2_doses
-
-                one_tact_output =  self.sing_tact.run_single_tactic(ConfRun)
-                
-                LTY[i,j] = self._lifetime_yield(one_tact_output['yield_vec'],one_tact_output['failure_year'])
-                TY[i,j] = self._total_yield(one_tact_output['yield_vec'])
-                FY[i,j] = one_tact_output['failure_year']
-                f1_vals[i,j] = f1_val
-                f2_vals[i,j] = f2_val
-
-
-                attr = {
-                    'yield_vec': yield_array,
-                    'res_vec_dict': res_arrays,
-                    'start_of_season': start_freqs,
-                    'selection_vec_dict': selection_arrays,
-                    'inoc_vec': inoc_array
-                    }
-
-                # update these variables
-                for key in attr.keys():
-                    if isinstance(attr[key], dict):
-                        for key_ in attr[key].keys():
-                            attr[key][key_][i,j,:] = one_tact_output[key][key_]
-                    else:
-                        attr[key][i,j,:] = one_tact_output[key]
-
-        t_vec = one_tact_output['t_vec']
-        
-        grid_output = {'LTY': LTY,
-                    'TY': TY,
-                    'FY': FY,
-                    'f1_vals': f1_vals,
-                    'f2_vals': f2_vals,
-                    'contour_perp': contour_perp,
-                    'contours_radial': contours_radial,
-                    'yield_array': yield_array,
-                    'res_arrays': res_arrays,
-                    'start_freqs': start_freqs,
-                    'selection_arrays': selection_arrays,
-                    'inoc_array': inoc_array,
-                    't_vec': t_vec}
         
         filename = ConfigDS.config_string
-        filename = filename.replace("grid", "dose_space")
-        object_dump(filename, grid_output)
+        self.filename = filename.replace("grid", "dose_space")
 
-        return grid_output
+        if ConfigDS.load_saved:
+            loaded_run = self._load_multi_tactic(self.filename)
+            if loaded_run is not None:
+                return loaded_run
+
+        Conf = copy.copy(ConfigDS)
+
+        self._initialise_multi_vars(Conf.n_doses, Conf.n_years)
+
+        self._run_dose_space(Conf)
+        
+        ds_output = self._save_dose_space()
+
+        return ds_output
 
 
 
 class RunRadial(RunMultipleTactics):
 
-    def master_loop_radial(self, ConfigDS):
-        """
-        Run radially in dose space
-        """
+    def _run_angle_radius_combo(self, ConfigDS):
 
-        if ConfigDS.load_saved:
-            filename = ConfigDS.config_string
-            filename = filename.replace("grid", "radial")
-            print(filename, 'rad')
-            if os.path.isfile(filename):
-                loaded_run = pickle.load(open(filename, 'rb'))
-                return loaded_run
+        Conf = copy.copy(ConfigDS)
+
+        self._get_fung_strat(Conf)
         
+        angles = np.linspace(0, pi/2, Conf.n_angles)
+        radii = np.linspace(0, 2**(0.5), Conf.n_radii+1)[1:]
 
-        n_seasons = ConfigDS.n_years
-        n_angles = ConfigDS.n_angles
-        n_radii = ConfigDS.n_radii
+        self.row_list = []
 
-        ConfRun = copy.copy(ConfigDS)
-
-        angles = np.linspace(0, pi/2, n_angles)
-        radii = np.linspace(0, 2**(0.5), n_radii+1)[1:]
-
-        row_list = []
-        
         for angle in tqdm(angles):
             for radius in radii:
 
@@ -1221,19 +1236,16 @@ class RunRadial(RunMultipleTactics):
                 if f1_val>1 or f2_val>1:
                     continue
                 
-                fung1_doses, fung2_doses = GetDoses(ConfigDS.strategy, 
-                                n_seasons).get_doses(f1_val, f2_val, None)
+                Conf.fung1_doses, Conf.fung2_doses = self.fung_strat.get_doses(
+                                                        f1_val, f2_val, None)
 
-                ConfRun.fung1_doses = fung1_doses
-                ConfRun.fung2_doses = fung2_doses
-
-                one_tact_output =  self.sing_tact.run_single_tactic(ConfRun)
+                one_tact_output =  self.sing_tact.run_single_tactic(Conf)
                 
                 lty = self._lifetime_yield(one_tact_output['yield_vec'], one_tact_output['failure_year'])
                 ty = self._total_yield(one_tact_output['yield_vec'])
                 fy = one_tact_output['failure_year']
 
-                row_list.append(dict(d1=f1_val,
+                self.row_list.append(dict(d1=f1_val,
                             d2=f2_val,
                             LTY=lty,
                             TY=ty,
@@ -1241,12 +1253,26 @@ class RunRadial(RunMultipleTactics):
                             angle=angle,
                             radius=radius,
                             ))
-                
-        df_out = pd.DataFrame(row_list)
 
-        
-        filename = ConfigDS.config_string
+
+
+    def master_loop_radial(self, Conf):
+        """
+        Run radially in dose space
+        """
+
+        filename = Conf.config_string
         filename = filename.replace("grid", "radial")
+
+        if Conf.load_saved:
+            loaded_run = self._load_multi_tactic(filename)
+            if loaded_run is not None:
+                return loaded_run
+
+        self._run_angle_radius_combos(Conf)
+                
+        df_out = pd.DataFrame(self.row_list)
+
         object_dump(filename, df_out)
 
         return df_out

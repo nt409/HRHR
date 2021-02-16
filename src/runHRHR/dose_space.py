@@ -5,15 +5,15 @@ from .config import ConfigGridRun
 
 # which plot
 
-dose_grid_plot = False
+dose_grid_plot = True
 radial_plot = False
-dose_sum_plot = True
+dose_sum_plot = False
 
 
 # plot
 
 if dose_grid_plot:
-    output = RunDoseSpace().master_loop_dose_space_coordinate(ConfigGridRun)
+    output = RunDoseSpace().run_loop(ConfigGridRun)
 
     to_plot = 'LTY'
     conf_str = ConfigGridRun.config_string_img

@@ -97,8 +97,8 @@ def res_freqs_single_t_plot(data, conf_str):
     traces = []
 
     titles = dict(
-        f1 = "Fungicide 1",
-        f2 = "Fungicide 2"
+        f1 = "Fungicide A",
+        f2 = "Fungicide B"
     )
     
     for key in ['f1', 'f2']:
@@ -157,8 +157,8 @@ def yield_res_freqs_plot(data, conf_str):
     rf_traces = []
 
     titles = dict(
-        f1 = "Fungicide 1",
-        f2 = "Fungicide 2"
+        f1 = "Fungicide A",
+        f2 = "Fungicide B"
     )
     
     for key in ['f1', 'f2']:
@@ -515,8 +515,8 @@ def dose_grid_heatmap(data, Config, to_plot, conf_str):
 
     fig.update_layout(width=660, height=600)
 
-    fig.update_xaxes(title="Dose (fungicide 1)")
-    fig.update_yaxes(title="Dose (fungicide 2)")
+    fig.update_xaxes(title="Dose (fungicide A)")
+    fig.update_yaxes(title="Dose (fungicide B)")
 
     fig.show()
     filename = conf_str.replace("/grid/", "/grid/dose_grid/")
@@ -526,30 +526,34 @@ def dose_grid_heatmap(data, Config, to_plot, conf_str):
 
 
 
-def dose_sum_LR(data, Config, to_plot, conf_str):
+def dose_sum_hobb_vs_me(data, Config, to_plot, conf_str):
     """
     Lines on heatmap, and then log ratio of RFs at break down
     """
 
-    fig = make_subplots(rows=1, cols=2, horizontal_spacing=0.2)
+    fig = make_subplots(rows=2, cols=2, horizontal_spacing=0.2)
 
-    subplot1_traces = []
-    subplot2_traces = []
+    my_strat_traces = []
+    heatmap_subplot = []
+    hobb_strat_traces = []
     
     xheat = np.linspace(0, 1, Config.n_doses)
     yheat = np.linspace(0, 1, Config.n_doses)
 
     z = np.transpose(data[to_plot])
 
-    subplot2_traces.append(go.Scatter(
-        x=[-0.3,-0.31],
-        y=[-0.3,-0.31],
-        line=dict(color="blue", dash="dash"),
-        mode="lines",
-        name="Equal selection"
-    ))
+    for name_, clr, dash_ in zip(["Equal selection", "First year selection"],
+                                ["blue", "black"],
+                                ["dash", "dot"]):
+        heatmap_subplot.append(go.Scatter(
+            x=[-0.3,-0.31],
+            y=[-0.3,-0.31],
+            line=dict(color=clr, dash=dash_),
+            mode="lines",
+            name=name_
+        ))
 
-    heatmap = go.Contour(
+    heatmap = go.Heatmap(
         x = xheat,
         y = yheat,
         z = z,
@@ -560,16 +564,17 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
             [1, "rgb(255, 255, 0)"],
         ],
         colorbar=dict(
+            x=0.42, y=0.79, len=0.43,
             title = TITLE_MAP[to_plot], # title here
             titleside = 'right',
         )
     )
 
-    subplot2_traces.append(heatmap)
+    heatmap_subplot.append(heatmap)
     
 
     # add lines on heatmap
-    up_to_2 = np.linspace(0,2,2*Config.n_doses-1)
+    y_intrcpt = np.linspace(0,2,2*Config.n_doses-1)
     ind0 = 0
     mn = 0
     mx = 220
@@ -577,7 +582,7 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
     colors = {}
     inds_list = []
     
-    for ind in range(len(up_to_2)):
+    for ind in range(len(y_intrcpt)):
 
         dose_line_all_0 = True
         
@@ -590,27 +595,32 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
             ind0 = ind
             continue
         
-        n_left = ceil((len(up_to_2) - ind0)/5)
-        # only actually want 5 lines total
-        if not (ind - 1 -ind0) % n_left == 0:
+        n_lines = 4
+        n_interval = ceil((len(y_intrcpt) - ind0)/n_lines)
+        # only actually want n_lines lines total
+        if not (((ind - 1 -ind0) % n_interval == 0 and (len(y_intrcpt) - 1 - ind > n_interval))
+                         or (ind==len(y_intrcpt)-1)):
+            # only want a line every n_interval steps...
+            # and want final point but then not another point v nearby
             continue
 
-        clr = mn + (mx-mn)* (ind -1 -ind0)/(len(up_to_2) - ind0 - 1)
+        clr = mn + (mx-mn)* (ind - 1 - ind0)/(len(y_intrcpt) - ind0 - 1)
 
         colors[ind] = f"rgba({255-clr},{0},{255-clr},0.8)"
         
-        xx = up_to_2[:ind+1]
+        xx = y_intrcpt[:ind+1]
         xx = [x for x in xx if (x<=1 and x>=0)]
-        yy = [up_to_2[ind] - xx[i] for i in range(len(xx))]
+        yy = [y_intrcpt[ind] - x for x in xx]
 
         if len(yy)==Config.n_doses:
-            yy = [y for y in yy if (y<=1)]
+            # 1.001 since floating point error caused probs :/
+            yy = [y for y in yy if (y<=1.001)]
             xx = xx[len(xx)-len(yy):]
         
         inds_list.append(ind)
 
-        ds = round(up_to_2[ind], 2)
-        subplot2_traces.append(
+        ds = round(y_intrcpt[ind], 2)
+        heatmap_subplot.append(
             go.Scatter(
                 x = xx,
                 y = yy,
@@ -620,16 +630,12 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
             )
 
     
-    # col 1 
-    for trace in subplot2_traces:
-        fig.add_trace(trace, row=1, col=2)
-    
-    
+
     eq_sel = np.zeros(z.shape)
     eq_fy = np.zeros(z.shape)
     
     FY = data["FY"]
-    for ind in range(len(up_to_2)):
+    for ind in range(len(y_intrcpt)):
         x_fy = []
         x = []
         y = []
@@ -650,8 +656,17 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
 
                     eq_sel[j, i] = log10(s1/s2)
 
-                    s1_y1 = data['selection_arrays']['f1'][i,j,1]
-                    s2_y1 = data['selection_arrays']['f2'][i,j,1]
+                    f1_y0 = data['start_freqs']['RS'][i,j,0]
+                    f1_y1 = data['start_freqs']['RS'][i,j,1]
+                    
+                    f2_y0 = data['start_freqs']['SR'][i,j,0]
+                    f2_y1 = data['start_freqs']['SR'][i,j,1]
+
+                    s1_y1 = f1_y1/f1_y0
+                    s2_y1 = f2_y1/f2_y0
+
+                    # print(f1_y0, f1_y1, s1_y1)
+                    # print(f2_y0, f2_y1, s2_y1)
 
                     x_fy.append(log10(s1_y1/s2_y1))
                     eq_fy[j, i] = log10(s1_y1/s2_y1)
@@ -662,23 +677,26 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
         if not x or not (ind in inds_list):
             continue
         
-        line = go.Scatter(x=x,
+        myline = go.Scatter(x=x,
                         y=y,
                         showlegend=False,
-                        # name=f"ds3 {round(up_to_2[ind],2)}",
+                        # name=f"Equal breakdown (dose sum): {round(y_intrcpt[ind],2)}",
                         line=dict(color=colors[ind], dash="solid"))
-        subplot1_traces.append(line)
+        my_strat_traces.append(myline)
         
-        line_fy = go.Scatter(x=x_fy,
+        hobb_line_fy = go.Scatter(x=x_fy,
                         y=y,
                         showlegend=False,
                         line=dict(color=colors[ind], dash="dot"),
-                        # name=f"ds2 {round(up_to_2[ind],2)}"
+                        # name=f"First year selection (dose sum): {round(y_intrcpt[ind],2)}"
                         )
-        subplot1_traces.append(line_fy)
+        hobb_strat_traces.append(hobb_line_fy)
     
-    for trace in subplot1_traces:
-        fig.add_trace(trace, row=1, col=1)
+    for trace in my_strat_traces:
+        fig.add_trace(trace, row=1, col=2)
+    
+    for trace in hobb_strat_traces:
+        fig.add_trace(trace, row=2, col=2)
     
     eq_contour = go.Contour(x=xheat,
                     y=yheat,
@@ -712,9 +730,257 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
                                 )), 
                     )
 
-    fig.add_trace(eq_contour, row=1, col=2)
-    # fig.add_trace(eq_fy_contour, row=1, col=2)
+    heatmap_subplot.append(eq_contour)
+    heatmap_subplot.append(eq_fy_contour)
 
+    # col 1, row 1
+    for trace in heatmap_subplot:
+        fig.add_trace(trace, row=1, col=1)
+    
+    
+
+    annotz = []
+
+    for x_pos, y_pos, text, show_arr, arrow_length in zip(
+            [0.58, 1.02, 0.96, 0.64],
+            [-0.025, -0.025, -0.04, -0.04],
+            ['More resistance<br>to f2', 'More resistance<br>to f1', '', ''],
+            [False, False, True, True],
+            [None, None, -200, 200]):
+        annotz.append(dict(
+            x=x_pos,
+            y=y_pos,
+            text=text,
+
+            showarrow=show_arr,
+            arrowcolor=LABEL_COLOR,
+            arrowsize=2,
+            arrowwidth=1,
+            arrowhead=2,
+            
+            ax=arrow_length,
+            ay=0,
+                
+            xref='paper',
+            yref='paper',
+
+            xanchor="center",
+            yanchor="top",
+
+            font=dict(
+                    size=14,
+                    color=LABEL_COLOR,
+                ),
+        ))
+
+
+    fig.update_layout(standard_layout(True))
+    fig.update_layout(width=1200, 
+                        height=1150,
+                        annotations=annotz,
+                        legend=dict(
+                                    x=0.25,
+                                    # x=1.2,
+                                    y=0.25,
+                                    yanchor="middle",
+                                    xanchor="center",
+                                    font=dict(size=14)
+                                    ),
+                        font=dict(size=18)
+                                    )
+
+    fig.update_xaxes(title="Log ratio of resistance<br>frequencies at breakdown", row=1, col=2, showgrid=False)
+    fig.update_xaxes(title="Log ratio of selection<br>ratios after one year", row=2, col=2, showgrid=False)
+    fig.update_yaxes(title="Failure year", row=1, col=2)
+    fig.update_yaxes(title="Failure year", row=2, col=2)
+    
+    # if heatmap not contour use [0-dx, 1+dx] etc
+    # is order correct? shape[0]/[1]
+    # dx = 0.5*(1/(-1+z.shape[1]))
+    # dy = 0.5*(1/(-1+z.shape[0]))
+    dx = 0.01
+    dy = 0.01
+    
+    fig.update_xaxes(title="Dose (fungicide A)", range=[0-dx,1+dx], row=1, col=1, showgrid=False)
+    fig.update_yaxes(title="Dose (fungicide B)", range=[0-dy,1+dy], row=1, col=1, showgrid=False)
+
+    fig.show()
+    filename = conf_str.replace("/grid/", "/dose_space/dose_sum_hobb_vs_me/")
+    fig.write_image(filename)
+
+
+
+
+
+
+
+
+def dose_sum_LR(data, Config, to_plot, conf_str):
+    """
+    Lines on heatmap, and then log ratio of RFs at break down
+    """
+
+    fig = make_subplots(rows=1, cols=2, horizontal_spacing=0.2)
+
+    my_strat_traces = []
+    heatmap_subplot = []
+    
+    xheat = np.linspace(0, 1, Config.n_doses)
+    yheat = np.linspace(0, 1, Config.n_doses)
+
+    z = np.transpose(data[to_plot])
+
+    for name_, clr, dash_ in zip(["Equal selection", "First year selection"],
+                                ["blue", "black"],
+                                ["dash", "dot"]):
+        heatmap_subplot.append(go.Scatter(
+            x=[-0.3,-0.31],
+            y=[-0.3,-0.31],
+            line=dict(color=clr, dash=dash_),
+            mode="lines",
+            name=name_
+        ))
+
+    heatmap = go.Heatmap(
+        x = xheat,
+        y = yheat,
+        z = z,
+        colorscale=[
+            [0, NULL_HEATMAP_COLOUR],
+            [1/np.amax(z), NULL_HEATMAP_COLOUR],
+            [1/np.amax(z), "rgb(0, 0, 100)"],
+            [1, "rgb(255, 255, 0)"],
+        ],
+        colorbar=dict(
+            title = TITLE_MAP[to_plot], # title here
+            titleside = 'right',
+        )
+    )
+
+    heatmap_subplot.append(heatmap)
+    
+
+    # add lines on heatmap
+    y_intrcpt = np.linspace(0,2,2*Config.n_doses-1)
+    ind0 = 0
+    mn = 0
+    mx = 220
+
+    colors = {}
+    inds_list = []
+    
+    for ind in range(len(y_intrcpt)):
+
+        dose_line_all_0 = True
+        
+        for i in range(ind):
+            j = ind-i
+            if i<z.shape[0] and j<z.shape[1] and z[i,j]>0:
+                dose_line_all_0 = False
+
+        if dose_line_all_0:
+            ind0 = ind
+            continue
+        
+        n_lines = 4
+        n_interval = ceil((len(y_intrcpt) - ind0)/n_lines)
+        # only actually want n_lines lines total
+        if not (((ind - 1 -ind0) % n_interval == 0 and (len(y_intrcpt) - 1 - ind > n_interval))
+                         or (ind==len(y_intrcpt)-1)):
+            # only want a line every n_interval steps...
+            # and want final point but then not another point v nearby
+            continue
+
+        clr = mn + (mx-mn)* (ind - 1 - ind0)/(len(y_intrcpt) - ind0 - 1)
+
+        colors[ind] = f"rgba({255-clr},{0},{255-clr},0.8)"
+        
+        xx = y_intrcpt[:ind+1]
+        xx = [x for x in xx if (x<=1 and x>=0)]
+        yy = [y_intrcpt[ind] - x for x in xx]
+
+        if len(yy)==Config.n_doses:
+            # 1.001 since floating point error caused probs :/
+            yy = [y for y in yy if (y<=1.001)]
+            xx = xx[len(xx)-len(yy):]
+        
+        inds_list.append(ind)
+
+        ds = round(y_intrcpt[ind], 2)
+        heatmap_subplot.append(
+            go.Scatter(
+                x = xx,
+                y = yy,
+                line=dict(color=colors[ind]),
+                name=f"Dose sum: {ds}",
+            )
+            )
+
+    
+
+    eq_sel = np.zeros(z.shape)
+    eq_fy = np.zeros(z.shape)
+    
+    FY = data["FY"]
+    for ind in range(len(y_intrcpt)):
+        x_fy = []
+        x = []
+        y = []
+
+        for i in range(ind+1):
+            
+            j = ind-i
+
+            if i<FY.shape[0] and j<FY.shape[1]:
+                fy = int(FY[i,j])
+                
+                if fy>0:
+                    s1 = data['res_arrays']['f1'][i,j,fy]
+                    s2 = data['res_arrays']['f2'][i,j,fy]
+
+                    x.append(log10(s1/s2))
+                    y.append(fy)
+
+                    eq_sel[j, i] = log10(s1/s2)
+
+                else:
+                    eq_sel[j, i] = None
+                    eq_fy[j, i] = None
+                
+        if not x or not (ind in inds_list):
+            continue
+        
+        myline = go.Scatter(x=x,
+                        y=y,
+                        showlegend=False,
+                        # name=f"Equal breakdown (dose sum): {round(y_intrcpt[ind],2)}",
+                        line=dict(color=colors[ind], dash="solid"))
+        my_strat_traces.append(myline)
+    
+    for trace in my_strat_traces:
+        fig.add_trace(trace, row=1, col=1)
+    
+    eq_contour = go.Contour(x=xheat,
+                    y=yheat,
+                    z=eq_sel,
+                    contours=dict(start=0, end=0),
+                    contours_coloring='lines',
+                    colorscale=["blue", "blue"],
+                    
+                    line=dict(width=2, dash="dash"),
+
+                    # hacky way to remove second colorbar
+                    colorbar=dict(x=0.42, len=0.1, 
+                            tickfont=dict(size=1,
+                                color="rgba(0,0,0,0)"
+                                )), 
+                    )
+
+    heatmap_subplot.append(eq_contour)
+
+    for trace in heatmap_subplot:
+        fig.add_trace(trace, row=1, col=2)
+    
     annotz = []
 
     for x_pos, y_pos, text, show_arr, arrow_length in zip(
@@ -756,7 +1022,6 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
                         annotations=annotz,
                         legend=dict(
                                     x=0.36,
-                                    # x=1.2,
                                     y=0.95,
                                     yanchor="top",
                                     font=dict(size=14)
@@ -764,7 +1029,7 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
                         font=dict(size=20)
                                     )
 
-    fig.update_xaxes(title="Log ratio of resistance<br>frequencies at breakdown", row=1, col=1)
+    fig.update_xaxes(title="Log ratio of resistance<br>frequencies at breakdown", row=1, col=1, showgrid=False)
     fig.update_yaxes(title="Failure year", row=1, col=1)
     
     # if heatmap not contour use [0-dx, 1+dx] etc
@@ -774,8 +1039,8 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
     dx = 0.01
     dy = 0.01
     
-    fig.update_xaxes(title="Dose (fungicide 1)", range=[0-dx,1+dx], row=1, col=2, showgrid=False)
-    fig.update_yaxes(title="Dose (fungicide 2)", range=[0-dy,1+dy], row=1, col=2, showgrid=False)
+    fig.update_xaxes(title="Dose (fungicide A)", range=[0-dx,1+dx], row=1, col=2, showgrid=False)
+    fig.update_yaxes(title="Dose (fungicide B)", range=[0-dy,1+dy], row=1, col=2, showgrid=False)
 
     fig.show()
     filename = conf_str.replace("/grid/", "/dose_space/dose_sum/")
@@ -948,8 +1213,8 @@ def radial(radial_data, grid_data, Config):
     dx = 0.01
     dy = 0.01
 
-    fig.update_xaxes(title="Dose (fungicide 1)", range=[0-dx,1+dx], row=1, col=2, showgrid=False)
-    fig.update_yaxes(title="Dose (fungicide 2)", range=[0-dy,1+dy], row=1, col=2, showgrid=False)
+    fig.update_xaxes(title="Dose (fungicide A)", range=[0-dx,1+dx], row=1, col=2, showgrid=False)
+    fig.update_yaxes(title="Dose (fungicide B)", range=[0-dy,1+dy], row=1, col=2, showgrid=False)
 
     fig.show()
     conf_str = Config.config_string_img

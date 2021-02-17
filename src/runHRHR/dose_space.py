@@ -1,13 +1,14 @@
 from utils.functions import RunDoseSpace, RunGrid, RunRadial
 from utils.plotting import dose_space_contour, radial, \
-    dose_sum_LR
+    dose_sum_LR, dose_sum_hobb_vs_me
 from .config import ConfigGridRun
 
 # which plot
 
-dose_grid_plot = True
+dose_grid_plot = False
+dose_sum_hobb_vs_me_plot = False
+dose_sum_plot = True
 radial_plot = False
-dose_sum_plot = False
 
 
 # plot
@@ -21,10 +22,25 @@ if dose_grid_plot:
 
 
 
+if dose_sum_hobb_vs_me_plot:
+    to_plot = 'FY'
+    
+    ConfigGridRun.n_doses = 14
+    ConfigGridRun.add_string()
+    conf_str = ConfigGridRun.config_string_img
+
+    output = RunGrid().grid_of_tactics(ConfigGridRun)
+
+
+    dose_sum_hobb_vs_me(output,
+                ConfigGridRun,
+                to_plot,
+                conf_str)
+
 if dose_sum_plot:
     to_plot = 'FY'
     
-    ConfigGridRun.n_doses = 13
+    ConfigGridRun.n_doses = 14
     ConfigGridRun.add_string()
     conf_str = ConfigGridRun.config_string_img
 

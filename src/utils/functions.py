@@ -998,7 +998,7 @@ class RunMultipleTactics:
         self.LTY, self.TY, self.FY = [np.zeros((n_doses, n_doses))]*3
         
         self.yield_array = np.zeros((n_doses, n_doses, n_years))
-
+        
         self.res_arrays = {}
         self.selection_arrays = {}
         for key in ['f1', 'f2']:
@@ -1211,7 +1211,7 @@ class RunDoseSpace(RunMultipleTactics):
 
 class RunRadial(RunMultipleTactics):
 
-    def _run_angle_radius_combo(self, ConfigDS):
+    def _run_angle_radius_combos(self, ConfigDS):
 
         Conf = copy.copy(ConfigDS)
 

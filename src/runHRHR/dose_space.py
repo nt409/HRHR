@@ -1,14 +1,15 @@
 from utils.functions import RunDoseSpace, RunGrid, RunRadial
 from utils.plotting import dose_space_contour, radial, \
-    dose_sum_LR, dose_sum_hobb_vs_me
+    dose_sum_LR, dose_sum_hobb_vs_me, first_year_yield
 from .config import ConfigGridRun
 
 # which plot
 
 dose_grid_plot = False
 dose_sum_hobb_vs_me_plot = False
-dose_sum_plot = True
+dose_sum_plot = False
 radial_plot = False
+first_year_yield_plot = True
 
 
 # plot
@@ -67,3 +68,10 @@ if radial_plot:
     grid_output = RunGrid().grid_of_tactics(ConfigGridRun)
 
     radial(radial_output, grid_output, ConfigGridRun)
+
+
+
+if first_year_yield_plot:
+    output = RunGrid().grid_of_tactics(ConfigGridRun)
+
+    first_year_yield(output, ConfigGridRun)

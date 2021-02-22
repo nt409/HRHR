@@ -1,6 +1,6 @@
 import itertools
 import numpy as np
-from math import exp, ceil, floor, pi, sin, cos
+from math import exp, ceil, floor, pi, sin, cos, log10
 from scipy.integrate import simps, ode
 import pickle
 import json
@@ -1279,8 +1279,211 @@ class RunRadial(RunMultipleTactics):
 
 
 
+class RunRfRatio(RunSingleTactic):
+    def __init__(self, grid_output):
+        self.FY_array = grid_output['FY'] 
+        self.res_arrays = grid_output['res_arrays']
+        self.start_freqs = grid_output['start_freqs']
+
+        self.N = self.FY_array.shape[0]
+
+        self._find_opt_FY()
 
 
+    def _find_opt_FY(self):
+        """
+        Get failure year for res freq @ breakdown strat
+        """
+        self.opt_FY_rfb = int(np.amax(self.FY_array))
+
+
+    def _get_rfb_df(self, f2):
+        lrb_list = []
+        f1_list = []
+        f2_list = []
+        
+        for f1 in range(self.N):
+            fy = int(self.FY_array[f1, f2])
+            
+            rf1 = self.res_arrays['f1'][f1,f2,fy]
+            rf2 = self.res_arrays['f2'][f1,f2,fy]
+            
+            if fy>0:
+                lrb_list.append(log10(rf1/rf2))
+                f1_list.append(f1)
+                f2_list.append(f2)
+        
+        df = pd.DataFrame(dict(metric=lrb_list, f1=f1_list, f2=f2_list))
+        return df
+    
+
+    def _get_eq_sel_df(self, f2):
+        eq_sel_list = []
+        f1_list = []
+        f2_list = []
+        
+        for f1 in range(self.N):
+            fy = int(self.FY_array[f1, f2])
+            
+            sr0 = self.start_freqs['SR'][f1,f2,0]
+            sr1 = self.start_freqs['SR'][f1,f2,1]
+            
+            rs0 = self.start_freqs['RS'][f1,f2,0]
+            rs1 = self.start_freqs['RS'][f1,f2,1]
+            
+            s1 = rs1/rs0
+            s2 = sr1/sr0
+
+            if fy>0:
+                eq_sel_list.append(-1 + s1/s2)
+                f1_list.append(f1)
+                f2_list.append(f2)
+        
+        df = pd.DataFrame(dict(metric=eq_sel_list, f1=f1_list, f2=f2_list))
+        return df
+
+
+    @staticmethod
+    def _interpolate_dfs(lessthan0, morethan0):
+        lower_f1 = list(lessthan0.f1)[-1]
+        upper_f1 = list(morethan0.f1)[0]
+        
+        lower_metric = list(lessthan0.metric)[-1]
+        upper_metric = list(morethan0.metric)[0]
+
+        f1_out = lower_f1 + (upper_f1-lower_f1) * (-lower_metric) / (upper_metric - lower_metric)
+        return f1_out
+
+
+    def get_f1_from_df(self, df):
+        lessthan0 = df[df['metric']<0]
+        equals0 = df[df['metric']==0]
+        morethan0 = df[df['metric']>0]
+
+        if len(equals0):
+            print("is 0")
+            if len(equals0.f2)>1:
+                raise Exception("shouldn't be more than 1 dose with equal one selection")
+            else:
+                return equals0.f1
+
+        else:
+            if len(lessthan0) and len(morethan0):
+                f1_out = self._interpolate_dfs(lessthan0, morethan0)
+                return f1_out
+            else:
+                return None
+
+
+    def _find_RFB_contour(self):
+        """
+        Find contour along which rfs are equal in breakdown year
+        """
+        self.df_RFB = pd.DataFrame()
+        for f2 in range(self.N):
+            df = self._get_rfb_df(f2)
+            f1 = self.get_f1_from_df(df)
+
+            if f1 is not None:
+                self.df_RFB = self.df_RFB.append(dict(f1_inds=f1, f2_inds=f2), ignore_index=True)
+        
+        self.df_RFB['f1'] = [i/(self.N-1) for i in self.df_RFB.f1_inds]
+        self.df_RFB['f2'] = [i/(self.N-1) for i in self.df_RFB.f2_inds]
+
+
+    def _find_EqS_contour(self):
+        """
+        Find contour along which rfs are equal in breakdown year
+        """
+        self.df_EqS = pd.DataFrame()
+        for f2 in range(self.N):
+            df = self._get_eq_sel_df(f2)
+            f1 = self.get_f1_from_df(df)
+
+            if f1 is not None:
+                self.df_EqS = self.df_EqS.append(dict(f1_inds=f1, f2_inds=f2), ignore_index=True)
+        
+        self.df_EqS['f1'] = [i/(self.N-1) for i in self.df_EqS.f1_inds]
+        self.df_EqS['f2'] = [i/(self.N-1) for i in self.df_EqS.f2_inds]
+
+
+    def get_contours(self):
+        self._find_RFB_contour()
+        self._find_EqS_contour()
+        return [self.df_RFB, self.df_EqS]
+    
+    def _run_RFB_contour(self, res_props):
+        self._find_RFB_contour()
+
+        d1s = self.df_RFB.f1
+        d2s = self.df_RFB.f2
+
+        rf1 = res_props['f1']
+        rf2 = res_props['f2']
+
+        FY_list = []
+
+        for d1, d2 in zip(d1s, d2s):
+            
+            d1 = float(0.5*d1)
+            d2 = float(0.5*d2)
+
+            ConfigSingleRun = SingleConfig(30, rf1, rf2, d1, d1, d2, d2)
+            output = RunSingleTactic().run_single_tactic(ConfigSingleRun)
+            FY_list.append(output['failure_year'])
+        
+        self.opt_RFB = max(FY_list)
+
+    def _run_EqS_contour(self, res_props):
+        self._find_EqS_contour()
+
+        d1s = self.df_EqS.f1
+        d2s = self.df_EqS.f2
+
+        rf1 = res_props['f1']
+        rf2 = res_props['f2']
+
+        FY_list = []
+
+        for d1, d2 in zip(d1s, d2s):
+            
+            d1 = float(0.5*d1)
+            d2 = float(0.5*d2)
+
+            ConfigSingleRun = SingleConfig(30, rf1, rf2, d1, d1, d2, d2)
+            output = RunSingleTactic().run_single_tactic(ConfigSingleRun)
+            FY_list.append(output['failure_year'])
+        
+        self.opt_EqS = max(FY_list)
+
+
+
+    def run_contours(self, res_props):
+        self._run_RFB_contour(res_props)
+        self._run_EqS_contour(res_props)
+
+        return [self.opt_RFB, self.opt_EqS]
+        
+
+        
+
+
+
+def compare_me_vs_hobb_by_ratio(ConfigGridRun, rf1, ratios):
+    EqS_list = []
+    RFB_list = []
+
+    for ratio in ratios:
+        rf2 = ratio*rf1 
+        ConfigGridRun.res_props = dict(f1=rf1, f2=rf2)
+        ConfigGridRun.add_string()
+        grid = RunGrid().grid_of_tactics(ConfigGridRun)
+        output = RunRfRatio(grid).run_contours(ConfigGridRun.res_props)
+        RFB_list.append(output[0])
+        EqS_list.append(output[1])
+
+    df = pd.DataFrame(dict(ratio=ratios, EqS=EqS_list, RFB=RFB_list))
+    return df
 
 # End of RunMultipleTactics classes
 

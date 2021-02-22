@@ -14,6 +14,7 @@ from .params import PARAMS
 # Changing fcide
 # Grid of tactics
 # Dose space
+# RF Ratio
 
 
 attrs_dict = {
@@ -61,7 +62,7 @@ def standard_layout(legend_on):
 TITLE_MAP = dict(
     LTY = "Lifetime yield",
     TY = "Total yield",
-    FY = "Failure year",
+    FY = "Effective life",
 )
 # End of utility functions
 
@@ -524,8 +525,6 @@ def dose_grid_heatmap(data, Config, to_plot, conf_str):
 
 
 
-
-
 def dose_sum_hobb_vs_me(data, Config, to_plot, conf_str):
     """
     Lines on heatmap, and then log ratio of RFs at break down
@@ -542,7 +541,7 @@ def dose_sum_hobb_vs_me(data, Config, to_plot, conf_str):
 
     z = np.transpose(data[to_plot])
 
-    for name_, clr, dash_ in zip(["Equal selection", "First year selection"],
+    for name_, clr, dash_ in zip(["Equal resistance<br>at breakdown", "First year selection"],
                                 ["blue", "black"],
                                 ["dash", "dot"]):
         heatmap_subplot.append(go.Scatter(
@@ -744,7 +743,7 @@ def dose_sum_hobb_vs_me(data, Config, to_plot, conf_str):
     for x_pos, y_pos, text, show_arr, arrow_length in zip(
             [0.58, 1.02, 0.96, 0.64],
             [-0.025, -0.025, -0.04, -0.04],
-            ['More resistance<br>to f2', 'More resistance<br>to f1', '', ''],
+            ['More resistance<br>to f. B', 'More resistance<br>to f. A', '', ''],
             [False, False, True, True],
             [None, None, -200, 200]):
         annotz.append(dict(
@@ -791,8 +790,8 @@ def dose_sum_hobb_vs_me(data, Config, to_plot, conf_str):
 
     fig.update_xaxes(title="Log ratio of resistance<br>frequencies at breakdown", row=1, col=2, showgrid=False)
     fig.update_xaxes(title="Log ratio of selection<br>ratios after one year", row=2, col=2, showgrid=False)
-    fig.update_yaxes(title="Failure year", row=1, col=2)
-    fig.update_yaxes(title="Failure year", row=2, col=2)
+    fig.update_yaxes(title="Effective life", row=1, col=2)
+    fig.update_yaxes(title="Effective life", row=2, col=2)
     
     # if heatmap not contour use [0-dx, 1+dx] etc
     # is order correct? shape[0]/[1]
@@ -830,9 +829,9 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
 
     z = np.transpose(data[to_plot])
 
-    for name_, clr, dash_ in zip(["Equal selection", "First year selection"],
-                                ["blue", "black"],
-                                ["dash", "dot"]):
+    for name_, clr, dash_ in zip(["Equal resistance<br>at breakdown"],
+                                ["blue"],
+                                ["dash"]):
         heatmap_subplot.append(go.Scatter(
             x=[-0.3,-0.31],
             y=[-0.3,-0.31],
@@ -986,7 +985,7 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
     for x_pos, y_pos, text, show_arr, arrow_length in zip(
             [0, 0.4, 0.34, 0.06],
             [-0.06, -0.06, -0.08, -0.08],
-            ['More resistance<br>to f2', 'More resistance<br>to f1', '', ''],
+            ['More resistance<br>to f. B', 'More resistance<br>to f. A', '', ''],
             [False, False, True, True],
             [None, None, -200, 200]):
         annotz.append(dict(
@@ -1030,7 +1029,7 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
                                     )
 
     fig.update_xaxes(title="Log ratio of resistance<br>frequencies at breakdown", row=1, col=1, showgrid=False)
-    fig.update_yaxes(title="Failure year", row=1, col=1)
+    fig.update_yaxes(title="Effective life", row=1, col=1)
     
     # if heatmap not contour use [0-dx, 1+dx] etc
     # is order correct? shape[0]/[1]
@@ -1208,7 +1207,7 @@ def radial(radial_data, grid_data, Config):
 
 
     fig.update_xaxes(title="Mixture strength<br>(radius measured from origin)", row=1, col=1)
-    fig.update_yaxes(title="Failure year", row=1, col=1)
+    fig.update_yaxes(title="Effective life", row=1, col=1)
 
     dx = 0.01
     dy = 0.01
@@ -1221,4 +1220,151 @@ def radial(radial_data, grid_data, Config):
     filename = conf_str.replace("/grid/", "/dose_space/radial/")
     fig.write_image(filename)
 
+
+
+
+def first_year_yield(data, Config):
+    
+    traces = []
+    
+    x = np.linspace(0, 1, Config.n_doses)
+    y = np.linspace(0, 1, Config.n_doses)
+
+    z = data['yield_array'][:,:,0]
+
+    trace = go.Contour(
+        x = x,
+        y = y,
+        z = z,
+        colorbar=dict(
+            title = 'Yield',
+            titleside = 'right',
+        )
+    )
+
+    traces.append(trace)
+
+    fig = go.Figure(data=traces, layout=standard_layout(False))
+
+    fig.update_layout(width=660, height=600)
+
+    fig.update_xaxes(title="Dose (fungicide A)",
+        showgrid=False)
+
+    fig.update_yaxes(title="Dose (fungicide B)",
+        showgrid=False,
+        )
+
+    fig.show()
+    conf_str = Config.config_string_img
+    filename = conf_str.replace("/grid/", "/dose_space/first_year_yield/")
+    fig.write_image(filename)
+
 # End of Dose space
+
+
+# * RF Ratio
+
+
+def dose_grid_heatmap_with_contours(data, Config, contours, conf_str):
+    traces = []
+    
+    x = np.linspace(0, 1, Config.n_doses)
+    y = np.linspace(0, 1, Config.n_doses)
+
+    z = np.transpose(data["FY"])
+
+    trace = go.Heatmap(
+        x = x,
+        y = y,
+        z = z,
+        colorbar=dict(
+            title = TITLE_MAP["FY"],
+            titleside = 'right',
+        )
+    )
+
+    traces.append(trace)
+    
+    names = ["Equal R.Fs<br>at breakdown", "Equal selection<br>in first year"]
+    for cont_df, name in zip(contours, names):
+        xx = cont_df.f1
+        yy = cont_df.f2
+
+        scatter = go.Scatter(x=xx, y=yy, name=name)
+
+        traces.append(scatter)
+
+    fig = go.Figure(data=traces, layout=standard_layout(True))
+
+    fig.update_layout(width=760, 
+                    height=600,
+                    legend=dict(x=1.25,
+                                y=1,
+                                yanchor="top",
+                                xanchor="left",
+                                font=dict(size=16)
+                                ))
+
+    fig.update_xaxes(title="Dose (fungicide A)")
+    fig.update_yaxes(title="Dose (fungicide B)")
+
+    fig.show()
+    filename = conf_str.replace("/grid/", "/rf_ratio/dose_grid_and_contours/")
+    fig.write_image(filename)
+
+
+def outcomes_by_ratio(data, conf_str):
+    traces = []
+    
+    x = [log10(d) for d in data.ratio]
+    yEqS = data.EqS
+    yRFB = data.RFB
+
+    y_list = [yRFB, yEqS]
+    names = ["STRATEGY: Equal resistance frequencies at breakdown",
+            "STRATEGY: Equal selection in first year"
+            ]
+
+    for yy, name in zip(y_list, names):
+        line = go.Scatter(
+            x = x,
+            y = yy,
+            name=name
+            )
+
+        traces.append(line)
+    
+    
+    fig = go.Figure(data=traces, layout=standard_layout(True))
+
+    fig.update_layout(width=1000,
+                    height=600,
+                    legend=dict(x=0.3,
+                                y=1,
+                                yanchor="top",
+                                xanchor="left",
+                                font=dict(size=16)
+                                ))
+    xticks = list(x[::2])
+    
+    if 0 not in xticks:
+        xticks.append(0)
+
+
+    xtick_text = [10**(x) for x in xticks]
+
+    fig.update_xaxes(title="Ratio of initial resistance frequencies",
+            tickvals=xticks,
+            ticktext=xtick_text
+            )
+    fig.update_yaxes(title="Effective lifetime")
+
+    fig.show()
+    
+    x_str = [str(int(i)) for i in x]
+    ratio_string = "".join(x_str)
+    filename = conf_str.replace("/grid/", f"/rf_ratio/outcomes/{ratio_string}")
+    fig.write_image(filename)
+
+# End of RF Ratio

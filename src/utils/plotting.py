@@ -7,7 +7,7 @@ from math import log2, floor, log10, pi
 from .plot_traces import get_RFB_diff_traces, get_eq_sel_traces, get_heatmap_lines, \
     get_strain_freq_traces
 from .plot_utils import standard_layout, grey_colorscale, my_colorbar, invisible_colorbar
-from .plot_consts import ATTRS_DICT, LABEL_COLOR, TITLE_MAP, STRAIN_ATTRS 
+from .plot_consts import ATTRS_DICT, LABEL_COLOR, TITLE_MAP 
 
 # TOC
 # Single Tactic
@@ -352,10 +352,7 @@ def fcide_grid(x, y, z, filename, labels):
         x = x,
         y = y,
         z = z,
-        colorbar=dict(
-            title = labels['cbar'],
-            titleside = 'right',
-        )
+        colorbar=my_colorbar(labels['cbar'])
     )
 
     traces.append(trace)
@@ -430,17 +427,16 @@ def dose_sum_hobb_vs_me(data, Config, to_plot, conf_str):
             mode="lines",
             name=name_
         ))
+    
+    clrbar = my_colorbar(TITLE_MAP[to_plot])
+    clrbar.update(dict(x=0.42, y=0.79, len=0.43))
 
     heatmap = go.Heatmap(
         x = xheat,
         y = yheat,
         z = z,
         colorscale=grey_colorscale(z),
-        colorbar=dict(
-            x=0.42, y=0.79, len=0.43,
-            title = TITLE_MAP[to_plot],
-            titleside = 'right',
-        )
+        colorbar=clrbar
     )
 
     heatmap_subplot.append(heatmap)
@@ -453,7 +449,7 @@ def dose_sum_hobb_vs_me(data, Config, to_plot, conf_str):
 
     heatmap_subplot += trc_out
 
-    my_strat_traces, eq_RFB = get_RFB_diff_traces(data, z, inds_list, colors)
+    my_strat_traces, eq_RFB = get_RFB_diff_traces(data, z, N_y_int, inds_list, colors)
     hobb_strat_traces, eq_fy = get_eq_sel_traces(data, z, N_y_int, inds_list, colors)
     
     for trace in my_strat_traces:
@@ -614,7 +610,7 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
     heatmap_subplot += trc_out
 
     
-    my_strat_traces, eq_RFB = get_RFB_diff_traces(data, z, inds_list, colors)
+    my_strat_traces, eq_RFB = get_RFB_diff_traces(data, z, N_y_int, inds_list, colors)
 
     # eq_RFB = np.zeros(z.shape)
     
@@ -965,10 +961,7 @@ def dose_grid_heatmap_with_contours(data, Config, contours, conf_str):
         x = x,
         y = y,
         z = z,
-        colorbar=dict(
-            title = TITLE_MAP["FY"],
-            titleside = 'right',
-        )
+        colorbar=my_colorbar(TITLE_MAP["FY"])
     )
 
     traces.append(trace)

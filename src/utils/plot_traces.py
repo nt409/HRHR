@@ -35,24 +35,27 @@ def _update_RFB_x_y(ind, data, RFB_diff):
     
     return x, y, RFB_diff
 
-def _get_line(x, y, colors, ind):
+
+def _get_line(x, y, color, dash_):
     return go.Scatter(x=x,
                         y=y,
                         showlegend=False,
-                        line=dict(color=colors[ind], dash="solid"))
+                        line=dict(color=color, dash=dash_))
     
 
-def get_RFB_diff_traces(data, z, inds_list, colors):
+def get_RFB_diff_traces(data, z, N_y_int, inds_list, colors):
     RFB_diff = np.zeros(z.shape)
     traces_RFB = []
     
-    for ind in inds_list:
+    for ind in range(N_y_int):
         
         x, y, RFB_diff = _update_RFB_x_y(ind, data, RFB_diff)
         
-        if x:
-            myline = _get_line(x, y, colors, ind)
-            traces_RFB.append(myline)
+        if not x or not (ind in inds_list):
+            continue
+        
+        myline = _get_line(x, y, colors[ind], "solid")
+        traces_RFB.append(myline)
         
     return traces_RFB, RFB_diff
 
@@ -114,13 +117,8 @@ def get_eq_sel_traces(data, z, N_y_int, inds_list, colors):
         if not x or not (ind in inds_list):
             continue
         
-        hobb_line_fy = go.Scatter(x=x,
-                        y=y,
-                        showlegend=False,
-                        line=dict(color=colors[ind], dash="dot"),
-                        )
-
-        traces_sel.append(hobb_line_fy)
+        line = _get_line(x, y, colors[ind], "dot")
+        traces_sel.append(line)
     
     return traces_sel, fy_sel
 
@@ -146,10 +144,28 @@ def _get_hm_colors(inds_list, ind0, N_y_int):
     
     return colors
 
-def _get_inds_list(N_y_int, z):
+def _get_inds_list(N_y_int, ind0):
 
+    n_lines = 4
     inds_list = []
-    
+
+    for ind in range(ind0+1, N_y_int):
+
+        n_interval = ceil((N_y_int - ind0)/n_lines)
+        # only actually want n_lines lines total
+        if not (((ind - 1 -ind0) % n_interval == 0 and
+                        (N_y_int - 1 - ind > n_interval))
+                    or (ind==N_y_int-1)):
+            # only want a line every n_interval steps...
+            # and want final point but then not another point v nearby
+            continue
+
+        inds_list.append(ind)
+
+    return inds_list
+
+
+def _get_ind0(N_y_int, z):
     ind0 = 0
     for ind in range(N_y_int):
 
@@ -163,20 +179,8 @@ def _get_inds_list(N_y_int, z):
         if dose_line_all_0:
             ind0 = ind
             continue
-        
-        n_lines = 4
-        n_interval = ceil((N_y_int - ind0)/n_lines)
-        # only actually want n_lines lines total
-        if not (((ind - 1 -ind0) % n_interval == 0 and
-                        (N_y_int - 1 - ind > n_interval))
-                    or (ind==N_y_int-1)):
-            # only want a line every n_interval steps...
-            # and want final point but then not another point v nearby
-            continue
-
-        inds_list.append(ind)
-
-    return inds_list, ind0
+    
+    return ind0
 
 
 
@@ -211,7 +215,9 @@ def _get_hm_lines(y_intrcpt, inds_list, colors, N_d):
 def get_heatmap_lines(Config, z, y_intrcpt):
 
     N_y_int = len(y_intrcpt)
-    inds_list, ind0 = _get_inds_list(N_y_int, z)
+    ind0 = _get_ind0(N_y_int, z)
+    inds_list = _get_inds_list(N_y_int, ind0)
+
     colors = _get_hm_colors(inds_list, ind0, N_y_int)
     traces = _get_hm_lines(y_intrcpt, inds_list, colors, Config.n_doses)
 

@@ -1,6 +1,6 @@
 from .config_classes import SingleConfig, GridConfig
 
-n_years = 30
+n_years = 20
 
 res_f1 = 10**(-3)
 res_f2 = 10**(-3)

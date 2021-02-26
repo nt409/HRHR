@@ -6,10 +6,10 @@ from .config import ConfigGridRun
 # which plot
 
 dose_grid_plot = False
-dose_sum_hobb_vs_me_plot = False
-dose_sum_plot = False
+dose_sum_hobb_vs_me_plot = True
+dose_sum_plot = True
 radial_plot = False
-first_year_yield_plot = True
+first_year_yield_plot = False
 
 
 # plot
@@ -26,7 +26,7 @@ if dose_grid_plot:
 if dose_sum_hobb_vs_me_plot:
     to_plot = 'FY'
     
-    ConfigGridRun.n_doses = 14
+    ConfigGridRun.n_doses = 4
     ConfigGridRun.add_string()
     conf_str = ConfigGridRun.config_string_img
 
@@ -39,14 +39,13 @@ if dose_sum_hobb_vs_me_plot:
                 conf_str)
 
 if dose_sum_plot:
-    to_plot = 'FY'
+    to_plot = 'econ'
     
-    ConfigGridRun.n_doses = 14
+    ConfigGridRun.n_doses = 5
     ConfigGridRun.add_string()
     conf_str = ConfigGridRun.config_string_img
 
     output = RunGrid().grid_of_tactics(ConfigGridRun)
-
 
     dose_sum_LR(output,
                 ConfigGridRun,

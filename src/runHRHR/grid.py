@@ -11,7 +11,7 @@ dose_grid_plot = True
 # plot
 
 if dose_grid_plot:
-    to_plot = 'FY'
+    to_plot = 'econ'
     output = RunGrid().grid_of_tactics(ConfigGridRun)
 
     conf_str = ConfigGridRun.config_string_img

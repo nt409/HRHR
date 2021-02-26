@@ -587,13 +587,15 @@ class FungicideStrategy:
 
 
     def _get_mixed_doses(self):        
+        # did half 0.5*
+        # but Hobbelen paper just says it means twice as much
         self.fung1_doses = dict(
-            spray_1 = 0.5*self.conc_f1*np.ones(self.n_seasons),
-            spray_2 = 0.5*self.conc_f1*np.ones(self.n_seasons)
+            spray_1 = self.conc_f1*np.ones(self.n_seasons),
+            spray_2 = self.conc_f1*np.ones(self.n_seasons)
             )
         self.fung2_doses = dict(
-            spray_1 = 0.5*self.conc_f2*np.ones(self.n_seasons),
-            spray_2 = 0.5*self.conc_f2*np.ones(self.n_seasons)
+            spray_1 = self.conc_f2*np.ones(self.n_seasons),
+            spray_2 = self.conc_f2*np.ones(self.n_seasons)
             )
 
 
@@ -980,6 +982,54 @@ class RunMultipleTactics:
     def _lifetime_yield(Y_vec, F_y):
         return sum(Y_vec[:(F_y+1)])/100
 
+    @staticmethod
+    def _this_year_profit(yield_, dose1, dose2):
+        
+        tons_per_ha = 10
+        
+        # £/tonne
+        price_per_ton = 117.14
+
+        # £32.40/ha for full dose (and we split this across both sprays in this model at least)
+        c1 = 32.4
+        c2 = 32.4
+
+        # £/ha other machinery costs through the year?
+        breakeven_yield = 0.95
+        
+        # if breakeven yield is 95%, then breakeven if
+        # spray full dose and obtain 95% yield
+        other_costs = tons_per_ha*price_per_ton*breakeven_yield - 20 - c1 - c2
+        
+        if dose1+dose2>0:
+            # £20 tractor costs
+            other_costs += 20
+        
+        tonnes = (yield_/100)*tons_per_ha
+        revenue = price_per_ton*tonnes
+        
+        costs = dose1*c1 + dose2*c2 + other_costs
+
+        profit = revenue - costs
+
+        # need other_costs>0.79*tons_per_ha*price_per_ton (yield without spraying)
+        
+        return profit
+
+    
+    def _economic_life(self, Y_vec, dose1, dose2):
+        total_profit = 0
+        profit = self._this_year_profit(Y_vec[0], dose1, dose2)
+        # if profit>0:
+        #     total_profit += profit
+        
+        i = 1
+        while profit>0 and i<len(Y_vec):
+            total_profit += profit
+            profit = self._this_year_profit(Y_vec[i], dose1, dose2)
+            i += 1
+        
+        return total_profit
 
     @staticmethod
     def _total_yield(Y_vec):
@@ -995,7 +1045,10 @@ class RunMultipleTactics:
 
 
     def _initialise_multi_vars(self, n_doses, n_years):
-        self.LTY, self.TY, self.FY = [np.zeros((n_doses, n_doses))]*3
+        self.LTY = np.zeros((n_doses, n_doses))
+        self.TY = np.zeros((n_doses, n_doses))
+        self.FY = np.zeros((n_doses, n_doses))
+        self.econ = np.zeros((n_doses, n_doses))
         
         self.yield_array = np.zeros((n_doses, n_doses, n_years))
         
@@ -1015,10 +1068,15 @@ class RunMultipleTactics:
     def _get_fung_strat(self, Conf):
         self.fung_strat = FungicideStrategy(Conf.strategy, Conf.n_years)
 
-    def _update_LTY_TY_FY(self, output, f1_ind, f2_ind):
+    def _update_LTY_TY_FY_econ(self, output, f1_ind, f2_ind, Conf):
+        total_dose_f1 = Conf.fung1_doses['spray_1'][0] + Conf.fung1_doses['spray_2'][0]
+        total_dose_f2 = Conf.fung2_doses['spray_1'][0] + Conf.fung2_doses['spray_2'][0]
+
         self.LTY[f1_ind,f2_ind] = self._lifetime_yield(output['yield_vec'],output['failure_year'])
         self.TY[f1_ind,f2_ind] = self._total_yield(output['yield_vec'])
+        self.econ[f1_ind, f2_ind] = self._economic_life(output['yield_vec'], total_dose_f1, total_dose_f2)        
         self.FY[f1_ind,f2_ind] = output['failure_year']
+        
 
 
     def _update_other_vars(self, output, f1_ind, f2_ind):
@@ -1042,8 +1100,8 @@ class RunMultipleTactics:
 
 
     
-    def _post_process_multi(self, output, f1_ind, f2_ind):
-        self._update_LTY_TY_FY(output, f1_ind, f2_ind)
+    def _post_process_multi(self, output, f1_ind, f2_ind, Conf):
+        self._update_LTY_TY_FY_econ(output, f1_ind, f2_ind, Conf)
         self._update_other_vars(output, f1_ind, f2_ind)
 
 
@@ -1063,7 +1121,7 @@ class RunGrid(RunMultipleTactics):
 
                 one_tact_output =  self.sing_tact.run_single_tactic(Conf)
                 
-                self._post_process_multi(one_tact_output, f1_ind, f2_ind)
+                self._post_process_multi(one_tact_output, f1_ind, f2_ind, Conf)
 
         self.t_vec = one_tact_output['t_vec']
 
@@ -1077,7 +1135,9 @@ class RunGrid(RunMultipleTactics):
                     'start_freqs': self.start_freqs,
                     'selection_arrays': self.selection_arrays,
                     'inoc_array': self.inoc_array,
-                    't_vec': self.t_vec}
+                    't_vec': self.t_vec,
+                    'econ': self.econ,
+                    }
         
         object_dump(self.filename, grid_output)
         
@@ -1159,7 +1219,7 @@ class RunDoseSpace(RunMultipleTactics):
                 self.f1_vals[i,j] = f1_val
                 self.f2_vals[i,j] = f2_val
                 
-                self._post_process_multi(one_tact_output, i, j)
+                self._post_process_multi(one_tact_output, i, j, Conf)
                 
         self.t_vec = one_tact_output['t_vec']
 
@@ -1176,7 +1236,9 @@ class RunDoseSpace(RunMultipleTactics):
                     'start_freqs': self.start_freqs,
                     'selection_arrays': self.selection_arrays,
                     'inoc_array': self.inoc_array,
-                    't_vec': self.t_vec}
+                    't_vec': self.t_vec,
+                    'econ': self.econ,
+                    }
 
         object_dump(self.filename, ds_output)
 
@@ -1244,12 +1306,18 @@ class RunRadial(RunMultipleTactics):
                 lty = self._lifetime_yield(one_tact_output['yield_vec'], one_tact_output['failure_year'])
                 ty = self._total_yield(one_tact_output['yield_vec'])
                 fy = one_tact_output['failure_year']
+                
+                total_dose_f1 = Conf.fung1_doses['spray_1'][0] + Conf.fung1_doses['spray_2'][0]
+                total_dose_f2 = Conf.fung2_doses['spray_1'][0] + Conf.fung2_doses['spray_2'][0]
+
+                econ= self._economic_life(one_tact_output['yield_vec'], total_dose_f1, total_dose_f2)
 
                 self.row_list.append(dict(d1=f1_val,
                             d2=f2_val,
                             LTY=lty,
                             TY=ty,
                             FY=fy,
+                            Econ=econ,
                             angle=angle,
                             radius=radius,
                             ))
@@ -1309,7 +1377,7 @@ class RunRfRatio(RunSingleTactic):
             rf2 = self.res_arrays['f2'][f1,f2,fy]
             
             if fy>0:
-                lrb_list.append(log10(rf1/rf2))
+                lrb_list.append(log10(rf1) - log10(rf2))
                 f1_list.append(f1)
                 f2_list.append(f2)
         

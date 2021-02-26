@@ -5,7 +5,7 @@ import pandas as pd
 from math import log2, floor, log10, pi
 
 from .plot_traces import get_RFB_diff_traces, get_eq_sel_traces, get_heatmap_lines, \
-    get_strain_freq_traces
+    get_strain_freq_traces, contour_at_0
 from .plot_utils import standard_layout, grey_colorscale, my_colorbar, invisible_colorbar
 from .plot_consts import ATTRS_DICT, LABEL_COLOR, TITLE_MAP 
 
@@ -228,8 +228,6 @@ def plot_frequencies_over_time(data, conf_str):
     Within season and between season points.
     """
     
-
-
     rf_s = data['start_of_season']
     rf_e = data['end_of_season']
 
@@ -449,7 +447,7 @@ def dose_sum_hobb_vs_me(data, Config, to_plot, conf_str):
 
     heatmap_subplot += trc_out
 
-    my_strat_traces, eq_RFB = get_RFB_diff_traces(data, z, N_y_int, inds_list, colors)
+    my_strat_traces, RBF_diff = get_RFB_diff_traces(data, z, N_y_int, inds_list, colors)
     hobb_strat_traces, eq_fy = get_eq_sel_traces(data, z, N_y_int, inds_list, colors)
     
     for trace in my_strat_traces:
@@ -458,25 +456,9 @@ def dose_sum_hobb_vs_me(data, Config, to_plot, conf_str):
     for trace in hobb_strat_traces:
         fig.add_trace(trace, row=2, col=2)
     
-    eq_contour = go.Contour(x=xheat,
-                    y=yheat,
-                    z=eq_RFB,
-                    contours=dict(start=0, end=0),
-                    contours_coloring='lines',
-                    colorscale=["blue", "blue"],
-                    line=dict(width=2, dash="dash"),
-                    colorbar=invisible_colorbar(0.42),
-                    )
+    eq_contour = contour_at_0(xheat, yheat, RBF_diff, "blue", "dash")
+    eq_fy_contour = contour_at_0(xheat, yheat, eq_fy, "black", "dot")
 
-    eq_fy_contour = go.Contour(x=xheat,
-                    y=yheat,
-                    z=eq_fy,
-                    contours=dict(start=0, end=0),
-                    contours_coloring='lines',
-                    colorscale=["black", "black"],
-                    line=dict(width=2, dash="dot"),
-                    colorbar=invisible_colorbar(0.42),
-                    )
 
     heatmap_subplot.append(eq_contour)
     heatmap_subplot.append(eq_fy_contour)
@@ -537,8 +519,8 @@ def dose_sum_hobb_vs_me(data, Config, to_plot, conf_str):
                         font=dict(size=18)
                                     )
 
-    fig.update_xaxes(title="Log ratio of resistance<br>frequencies at breakdown", row=1, col=2, showgrid=False)
-    fig.update_xaxes(title="Log ratio of selection<br>ratios after one year", row=2, col=2, showgrid=False)
+    fig.update_xaxes(title="Difference in logit of<br>resistance frequencies<br>at breakdown", row=1, col=2, showgrid=False)
+    fig.update_xaxes(title="Difference of log of<br>selection ratios<br>after one year", row=2, col=2, showgrid=False)
     fig.update_yaxes(title="Effective life", row=1, col=2)
     fig.update_yaxes(title="Effective life", row=2, col=2)
     
@@ -610,61 +592,13 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
     heatmap_subplot += trc_out
 
     
-    my_strat_traces, eq_RFB = get_RFB_diff_traces(data, z, N_y_int, inds_list, colors)
-
-    # eq_RFB = np.zeros(z.shape)
-    
-    # FY = data["FY"]
-    # for ind in range(len(y_intrcpt)):
-    #     x = []
-    #     y = []
-
-    #     for i in range(ind+1):
-            
-    #         j = ind-i
-
-    #         if i<FY.shape[0] and j<FY.shape[1]:
-    #             fy = int(FY[i,j])
-    #             print(fy)
-                
-    #             if fy>0:
-    #                 rr1 = data['res_arrays']['f1'][i,j,fy]
-    #                 rr2 = data['res_arrays']['f2'][i,j,fy]
-
-    #                 eq_RFB_breakdown = log10(rr1) - log10(rr2)
-
-    #                 x.append(eq_RFB_breakdown)
-    #                 y.append(fy)
-
-    #                 eq_RFB[j, i] = eq_RFB_breakdown
-
-    #             else:
-    #                 eq_RFB[j, i] = None
-
-    #     if not x or not (ind in inds_list):
-    #         continue
-        
-    #     myline = go.Scatter(x=x,
-    #                     y=y,
-    #                     showlegend=False,
-    #                     # name=f"Equal breakdown (dose sum): {round(y_intrcpt[ind],2)}",
-    #                     line=dict(color=colors[ind], dash="solid"))
-    #     my_strat_traces.append(myline)
+    my_strat_traces, RBF_diff = get_RFB_diff_traces(data, z, N_y_int, inds_list, colors)
     
     
     for trace in my_strat_traces:
         fig.add_trace(trace, row=1, col=1)
     
-    eq_contour = go.Contour(x=xheat,
-                    y=yheat,
-                    z=eq_RFB,
-                    contours=dict(start=0, end=0),
-                    contours_coloring='lines',
-                    colorscale=["blue", "blue"],
-                    
-                    line=dict(width=2, dash="dash"),
-                    colorbar=invisible_colorbar(0.42),
-                    )
+    eq_contour = contour_at_0(xheat, yheat, RBF_diff, "blue", "dash")
 
     heatmap_subplot.append(eq_contour)
 
@@ -719,7 +653,7 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
                         font=dict(size=20)
                                     )
 
-    fig.update_xaxes(title="Log ratio of resistance<br>frequencies at breakdown", row=1, col=1, showgrid=False)
+    fig.update_xaxes(title="Difference in logit of<br>resistance frequencies<br>at breakdown", row=1, col=1, showgrid=False)
     fig.update_yaxes(title="Effective life", row=1, col=1)
     
     # if heatmap not contour use [0-dx, 1+dx] etc

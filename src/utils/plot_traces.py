@@ -4,6 +4,19 @@ import numpy as np
 import plotly.graph_objects as go
 
 from .plot_consts import STRAIN_ATTRS
+from .plot_utils import invisible_colorbar
+
+def logit10(x):
+    if x>0 and x<1:
+        return log10(x/(1-x))
+    else:
+        raise Exception(f"x={x} - invalid value")
+
+def log10_difference(x1, x2):
+    return log10(x1) - log10(x2)
+
+def logit10_difference(x1, x2):
+    return logit10(x1) - logit10(x2)
 
 # * RFB
 
@@ -23,12 +36,12 @@ def _update_RFB_x_y(ind, data, RFB_diff):
                 rr1 = data['res_arrays']['f1'][i,j,fy]
                 rr2 = data['res_arrays']['f2'][i,j,fy]
 
-                eq_rf_breakdown = log10(rr1) - log10(rr2)
+                rf_diff_breakdown = logit10_difference(rr1, rr2)
 
-                x.append(eq_rf_breakdown)
+                x.append(rf_diff_breakdown)
                 y.append(fy)
 
-                RFB_diff[j, i] = eq_rf_breakdown
+                RFB_diff[j, i] = rf_diff_breakdown
 
             else:
                 RFB_diff[j, i] = None
@@ -71,10 +84,10 @@ def _get_sel_one_strain(data, strain, i, j):
     return y1/y0
 
 
-def get_fy_sel(data, i, j):
+def _get_fy_sel_diff(data, i, j):
     s1_y1 = _get_sel_one_strain(data, 'RS', i, j)
     s2_y1 = _get_sel_one_strain(data, 'SR', i, j)
-    return log10(s1_y1) - log10(s2_y1)
+    return log10_difference(s1_y1, s2_y1)
 
 
 
@@ -90,7 +103,7 @@ def _update_x_y_fy_sel(ind, data, FY, fy_sel):
             fy = int(FY[i,j])
             
             if fy>0:
-                fy_selection = get_fy_sel(data, i, j)
+                fy_selection = _get_fy_sel_diff(data, i, j)
 
                 x.append(fy_selection)
                 y.append(fy)
@@ -235,11 +248,11 @@ def _get_strain_freq_line(n_yr_run, key, rf_s, rf_e, season_frac):
 
     for i in range(n_yr_run):
         x.append(i)
-        y.append(log10(rf_s[key][i]/(1-rf_s[key][i])))
+        y.append(logit10(rf_s[key][i]))
 
         if i!=n_yr_run-1:
             x.append(i+season_frac)
-            y.append(log10(rf_e[key][i]/(1-rf_e[key][i])))
+            y.append(logit10(rf_e[key][i]))
     
     line = go.Scatter(x=x,
                     y=y,
@@ -255,7 +268,7 @@ def _get_strain_freq_scat(n_yr_run, key, rf_s):
     y_scat = []
     
     for i in range(n_yr_run):
-        y_scat.append(log10(rf_s[key][i]/(1-rf_s[key][i])))
+        y_scat.append(logit10(rf_s[key][i]))
 
     x_scat = list(range(len(y_scat)))
     
@@ -289,8 +302,8 @@ def _get_shape_min_max_y(rf_s, rf_e, n_yr_run, keys):
         min_ = min(np.amin(rf_s[key][:n_yr_run]), np.amin(rf_e[key][:n_yr_run]), min_)
         max_ = max(np.amax(rf_s[key][:n_yr_run]), np.amax(rf_e[key][:n_yr_run]), max_)
     
-    shape_min = log10(min_/(1-min_)) - 0.2
-    shape_max = log10(max_/(1-max_)) + 0.2
+    shape_min = logit10(min_) - 0.2
+    shape_max = logit10(max_) + 0.2
     
     return shape_min, shape_max
 
@@ -321,3 +334,15 @@ def get_strain_freq_traces(rf_s, rf_e):
     return traces
 
 # * End of Strain freq traces
+
+
+def contour_at_0(x, y, z, color, dash):
+    return go.Contour(x=x,
+                    y=y,
+                    z=z,
+                    contours=dict(start=0, end=0),
+                    contours_coloring='lines',
+                    colorscale=[color]*2,
+                    line=dict(width=2, dash=dash),
+                    colorbar=invisible_colorbar(0.42),
+                    )

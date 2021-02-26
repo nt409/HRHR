@@ -6,7 +6,7 @@ from .config import ConfigGridRun
 # which plot
 
 dose_grid_plot = False
-dose_sum_hobb_vs_me_plot = True
+dose_sum_hobb_vs_me_plot = False
 dose_sum_plot = True
 radial_plot = False
 first_year_yield_plot = False
@@ -39,9 +39,9 @@ if dose_sum_hobb_vs_me_plot:
                 conf_str)
 
 if dose_sum_plot:
-    to_plot = 'econ'
+    to_plot = 'FY'
     
-    ConfigGridRun.n_doses = 5
+    ConfigGridRun.n_doses = 9
     ConfigGridRun.add_string()
     conf_str = ConfigGridRun.config_string_img
 

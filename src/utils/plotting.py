@@ -6,8 +6,8 @@ from math import log2, floor, log10, pi
 
 from .plot_traces import get_RFB_diff_traces, get_eq_sel_traces, get_heatmap_lines, \
     get_strain_freq_traces, contour_at_0
-from .plot_utils import standard_layout, grey_colorscale, my_colorbar, invisible_colorbar
-from .plot_consts import ATTRS_DICT, LABEL_COLOR, TITLE_MAP 
+from .plot_utils import get_text_annotation, get_arrow_annotation, standard_layout, grey_colorscale, my_colorbar
+from .plot_consts import ATTRS_DICT, LABEL_COLOR, PLOT_HEIGHT, TITLE_MAP, PLOT_WIDTH
 
 # TOC
 # Single Tactic
@@ -31,14 +31,35 @@ def yield_by_year(data, conf_str):
     line = go.Scatter(
         x = x,
         y = y,
+        line = dict(color="green"),
     )
 
+    y_low = y[-1]-2
+    
+    annotz = [dict(
+        xref="x1",
+        yref="y1",
+        x=10,
+        y=0.5*(95+y_low),
+        text="Unacceptable yield",
+        showarrow=False,
+        )]
+    
+    shape = go.Scatter(x=[0, 0, x[-1], x[-1]],
+                        y=[y_low, 95, 95, y_low],
+                        fill="toself",
+                        mode="lines",
+                        showlegend=False,
+                        line=dict(width=0, color="rgb(150,150,150)"))
+    
     traces.append(line)
+    traces.append(shape)
 
     fig = go.Figure(data=traces, layout=standard_layout(False))
+    fig.update_layout(annotations=annotz)
 
     fig.update_xaxes(title="Year")
-    fig.update_yaxes(title="Yield")
+    fig.update_yaxes(title="Yield<br>(% of disease free)")
 
     fig.show()
     filename = conf_str.replace("/single/", "/single/yield_by_year/")
@@ -89,7 +110,7 @@ def single_year_plot(data, indices, conf_str):
             x = x,
             y = y,
             name = ATTRS_DICT[str(ind)]['name'],
-            line = dict(color=ATTRS_DICT[str(ind)]['colour'])
+            line = dict(color=ATTRS_DICT[str(ind)]['colour'], dash=ATTRS_DICT[str(ind)]['dash'])
         )
 
         traces.append(line)
@@ -98,9 +119,18 @@ def single_year_plot(data, indices, conf_str):
 
     fig.update_xaxes(title="Time (degree-days)")
     fig.update_yaxes(title="Amount")
+    
+    if 15 in indices:
+        fig.update_layout(legend=dict(x=0.5, y=0.85))
+    elif 0 in indices:
+        fig.update_layout(legend=dict(x=0.2, y=0.55))
+    else:
+        fig.update_layout(legend=dict(x=0.01, y=0.95))
+    
+    fig.update_layout(width=PLOT_WIDTH*(2/3), height=PLOT_HEIGHT)
 
     fig.show()
-    filename = conf_str.replace("/single/", "/single/within_season/")
+    filename = conf_str.replace("/single/", "/single/within_season/plot" + "".join(str(e) for e in indices))
     fig.write_image(filename)
 
 
@@ -239,7 +269,8 @@ def plot_frequencies_over_time(data, conf_str):
     fig.update_yaxes(title="Frequency (logit scale)")
     
     fig.update_layout(legend=dict(x=0.07,
-                        y=0.8,
+                        y=1,
+                        orientation="h",
                         font=dict(size=18),
                         bgcolor="rgba(255,255,255,0.5)"))
 
@@ -296,34 +327,39 @@ def SR_by_dose_plot(data, conf_str):
     
     annotz = []
     
-    for text, show_arr, y_pos in zip(['Increasing<br>resistance<br>frequency', ''],
-                                    [False, True],
-                                    [0.94, 0.82],
-                                    ):
-        annotz.append(dict(x=1,
-                y=y_pos,
-                text=text,
-                showarrow=show_arr,
+    # for text, show_arr, y_pos in zip(['Increasing<br>resistance<br>frequency', ''],
+    #                                 [False, True],
+    #                                 [0.94, 0.82],
+    #                                 ):
+    #     annotz.append(dict(x=1,
+    #             y=y_pos,
+    #             text=text,
+    #             showarrow=show_arr,
                 
-                xref='paper',
-                yref='paper',
-                arrowcolor=LABEL_COLOR,
-                arrowsize=2,
-                arrowwidth=1,
-                arrowhead=2,
-                # arrowside="start",
+    #             xref='paper',
+    #             yref='paper',
+    #             arrowcolor=LABEL_COLOR,
+    #             arrowsize=2,
+    #             arrowwidth=1,
+    #             arrowhead=2,
+    #             # arrowside="start",
                 
-                ax=0,
-                ay=380,
+    #             ax=0,
+    #             ay=380,
                 
-                xanchor="center",
-                yanchor="top",
+    #             xanchor="center",
+    #             yanchor="top",
 
-                font=dict(
-                        size=14,
-                        color=LABEL_COLOR,
-                    ),
-                ))
+    #             font=dict(
+    #                     size=14,
+    #                     color=LABEL_COLOR,
+    #                 ),
+    #             ))
+
+    text = get_text_annotation(1, 0.94, 'Increasing<br>resistance<br>frequency')
+    arrow = get_arrow_annotation(1, 0.82, 0, 380)
+    
+    annotz += [text, arrow]
 
     fig = go.Figure(data=traces, layout=standard_layout(True))
                     
@@ -357,7 +393,7 @@ def fcide_grid(x, y, z, filename, labels):
 
     fig = go.Figure(data=traces, layout=standard_layout(False))
 
-    fig.update_layout(width=660, height=600)
+    fig.update_layout(width=PLOT_WIDTH, height=PLOT_WIDTH - 50)
 
     fig.update_xaxes(title=labels['x'])
     fig.update_yaxes(title=labels['y'])
@@ -389,7 +425,7 @@ def dose_grid_heatmap(data, Config, to_plot, conf_str):
 
     fig = go.Figure(data=traces, layout=standard_layout(False))
 
-    fig.update_layout(width=660, height=600)
+    fig.update_layout(width=PLOT_WIDTH, height=PLOT_WIDTH - 50)
 
     fig.update_xaxes(title="Dose (fungicide A)")
     fig.update_yaxes(title="Dose (fungicide B)")
@@ -413,7 +449,8 @@ def dose_sum_hobb_vs_me(data, Config, to_plot, conf_str):
     yheat = np.linspace(0, 1, Config.n_doses)
 
     z = np.transpose(data[to_plot])
-
+    
+    # for legend
     for name_, clr, dash_ in zip(["Equal resistance<br>at breakdown", 
                                         "First year selection"],
                                 ["blue", "black"],
@@ -471,56 +508,35 @@ def dose_sum_hobb_vs_me(data, Config, to_plot, conf_str):
 
     annotz = []
 
-    for x_pos, y_pos, text, show_arr, arrow_length in zip(
-            [0.58, 1.02, 0.96, 0.64],
-            [-0.025, -0.025, -0.04, -0.04],
-            ['More resistance<br>to f. B', 'More resistance<br>to f. A', '', ''],
-            [False, False, True, True],
-            [None, None, -200, 200]):
-        annotz.append(dict(
-            x=x_pos,
-            y=y_pos,
-            text=text,
-
-            showarrow=show_arr,
-            arrowcolor=LABEL_COLOR,
-            arrowsize=2,
-            arrowwidth=1,
-            arrowhead=2,
-            
-            ax=arrow_length,
-            ay=0,
-                
-            xref='paper',
-            yref='paper',
-
-            xanchor="center",
-            yanchor="top",
-
-            font=dict(
-                    size=14,
-                    color=LABEL_COLOR,
-                ),
-        ))
+    annot1 = get_text_annotation(0.58, -0.025, 'More selection<br>for f. B')
+    annot2 = get_text_annotation(1.02, -0.025, 'More selection<br>for f. A')
+    arrow1 = get_arrow_annotation(0.96, -0.04, -200, 0)
+    arrow2 = get_arrow_annotation(0.64, -0.04,  200, 0)
+    
+    annot1b = get_text_annotation(0.58,  0.55, 'More resistance<br>to f. B')
+    annot2b = get_text_annotation(1.02,  0.55, 'More resistance<br>to f. A')
+    arrow1b = get_arrow_annotation(0.96, 0.535, -200, 0)
+    arrow2b = get_arrow_annotation(0.64, 0.535,  200, 0)
+    
+    annotz += [annot1, annot2, arrow1, arrow2, annot1b, annot2b, arrow1b, arrow2b]
 
 
     fig.update_layout(standard_layout(True))
-    fig.update_layout(width=1200, 
-                        height=1150,
+    fig.update_layout(width=2*PLOT_WIDTH, 
+                        height=2*PLOT_WIDTH - 50,
                         annotations=annotz,
                         legend=dict(
                                     x=0.25,
-                                    # x=1.2,
                                     y=0.25,
                                     yanchor="middle",
                                     xanchor="center",
-                                    font=dict(size=14)
+                                    font=dict(size=18)
                                     ),
                         font=dict(size=18)
                                     )
 
-    fig.update_xaxes(title="Difference in logit of<br>resistance frequencies<br>at breakdown", row=1, col=2, showgrid=False)
-    fig.update_xaxes(title="Difference of log of<br>selection ratios<br>after one year", row=2, col=2, showgrid=False)
+    fig.update_xaxes(title="Difference in logit of<br>res. freqs. at breakdown", row=1, col=2, showgrid=False)
+    fig.update_xaxes(title="Difference of log of<br>selection ratios after one year", row=2, col=2, showgrid=False)
     fig.update_yaxes(title="Effective life", row=1, col=2)
     fig.update_yaxes(title="Effective life", row=2, col=2)
     
@@ -607,42 +623,49 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
     
     annotz = []
 
-    for x_pos, y_pos, text, show_arr, arrow_length in zip(
-            [0, 0.4, 0.34, 0.06],
-            [-0.06, -0.06, -0.08, -0.08],
-            ['More resistance<br>to f. B', 'More resistance<br>to f. A', '', ''],
-            [False, False, True, True],
-            [None, None, -200, 200]):
-        annotz.append(dict(
-            x=x_pos,
-            y=y_pos,
-            text=text,
+    # for x_pos, y_pos, text, show_arr, arrow_length in zip(
+    #         [0, 0.4, 0.34, 0.06],
+    #         [-0.06, -0.06, -0.08, -0.08],
+    #         ['More resistance<br>to f. B', 'More resistance<br>to f. A', '', ''],
+    #         [False, False, True, True],
+    #         [None, None, -200, 200]):
+    #     annotz.append(dict(
+    #         x=x_pos,
+    #         y=y_pos,
+    #         text=text,
 
-            showarrow=show_arr,
-            arrowcolor=LABEL_COLOR,
-            arrowsize=2,
-            arrowwidth=1,
-            arrowhead=2,
+    #         showarrow=show_arr,
+    #         arrowcolor=LABEL_COLOR,
+    #         arrowsize=2,
+    #         arrowwidth=1,
+    #         arrowhead=2,
             
-            ax=arrow_length,
-            ay=0,
+    #         ax=arrow_length,
+    #         ay=0,
                 
-            xref='paper',
-            yref='paper',
+    #         xref='paper',
+    #         yref='paper',
 
-            xanchor="center",
-            yanchor="top",
+    #         xanchor="center",
+    #         yanchor="top",
 
-            font=dict(
-                    size=14,
-                    color=LABEL_COLOR,
-                ),
-        ))
+    #         font=dict(
+    #                 size=14,
+    #                 color=LABEL_COLOR,
+    #             ),
+    #     ))
+
+    annot1 = get_text_annotation(0, -0.06, 'More resistance<br>to f. B')
+    annot2 = get_text_annotation(0.4, -0.06, 'More resistance<br>to f. A')
+    arrow1 = get_arrow_annotation(0.34, -0.08, -200, 0)
+    arrow2 = get_arrow_annotation(0.06, -0.08,  200, 0)
+    
+    annotz += [annot1, annot2, arrow1, arrow2]
 
 
     fig.update_layout(standard_layout(True))
-    fig.update_layout(width=1360, 
-                        height=650,
+    fig.update_layout(width=2*PLOT_WIDTH, 
+                        height=PLOT_WIDTH - 50,
                         annotations=annotz,
                         legend=dict(
                                     x=0.36,
@@ -697,7 +720,7 @@ def dose_space_contour(data, to_plot, conf_str):
 
     fig = go.Figure(data=traces, layout=standard_layout(False))
 
-    fig.update_layout(width=660, height=600)
+    fig.update_layout(width=PLOT_WIDTH, height=PLOT_WIDTH-50)
 
     spaces = max(floor(len(x)/5),1)
     xticks = x[0:len(x):spaces]
@@ -778,41 +801,47 @@ def radial(radial_data, grid_data, Config):
     
     annotz = []
 
-    for x_pos, y_pos, text, show_arr, arrow_length in zip(
-            [0.4, 0.34],
-            [-0.055, -0.08],
-            ['Stronger fungicide<br>mixture', ''],
-            [False, True],
-            [None, -200]):
-        annotz.append(dict(
-            x=x_pos,
-            y=y_pos,
-            text=text,
+    # for x_pos, y_pos, text, show_arr, arrow_length in zip(
+    #         [0.4, 0.34],
+    #         [-0.055, -0.08],
+    #         ['Stronger fungicide<br>mixture', ''],
+    #         [False, True],
+    #         [None, -200]):
+    #     annotz.append(dict(
+    #         x=x_pos,
+    #         y=y_pos,
+    #         text=text,
 
-            showarrow=show_arr,
-            arrowcolor=LABEL_COLOR,
-            arrowsize=2,
-            arrowwidth=1,
-            arrowhead=2,
+    #         showarrow=show_arr,
+    #         arrowcolor=LABEL_COLOR,
+    #         arrowsize=2,
+    #         arrowwidth=1,
+    #         arrowhead=2,
             
-            ax=arrow_length,
-            ay=0,
+    #         ax=arrow_length,
+    #         ay=0,
                 
-            xref='paper',
-            yref='paper',
+    #         xref='paper',
+    #         yref='paper',
 
-            xanchor="center",
-            yanchor="top",
+    #         xanchor="center",
+    #         yanchor="top",
 
-            font=dict(
-                    size=14,
-                    color=LABEL_COLOR,
-                ),
-        ))
+    #         font=dict(
+    #                 size=14,
+    #                 color=LABEL_COLOR,
+    #             ),
+    #     ))
+    
+    annot1 = get_text_annotation(0.4, -0.055, 'Stronger fungicide<br>mixture')
+    arrow1 = get_arrow_annotation(0.34, -0.08, -200, 0)
+    
+    annotz += [annot1, arrow1]
+
 
     fig.update_layout(standard_layout(True))
-    fig.update_layout(width=1360,
-                        height=650,
+    fig.update_layout(width=2*PLOT_WIDTH,
+                        height=2*PLOT_WIDTH - 50,
                         legend=dict(x=0.35,
                                     y=0.2,
                                     yanchor="middle",
@@ -863,7 +892,7 @@ def first_year_yield(data, Config):
 
     fig = go.Figure(data=traces, layout=standard_layout(False))
 
-    fig.update_layout(width=660, height=600)
+    fig.update_layout(width=PLOT_WIDTH, height=PLOT_WIDTH-50)
 
     fig.update_xaxes(title="Dose (fungicide A)",
         showgrid=False)
@@ -911,8 +940,8 @@ def dose_grid_heatmap_with_contours(data, Config, contours, conf_str):
 
     fig = go.Figure(data=traces, layout=standard_layout(True))
 
-    fig.update_layout(width=760, 
-                    height=600,
+    fig.update_layout(width=PLOT_WIDTH, 
+                    height=PLOT_WIDTH-50,
                     legend=dict(x=1.25,
                                 y=1,
                                 yanchor="top",
@@ -952,8 +981,8 @@ def outcomes_by_ratio(data, conf_str):
     
     fig = go.Figure(data=traces, layout=standard_layout(True))
 
-    fig.update_layout(width=1000,
-                    height=600,
+    fig.update_layout(width=2*PLOT_WIDTH,
+                    height=PLOT_WIDTH,
                     legend=dict(x=0.3,
                                 y=1,
                                 yanchor="top",

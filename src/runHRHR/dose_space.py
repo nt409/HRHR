@@ -6,8 +6,8 @@ from .config import ConfigGridRun
 # which plot
 
 dose_grid_plot = False
-dose_sum_hobb_vs_me_plot = False
-dose_sum_plot = True
+dose_sum_hobb_vs_me_plot = True
+dose_sum_plot = False
 radial_plot = False
 first_year_yield_plot = False
 
@@ -26,7 +26,12 @@ if dose_grid_plot:
 if dose_sum_hobb_vs_me_plot:
     to_plot = 'FY'
     
-    ConfigGridRun.n_doses = 4
+    ConfigGridRun.n_doses = 20
+    ConfigGridRun.res_props = dict(
+            f1 = 10**(-3),
+            f2 = 10**(-7)
+            )
+
     ConfigGridRun.add_string()
     conf_str = ConfigGridRun.config_string_img
 
@@ -37,6 +42,7 @@ if dose_sum_hobb_vs_me_plot:
                 ConfigGridRun,
                 to_plot,
                 conf_str)
+
 
 if dose_sum_plot:
     to_plot = 'FY'

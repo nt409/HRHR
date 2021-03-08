@@ -375,8 +375,10 @@ class Simulator:
     
     def _final_value_res_props(self):
 
-        disease = (self.solution[-1,PARAMS.IR_ind] + self.solution[-1,PARAMS.IRS_ind]
-                         + self.solution[-1,PARAMS.ISR_ind] + self.solution[-1,PARAMS.IS_ind])
+        disease = (self.solution[-1,PARAMS.IR_ind] + 
+                        self.solution[-1,PARAMS.IRS_ind] +
+                        self.solution[-1,PARAMS.ISR_ind] + 
+                        self.solution[-1,PARAMS.IS_ind])
             
         Res_disease_1 = self.solution[-1,PARAMS.IR_ind] + self.solution[-1,PARAMS.IRS_ind]
         Res_disease_2 = self.solution[-1,PARAMS.IR_ind] + self.solution[-1,PARAMS.ISR_ind]
@@ -907,7 +909,7 @@ class RunSingleTactic:
         res_prop_1_end = output['props_out']['RR'] + output['props_out']['RS']
         res_prop_2_end = output['props_out']['RR'] + output['props_out']['SR']
 
-        # get next year's primary inoc - after SR step
+        # get next year's primary inoc - including SR step
         self.strain_freqs = self._primary_calculator(
                                 Config,
                                 res_prop_1_end,
@@ -990,9 +992,9 @@ class RunMultipleTactics:
         # £/tonne
         price_per_ton = 117.14
 
-        # £32.40/ha for full dose (and we split this across both sprays in this model at least)
-        c1 = 32.4
-        c2 = 32.4
+        # £32.40/ha for full dose, and two applications
+        c1 = 2*32.4
+        c2 = 2*32.4
 
         # £/ha other machinery costs through the year?
         breakeven_yield = 0.95

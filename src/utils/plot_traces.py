@@ -257,7 +257,7 @@ def _get_strain_freq_line(n_yr_run, key, rf_s, rf_e, season_frac):
     line = go.Scatter(x=x,
                     y=y,
                     mode="lines",
-                    name=STRAIN_ATTRS[key]['longname'],
+                    name=STRAIN_ATTRS[key]['abbrv'],
                     line=dict(color=STRAIN_ATTRS[key]['color'],
                             dash=STRAIN_ATTRS[key]['dash'])
                     )
@@ -274,9 +274,7 @@ def _get_strain_freq_scat(n_yr_run, key, rf_s):
     
     scatter = go.Scatter(x=x_scat,
                     y=y_scat, 
-                    name=STRAIN_ATTRS[key]['longname'],
-                    line=dict(color=STRAIN_ATTRS[key]['color'],
-                            dash=STRAIN_ATTRS[key]['dash']),
+                    line=dict(color=STRAIN_ATTRS[key]['color']),
                     showlegend=False,
                     mode="markers",
                     )
@@ -291,7 +289,7 @@ def _get_strain_freq_shape(n_yr_run, season_frac, shape_min, shape_max):
                         fill="toself",
                         mode="lines",
                         showlegend=False,
-                        line=dict(width=0, color="rgb(230,250,255)")))
+                        line=dict(width=0, color="rgb(200,200,255)")))
     return shapes
 
 
@@ -328,7 +326,7 @@ def get_strain_freq_traces(rf_s, rf_e):
         
         traces.append(line)
         traces.append(scatter)
-
+    
     traces = shapes + traces
     
     return traces

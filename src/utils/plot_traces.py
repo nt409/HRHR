@@ -1,22 +1,11 @@
 
-from math import log10, ceil
+from math import ceil
 import numpy as np
 import plotly.graph_objects as go
 
-from .plot_consts import STRAIN_ATTRS
-from .plot_utils import invisible_colorbar
-
-def logit10(x):
-    if x>0 and x<1:
-        return log10(x/(1-x))
-    else:
-        raise Exception(f"x={x} - invalid value")
-
-def log10_difference(x1, x2):
-    return log10(x1) - log10(x2)
-
-def logit10_difference(x1, x2):
-    return logit10(x1) - logit10(x2)
+from .plot_consts import STRAIN_ATTRS, TITLE_MAP
+from .plot_utils import invisible_colorbar, my_colorbar, grey_colorscale
+from .functions import logit10, log10_difference, logit10_difference
 
 # * RFB
 
@@ -140,20 +129,23 @@ def get_eq_sel_traces(data, z, N_y_int, inds_list, colors):
 
 # * Heatmap lines
 
-def _get_hm_line_col(ind, y_int_N, ind0):
+def _get_hm_line_col(ind, min_ind, max_ind):
     mn = 0
     mx = 220
 
-    clr = mn + (mx-mn)* (ind - 1 - ind0)/(y_int_N - ind0 - 1)
+    clr = mn + (mx-mn)* (ind - min_ind - 1)/(max_ind - min_ind - 1)
     
     return f"rgba({255-clr},{0},{255-clr},0.8)"
 
-def _get_hm_colors(inds_list, ind0, N_y_int):
+def _get_color_range(inds_list):
     colors = {}
+
+    ind_min = min(inds_list)
+    ind_max = max(inds_list)
     
     for ind in inds_list:
 
-        colors[ind] = _get_hm_line_col(ind, N_y_int, ind0)
+        colors[ind] = _get_hm_line_col(ind, ind_min, ind_max)
     
     return colors
 
@@ -231,7 +223,7 @@ def get_heatmap_lines(Config, z, y_intrcpt):
     ind0 = _get_ind0(N_y_int, z)
     inds_list = _get_inds_list(N_y_int, ind0)
 
-    colors = _get_hm_colors(inds_list, ind0, N_y_int)
+    colors = _get_color_range(inds_list)
     traces = _get_hm_lines(y_intrcpt, inds_list, colors, Config.n_doses)
 
     return traces, colors, inds_list
@@ -344,3 +336,223 @@ def contour_at_0(x, y, z, color, dash):
                     line=dict(width=2, dash=dash),
                     colorbar=invisible_colorbar(0.42),
                     )
+
+
+# Eq RFB contours
+
+def _multi_contours(x, y, z, cont_list, colors):
+    out = []
+
+    for i in range(len(cont_list)):
+        color = colors[i]
+
+        out.append(go.Contour(x=x,
+                    y=y,
+                    z=z,
+                    contours=dict(start=cont_list[i],
+                        end=cont_list[i],
+                        showlabels = True,
+                        ),
+                    contours_coloring='lines',
+                    colorscale=[color]*2,
+                    line=dict(width=2, dash="solid"),
+                    colorbar=invisible_colorbar(0.42),
+                    ))
+    return out
+
+
+def get_multi_contour_traces(data, Config):
+    cont_list = [-4, -1, -0.1, 0, 0.1, 1]
+    
+    xheat = np.linspace(0, 1, Config.n_doses)
+    yheat = np.linspace(0, 1, Config.n_doses)
+    z = np.transpose(data["FY"])
+    
+    traces = []
+    
+    clrbar = my_colorbar(TITLE_MAP["FY"])
+    
+    heatmap = go.Contour(
+        x = xheat,
+        y = yheat,
+        z = z,
+        colorscale=grey_colorscale(z),
+        colorbar=clrbar
+    )
+    
+    traces.append(heatmap)
+
+    colors = _get_color_range(list(range(len(cont_list))))
+
+    N_y_int = 2*Config.n_doses-1
+    _, RBF_diff = get_RFB_diff_traces(data, z, N_y_int, [], colors)
+    
+    traces += _multi_contours(xheat, yheat, RBF_diff, cont_list, colors)
+    
+    return traces
+
+# End of RFB contours
+
+# MRFB contours
+
+def _add_contour_lines(contours, names, colors):
+    
+    out = []
+    for i, cont in enumerate(contours):
+        line = go.Scatter(x=cont[0],
+                    y=cont[1],
+                    name=names[i],
+                    line=dict(color=colors[i]),
+                    mode="lines+markers")
+        out.append(line)
+    return out
+
+
+def get_MRFB_contour_traces(grid, contours, names, Config):
+    
+    xheat = np.linspace(0, 1, Config.n_doses)
+    yheat = np.linspace(0, 1, Config.n_doses)
+    z = np.transpose(grid["FY"])
+    
+    clrbar = my_colorbar(TITLE_MAP["FY"])
+    
+    heatmap = go.Heatmap(
+        x = xheat,
+        y = yheat,
+        z = z,
+        colorscale=grey_colorscale(z),
+        colorbar=clrbar
+        )
+    
+    traces = [heatmap]
+
+    colors = _get_color_range(list(range(len(names))))
+    
+    traces += _add_contour_lines(contours, names, colors)
+
+    return traces
+
+# End of MRFB contours
+
+
+# MS_RFB_scatter
+def _get_MS_RFB_FY_df(data, ind):
+    rfb_list = []
+    ms_list = []
+    fy_list = []
+
+    FY = data["FY"]
+            
+    for i in range(ind):
+        j = ind - i - 1
+
+        if i<FY.shape[0] and j<FY.shape[1]:
+            fy = int(FY[i,j])
+            
+            if fy>0:
+                rr1 = data['res_arrays']['f1'][i,j,fy]
+                rr2 = data['res_arrays']['f2'][i,j,fy]
+
+                rf_diff_breakdown = logit10_difference(rr1, rr2)
+
+                rfb_list.append(rf_diff_breakdown)
+                fy_list.append(fy)
+                ms_list.append(2*ind/(2*FY.shape[0]-1))
+
+    return rfb_list, ms_list, fy_list
+
+
+
+
+def _get_clr(x, limits, colors):
+    if x>=limits[-1]:
+        out = colors[-1]
+    elif x>=limits[-2] and x<limits[-1]:
+        out = colors[-2]
+    elif x>=limits[-3] and x<limits[-2]:
+        out = colors[-3]
+    elif x>=limits[-4] and x<limits[-3]:
+        out = colors[-4]
+    else:
+        out = colors[-5]
+    return out
+
+
+def _color_map(lst, limits, colors):
+    out = [""]*len(lst)
+    
+    for i in range(len(lst)):
+        out[i] = _get_clr(lst[i], limits, colors)
+
+    
+    return out
+
+
+def _get_legend_trace(col, name):
+    return go.Scatter(x=[0],
+                        y=[2.5],
+                        marker=dict(color=col),
+                        name=name,
+                        mode="markers",
+                        )
+
+def _get_legend_traces(colors, limits):
+    
+    traces = []
+    for i in range(1,len(limits)+1):
+        
+        # if i==0:
+            # name = f"EL<{str(int(limits[i]))}"
+        if i==len(limits):
+            name = "EL" + u"\u2265" + f"{str(int(limits[i-1]))}"
+        else:
+            name = f"{str(int(limits[i-1]))}" + u"\u2264" +  f"EL<{str(int(limits[i]))}"
+
+        traces.append(
+        _get_legend_trace(colors[i], name)
+        )
+        
+    return traces
+
+
+def get_MS_RFB_traces(data):
+    
+    FY = data["FY"]
+    N_lim = ceil(0.5*(1+np.amax(FY)-np.amin(FY[FY>0])))
+    limits = np.linspace(np.amin(FY[FY>0]), np.amax(FY), N_lim)
+    
+    # how many points?
+    # pos = np.sum(np.array(FY) > 0, axis=0)
+    # print(sum(pos))
+
+    
+    # colors = ["rgb(0,0,0)",
+    #         "rgb(100,100,100)",
+    #         "rgb(200,200,200)",
+    #         "orange",
+    #         "red",
+    #         "blue"]
+
+    clrs = _get_color_range(list(range(len(limits)+1)))
+    colors = [clrs[key] for key in clrs.keys()]
+
+    colors[-3:] = ['orange', 'red', 'blue']
+
+    traces = []
+    
+    N = 2*FY.shape[0]
+
+    for i in range(N):
+        rfb_list, ms_list, fy_list = _get_MS_RFB_FY_df(data, i)
+        if rfb_list:
+            traces.append(go.Scatter(x=rfb_list,
+                    y=ms_list,
+                    marker=dict(color=_color_map(fy_list, limits, colors)),
+                    mode="markers",
+                    showlegend=False,
+                    ))
+    
+    traces += _get_legend_traces(colors, limits)
+
+    return traces
+    

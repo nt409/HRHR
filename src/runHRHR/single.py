@@ -10,9 +10,9 @@ from .config_classes import SingleConfig
 yield_single = False
 res_freqs_single = False
 yield_res_freqs = False
-single_year = True
+single_year = False
 freq_bar_plot = False
-freq_time_plot = False
+freq_time_plot = True
 
 # run
 bools = [res_freqs_single, freq_bar_plot]

@@ -18,6 +18,7 @@ if rf_ratio:
     conf_str = ConfigGridRun.config_string_img
     dose_grid_heatmap_with_contours(grid, ConfigGridRun, contours, conf_str)
 
+
 if compare_contours:
     ratio_list = [10**(i) for i in [-4, -3, -2, -1, 0, 1, 2, 3, 4]]
 

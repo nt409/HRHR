@@ -5,9 +5,11 @@ import pandas as pd
 from math import log2, floor, log10, pi
 
 from .plot_traces import get_RFB_diff_traces, get_eq_sel_traces, get_heatmap_lines, \
-    get_strain_freq_traces, contour_at_0
-from .plot_utils import get_text_annotation, get_arrow_annotation, standard_layout, grey_colorscale, my_colorbar
-from .plot_consts import ATTRS_DICT, LABEL_COLOR, PLOT_HEIGHT, TITLE_MAP, PLOT_WIDTH
+    get_strain_freq_traces, contour_at_0, get_multi_contour_traces, \
+    get_MRFB_contour_traces, get_MS_RFB_traces
+from .plot_utils import get_text_annotation, get_arrow_annotation, standard_layout, \
+    grey_colorscale, my_colorbar
+from .plot_consts import ATTRS_DICT, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT
 
 # TOC
 # Single Tactic
@@ -325,46 +327,18 @@ def SR_by_dose_plot(data, conf_str):
 
         traces.append(line)
     
-    annotz = []
     
-    # for text, show_arr, y_pos in zip(['Increasing<br>resistance<br>frequency', ''],
-    #                                 [False, True],
-    #                                 [0.94, 0.82],
-    #                                 ):
-    #     annotz.append(dict(x=1,
-    #             y=y_pos,
-    #             text=text,
-    #             showarrow=show_arr,
-                
-    #             xref='paper',
-    #             yref='paper',
-    #             arrowcolor=LABEL_COLOR,
-    #             arrowsize=2,
-    #             arrowwidth=1,
-    #             arrowhead=2,
-    #             # arrowside="start",
-                
-    #             ax=0,
-    #             ay=380,
-                
-    #             xanchor="center",
-    #             yanchor="top",
 
-    #             font=dict(
-    #                     size=14,
-    #                     color=LABEL_COLOR,
-    #                 ),
-    #             ))
-
-    text = get_text_annotation(1, 0.94, 'Increasing<br>resistance<br>frequency')
-    arrow = get_arrow_annotation(1, 0.82, 0, 380)
+    text = get_text_annotation(1.05, 1.1, 'Increasing<br>resistance<br>frequency')
+    arrow = get_arrow_annotation(1.05, 0.78, 0, 150)
     
-    annotz += [text, arrow]
+    annotz = [text, arrow]
 
     fig = go.Figure(data=traces, layout=standard_layout(True))
                     
-    fig.update_layout(legend=dict(x=0.05, y=1, 
-                        bgcolor='rgba(255,255,255,0.5)'),
+    fig.update_layout(legend=dict(x=0.02, y=1.15, 
+                        bgcolor='rgba(255,255,255,0.5)',
+                        font=dict(size=14)),
                     annotations=annotz)
 
     fig.update_xaxes(title="Dose")
@@ -432,6 +406,36 @@ def dose_grid_heatmap(data, Config, to_plot, conf_str):
 
     fig.show()
     filename = conf_str.replace("/grid/", f"/grid/dose_grid/{to_plot}")
+    fig.write_image(filename)
+
+def dose_grid_RA_heatmap(data, Config, conf_str, yr):
+    traces = []
+    
+    x = np.linspace(0, 1, Config.n_doses)
+    y = np.linspace(0, 1, Config.n_doses)
+
+    z = np.transpose(data["res_arrays"]["f2"][:,:,yr])
+
+    trace = go.Contour(
+        x = x,
+        y = y,
+        z = z,
+        colorbar=my_colorbar("Res. f. B"),
+        # colorscale= [(0,"yellow"), (1,"red")],
+        # range_color=[0,1]
+    )
+
+    traces.append(trace)
+
+    fig = go.Figure(data=traces, layout=standard_layout(False))
+
+    fig.update_layout(width=PLOT_WIDTH, height=PLOT_WIDTH - 50)
+
+    fig.update_xaxes(title="Dose (fungicide A)")
+    fig.update_yaxes(title="Dose (fungicide B)")
+
+    fig.show()
+    filename = conf_str.replace("/grid/", f"/grid/dose_grid/res_array_{yr}")
     fig.write_image(filename)
 
 
@@ -905,6 +909,87 @@ def first_year_yield(data, Config):
     conf_str = Config.config_string_img
     filename = conf_str.replace("/grid/", "/dose_space/first_year_yield/")
     fig.write_image(filename)
+
+
+def eq_RFB_contours(data, Config):
+    
+    traces = get_multi_contour_traces(data, Config)
+
+    fig = go.Figure(data=traces, layout=standard_layout(False))
+
+    fig.update_layout(width=PLOT_WIDTH, height=PLOT_WIDTH-50)
+    # dy = 0.5*(1/(-1+z.shape[0]))
+    dx = 0.01
+    dy = 0.01
+
+    fig.update_xaxes(title="Dose (fungicide A)",
+        range=[0-dx,1+dx],
+        showgrid=False)
+
+    fig.update_yaxes(title="Dose (fungicide B)",
+        range=[0-dy,1+dy],
+        showgrid=False)
+
+    fig.show()
+    conf_str = Config.config_string_img
+    filename = conf_str.replace("/grid/", "/dose_space/eq_RFB_contours/")
+    fig.write_image(filename)
+
+
+def multi_RFB_contours(grid, contours, names, Config):
+    traces = get_MRFB_contour_traces(grid, contours, names, Config)
+
+    fig = go.Figure(data=traces, layout=standard_layout(True))
+
+    fig.update_layout(width=PLOT_WIDTH, height=PLOT_WIDTH-50)
+
+    fig.update_layout(legend=dict(orientation="h", x=0.5, y=1, yanchor="bottom", xanchor="center"))
+    
+    dx = 0.01
+    dy = 0.01
+
+    fig.update_xaxes(title="Dose (fungicide A)",
+        range=[0-dx,1+dx],
+        showgrid=False)
+
+    fig.update_yaxes(title="Dose (fungicide B)",
+        range=[0-dy,1+dy],
+        showgrid=False)
+
+    fig.show()
+    conf_str = Config.config_string_img
+    filename = conf_str.replace("/grid/", "/dose_space/multi_RFB_contours/")
+    fig.write_image(filename)
+
+
+
+def MS_RFB_scatter_plot(data, Config):
+
+    traces = get_MS_RFB_traces(data)
+
+    fig = go.Figure(data=traces, layout=standard_layout(True))
+
+    fig.update_layout(width=PLOT_WIDTH, height=PLOT_WIDTH-50)
+
+    fig.update_layout(legend=dict(x=1.05,
+                            y=1.1,
+                            yanchor="top",
+                            xanchor="right",
+                            font=dict(size=16),
+                            # bgcolor="rgba(255,255,255,0.5)"
+                            ))
+    
+
+    fig.update_xaxes(title=u"\u0394" + "<i><sub>RFB</sub></i>")
+    fig.update_yaxes(title="Dose sum", range=[0.3, 2.04])
+
+    fig.show()
+    conf_str = Config.config_string_img
+    filename = conf_str.replace("/grid/", "/dose_space/MS_RFB_scatter_plot/")
+    fig.write_image(filename)
+
+
+
 
 # End of Dose space
 

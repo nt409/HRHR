@@ -1,82 +1,162 @@
-from utils.functions import RunDoseSpace, RunGrid, RunRadial
-from utils.plotting import dose_space_contour, radial, \
-    dose_sum_LR, dose_sum_hobb_vs_me, first_year_yield
+from utils.functions import RunDoseSpace, RunGrid, RunRadial, RunRfRatio
+from utils.plotting import dose_space_contour, eq_RFB_contours, radial, \
+    dose_sum_LR, dose_sum_hobb_vs_me, first_year_yield, multi_RFB_contours, \
+    MS_RFB_scatter_plot
 from .config import ConfigGridRun
+
+import copy
 
 # which plot
 
 dose_grid_plot = False
-dose_sum_hobb_vs_me_plot = True
+dose_sum_hobb_vs_me_plot = False
 dose_sum_plot = False
 radial_plot = False
 first_year_yield_plot = False
+RFB_contours = False
+get_multi_RFB_contours = False
+MS_RFB_scatter = True
 
 
 # plot
 
 if dose_grid_plot:
-    output = RunDoseSpace().run_loop(ConfigGridRun)
+    ConfDGP = copy.copy(ConfigGridRun)
+
+    output = RunDoseSpace().run_loop(ConfDGP)
 
     to_plot = 'LTY'
-    conf_str = ConfigGridRun.config_string_img
+    conf_str = ConfDGP.config_string_img
     dose_space_contour(output, to_plot, conf_str)
 
 
 
 if dose_sum_hobb_vs_me_plot:
+    ConfDS_HM = copy.copy(ConfigGridRun)
+
     to_plot = 'FY'
     
-    ConfigGridRun.n_doses = 20
-    ConfigGridRun.res_props = dict(
+    ConfDS_HM.n_doses = 20
+    ConfDS_HM.res_props = dict(
             f1 = 10**(-3),
             f2 = 10**(-7)
             )
 
-    ConfigGridRun.add_string()
-    conf_str = ConfigGridRun.config_string_img
+    ConfDS_HM.add_string()
+    conf_str = ConfDS_HM.config_string_img
 
-    output = RunGrid().grid_of_tactics(ConfigGridRun)
+    output = RunGrid().grid_of_tactics(ConfDS_HM)
 
 
     dose_sum_hobb_vs_me(output,
-                ConfigGridRun,
+                ConfDS_HM,
                 to_plot,
                 conf_str)
 
 
 if dose_sum_plot:
+    ConfDSP = copy.copy(ConfigGridRun)
+
     to_plot = 'FY'
     
-    ConfigGridRun.n_doses = 9
-    ConfigGridRun.add_string()
-    conf_str = ConfigGridRun.config_string_img
+    ConfDSP.n_doses = 9
+    ConfDSP.add_string()
+    conf_str = ConfDSP.config_string_img
 
-    output = RunGrid().grid_of_tactics(ConfigGridRun)
+    output = RunGrid().grid_of_tactics(ConfDSP)
 
     dose_sum_LR(output,
-                ConfigGridRun,
+                ConfDSP,
                 to_plot,
                 conf_str)
 
 
 if radial_plot:
-    ConfigGridRun.n_angles = 5
-    ConfigGridRun.n_radii = 10
+    ConfRad = copy.copy(ConfigGridRun)
 
-    ext_string = f"_Nr={ConfigGridRun.n_radii},Na={ConfigGridRun.n_angles}"
-    ConfigGridRun.add_string(extra_detail=ext_string)
+    ConfRad.n_angles = 5
+    ConfRad.n_radii = 10
 
-    radial_output = RunRadial().master_loop_radial(ConfigGridRun)
+    ext_string = f"_Nr={ConfRad.n_radii},Na={ConfRad.n_angles}"
+    ConfRad.add_string(extra_detail=ext_string)
+
+    radial_output = RunRadial().master_loop_radial(ConfRad)
     
-    ConfigGridRun.n_doses = 10
+    ConfRad.n_doses = 10
 
-    grid_output = RunGrid().grid_of_tactics(ConfigGridRun)
+    grid_output = RunGrid().grid_of_tactics(ConfRad)
 
-    radial(radial_output, grid_output, ConfigGridRun)
+    radial(radial_output, grid_output, ConfRad)
 
 
 
 if first_year_yield_plot:
-    output = RunGrid().grid_of_tactics(ConfigGridRun)
+    ConfFY = copy.copy(ConfigGridRun)
 
-    first_year_yield(output, ConfigGridRun)
+    ConfFY.res_props = dict(
+        f1 = 10**(-5),
+        f2 = 10**(-3),
+        )
+    ConfFY.n_doses = 25
+    ConfFY.add_string()
+
+    output = RunGrid().grid_of_tactics(ConfFY)
+
+    first_year_yield(output, ConfFY)
+
+
+
+if RFB_contours:
+    ConfRFB = copy.copy(ConfigGridRun)
+    
+    ConfRFB.res_props = dict(
+        f1 = 10**(-5),
+        f2 = 10**(-3),
+        )
+    ConfRFB.n_doses = 25
+    ConfRFB.add_string()
+
+    output = RunGrid().grid_of_tactics(ConfRFB)
+
+    eq_RFB_contours(output, ConfRFB)
+
+
+
+if get_multi_RFB_contours:
+    ConfMRFB = copy.copy(ConfigGridRun)
+    
+    ConfMRFB.res_props = dict(
+        f1 = 10**(-5),
+        f2 = 10**(-3),
+        )
+    ConfMRFB.n_doses = 25
+    ConfMRFB.add_string()
+
+    grid = RunGrid().grid_of_tactics(ConfMRFB)
+
+    conts = [-0.5, -0.1, 0, 0.1, 0.5]
+    names = [str(e) for e in conts]
+
+    contours = RunRfRatio(grid).get_multi_RFB_contours(conts)
+    
+    multi_RFB_contours(grid, contours, names, ConfMRFB)
+
+    # conf_str = ConfMRFB.config_string_img
+    # dose_grid_heatmap_with_contours(grid, ConfigGridRun, contours, conf_str)
+
+
+if MS_RFB_scatter:
+    ConfMS_RFB = copy.copy(ConfigGridRun)
+
+    ConfMS_RFB.res_props = dict(
+        f1 = 10**(-5),
+        f2 = 10**(-5),
+        )
+    
+    ConfMS_RFB.n_doses = 15
+    ConfMS_RFB.add_string()
+
+    output = RunGrid().grid_of_tactics(ConfMS_RFB)
+
+    MS_RFB_scatter_plot(output,
+                ConfMS_RFB)

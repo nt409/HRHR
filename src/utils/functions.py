@@ -12,12 +12,13 @@ import pandas as pd
 from tqdm import tqdm
 
 from .params import PARAMS
-from runHRHR.config_classes import SingleConfig
+from runHRHR.config_classes import SingleConfig, GridConfig
 
 # * TOC
 # Utility functions
 # Changing doses fns
 # Changing fcide fns
+# Param Scan fns
 # class Simulator
 # class RunSingleTactic
 # classes based on RunMultipleTactics
@@ -58,6 +59,25 @@ def object_dump(file_name, object_to_dump, object_type=None):
 
 #     return object_to_load
 
+
+def logit10(x):
+    if x>0 and x<1:
+        return log10(x/(1-x))
+    else:
+        raise Exception(f"x={x} - invalid value")
+
+def log10_difference(x1, x2):
+    return log10(x1) - log10(x2)
+
+def logit10_difference(x1, x2):
+    return logit10(x1) - logit10(x2)
+
+
+def non_increasing(L):
+    return all(x>=y for x, y in zip(L, L[1:]))
+
+def non_decreasing(L):
+    return all(x<=y for x, y in zip(L, L[1:]))
 
 # End of utility functions
 
@@ -180,6 +200,8 @@ def changing_fcide_dose_curve(doses, curvatures, rf, NY):
                 omega_2 = PARAMS.omega_2,
                 theta_1 = curve,
                 theta_2 = curve,
+                delta_1 = PARAMS.delta_1,
+                delta_2 = PARAMS.delta_2,
             )
             output = RunSingleTactic(fungicide_params).run_single_tactic(ConfigSingleRun)
             
@@ -221,6 +243,8 @@ def changing_fcide_curve_asymp(curvatures, asymps, rf, NY):
                 omega_2 = asymp,
                 theta_1 = curve,
                 theta_2 = curve,
+                delta_1 = PARAMS.delta_1,
+                delta_2 = PARAMS.delta_2,
             )
             output = RunSingleTactic(fungicide_params).run_single_tactic(ConfigSingleRun)
             FY = output['failure_year']
@@ -266,6 +290,8 @@ def changing_fcide_sexp_asymp_curv(sex_props,
                 omega_2 = asymp,
                 theta_1 = curve,
                 theta_2 = curve,
+                delta_1 = PARAMS.delta_1,
+                delta_2 = PARAMS.delta_2,
             )
             output = RunSingleTactic(fungicide_params).run_single_tactic(ConfigSingleRun)
             FY = output['failure_year']
@@ -281,13 +307,197 @@ def changing_fcide_sexp_asymp_curv(sex_props,
 
 # End of changing fcide fns
 
+# Param Scan fns
 
+def run_param_scan(to_scan_over):
+
+    RFS1 = to_scan_over["RFS1"]
+    RFS2 = to_scan_over["RFS2"]
+    RFD = to_scan_over["RFD"]
+    asym1 = to_scan_over["asym1"]
+    asym2 = to_scan_over["asym2"]
+    dec_rate1 = to_scan_over["dec_rate1"]
+    dec_rate2 = to_scan_over["dec_rate2"]
+    SR = to_scan_over["SR"]
+
+    df = pd.DataFrame()
+    run_index = 0
+    for rfs2, rfD, om_1, om_2, delt_1, delt_2, sr_prop in tqdm(itertools.product(RFS2,
+                            RFD, asym1, asym2, dec_rate1, dec_rate2, SR)):
+        
+        if run_index>=10:
+            continue
+
+        inoc = dict(
+                RR = rfD,
+                RS = RFS1,
+                SR = rfs2,
+                SS = 1 - rfD - RFS1 - rfs2
+                )
+
+        Conf = GridConfig(30, None, None, 3, primary_inoculum=inoc)
+        
+        Conf.sex_prop = sr_prop
+
+        Conf.add_string()
+        
+        fung_parms = dict(
+            omega_1 = om_1,
+            omega_2 = om_2,
+            theta_1 = PARAMS.theta_1,
+            theta_2 = PARAMS.theta_2,
+            delta_1 = delt_1,
+            delta_2 = delt_2,
+        )
+
+        Conf.config_string_img = get_par_scan_conf_str(rfs2, rfD, om_1, om_2,
+                                                        delt_1, delt_2, Conf)
+
+        
+        output = RunGrid(fung_parms).grid_of_tactics(Conf)
+        
+        processed = post_process_param_scan(output)
+
+        run_index += 1
+        
+        run_params = {**fung_parms, **inoc}
+        run_params["run"] = run_index
+
+        out = generate_PS_df(processed, sr_prop, run_params)
+        
+        df = df.append(out, ignore_index=True)
+    return df
+
+def get_par_scan_conf_str(rfs2, rfD, om_1, om_2, delt_1, delt_2, Conf):
+    conf_str = Conf.config_string_img
+    conf_str = conf_str.replace("grid", "param_scan")
+    par_str = f"_fung_pars={om_1},{om_2},{delt_1},{delt_2},rf2={rfs2},rfd={rfD}"
+    par_str = par_str.replace(".", ",")
+    conf_str = conf_str.replace(".png", par_str + ".png")
+    
+    return conf_str
+
+def post_process_param_scan(data):
+    
+    res_arrays_1 = data['res_arrays']['f1']
+    res_arrays_2 = data['res_arrays']['f2']
+    
+    FY = data['FY']
+
+    delt_rf_list = []
+    MS_list = []
+    f1_list = []
+    f2_list = []
+    f1_vals = []
+    f2_vals = []
+    EL_list = []
+    
+    for f1, f2 in itertools.product(range(FY.shape[0]), range(FY.shape[1])):
+        fy = int(FY[f1, f2])
+        
+        rf1 = res_arrays_1[f1,f2,fy]
+        rf2 = res_arrays_2[f1,f2,fy]
+        
+        if fy>0:
+            delt_rf_list.append(logit10_difference(rf1, rf2))
+            f1_list.append(f1)
+            f2_list.append(f2)
+            f1_vals.append(f1/(FY.shape[0]-1))
+            f2_vals.append(f2/(FY.shape[1]-1))
+            MS_list.append(f1/(FY.shape[0]-1) + f2/(FY.shape[1]-1))
+            EL_list.append(fy)
+    
+    return dict(delta_RFB=delt_rf_list,
+                    f1=f1_list,
+                    f2=f2_list,
+                    f1_vals=f1_vals,
+                    f2_vals=f2_vals,
+                    MS=MS_list,
+                    EL=EL_list)
+
+
+def generate_PS_df(processed, sr_prop, run_params):
+    N = len(processed['EL'])
+
+    delt_out = list(processed['delta_RFB'])
+    positiveRFB = [e for e in delt_out if e>=0]
+    negativeRFB = [e for e in delt_out if e<0]
+
+    other_cols = dict(sr_prop=sr_prop,
+                maxEL=max(processed['EL']),
+                minMS=min(processed['MS']),
+                maxMS=max(processed['MS']),
+                minPosDeltaRFB=min(positiveRFB),
+                maxNegDeltaRFB=max(negativeRFB),
+                minAbsDeltaRFB=min([abs(e) for e in processed['delta_RFB']]),
+                )
+
+    out = pd.DataFrame()
+
+    for i in range(N):
+        this_dose = {}
+        for key in processed.keys():
+            this_dose[key] = processed[key][i]
+
+        new_row = {**other_cols, **run_params, **this_dose}
+        out = out.append(new_row, ignore_index=True)
+    return out
+
+def process_param_scan_df(df):
+    best_doses = df.loc[df['EL']==df['maxEL']]
+    return best_doses
+
+def process_best_doses(df):
+    delt_worked = df[df["minAbsDeltaRFB"]==df["delta_RFB"]]
+    all_runs = df["run"].unique()
+    runs_worked = delt_worked["run"].unique()
+    runs_failed = [e for e in all_runs if not e in runs_worked]
+    return delt_worked, all_runs, runs_worked, runs_failed
+    
+
+def show_failed_runs(df, runs_failed):
+    delt_failed = df[df["run"].isin(runs_failed)]
+    print(delt_failed)
+
+
+def max_MS(df):
+    return df["EL"].max()
+
+def check_max_EL_by_MS(df):
+    grouped = (df.groupby(["run", "MS"]).pipe(max_MS))
+    return grouped
+
+def monotone_RFB(df):
+    df = df.sort_values(["delta_RFB"])
+
+    dfPos = df[df["delta_RFB"]>=0]
+    dfNeg = df[df["delta_RFB"]<0]
+
+    ELPos = dfPos["EL"]
+    ELNeg = dfNeg["EL"]
+
+    out = non_increasing(ELPos) and non_decreasing(ELNeg)
+    # if not out:
+    #     print(df)
+
+    return out
+
+
+
+def check_monotone_RFB(df):
+    grouped = (df.groupby(["run", "MS"]).apply(monotone_RFB))
+    print(grouped)
+    return grouped
+
+
+# End of Param Scan fns
 
 #----------------------------------------------------------------------------------------------
 class Fungicide:
-    def __init__(self, omega, theta):
+    def __init__(self, omega, theta, delta):
         self.omega = omega
         self.theta = theta
+        self.delta = delta
 
     def effect(self, conc):
         effect = 1 - self.omega*(1 - exp(- self.theta * conc))
@@ -305,6 +515,9 @@ class Simulator:
             theta_1 = PARAMS.theta_1
             theta_2 = PARAMS.theta_2
 
+            delta_1 = PARAMS.delta_1
+            delta_2 = PARAMS.delta_2
+
         else:
             omega_1 = fungicide_params['omega_1']
             omega_2 = fungicide_params['omega_2']
@@ -312,8 +525,11 @@ class Simulator:
             theta_1 = fungicide_params['theta_1']
             theta_2 = fungicide_params['theta_2']
 
-        self.fcide1 = Fungicide(omega_1, theta_1)
-        self.fcide2 = Fungicide(omega_2, theta_2)
+            delta_1 = fungicide_params['delta_1']
+            delta_2 = fungicide_params['delta_2']
+
+        self.fcide1 = Fungicide(omega_1, theta_1, delta_1)
+        self.fcide2 = Fungicide(omega_2, theta_2, delta_2)
     
 
     @staticmethod
@@ -363,8 +579,8 @@ class Simulator:
             - PARAMS.nu * PSR,
             - PARAMS.nu * PS,
             
-            -PARAMS.delta_1 * conc_1,
-            -PARAMS.delta_2 * conc_2
+            -self.fcide1.delta * conc_1,
+            -self.fcide2.delta * conc_2
             ]
 
         return dydt
@@ -673,9 +889,9 @@ class FungicideStrategy:
 # * RunSingleTactic class
 
 class RunSingleTactic:
-    def __init__(self):
+    def __init__(self, fcide_parms=None):
 
-        self.sim = Simulator(None)
+        self.sim = Simulator(fcide_parms)
 
         self._find_disease_free_yield()
 
@@ -976,8 +1192,8 @@ class RunSingleTactic:
 # * RunMultipleTactics
 
 class RunMultipleTactics:
-    def __init__(self):
-        self.sing_tact = RunSingleTactic()
+    def __init__(self, fcide_parms=None):
+        self.sing_tact = RunSingleTactic(fcide_parms)
 
 
     @staticmethod
@@ -1112,6 +1328,8 @@ class RunMultipleTactics:
 
 
 class RunGrid(RunMultipleTactics):
+    def __init__(self, fcide_parms=None):
+        super().__init__(fcide_parms)
 
     def _run_the_grid(self, Conf):
         
@@ -1351,6 +1569,8 @@ class RunRadial(RunMultipleTactics):
 
 class RunRfRatio(RunSingleTactic):
     def __init__(self, grid_output):
+        # super.__init__(None)
+
         self.FY_array = grid_output['FY'] 
         self.res_arrays = grid_output['res_arrays']
         self.start_freqs = grid_output['start_freqs']
@@ -1368,7 +1588,7 @@ class RunRfRatio(RunSingleTactic):
 
 
     def _get_rfb_df(self, f2):
-        lrb_list = []
+        delt_rf_list = []
         f1_list = []
         f2_list = []
         
@@ -1379,11 +1599,11 @@ class RunRfRatio(RunSingleTactic):
             rf2 = self.res_arrays['f2'][f1,f2,fy]
             
             if fy>0:
-                lrb_list.append(log10(rf1) - log10(rf2))
+                delt_rf_list.append(logit10_difference(rf1, rf2))
                 f1_list.append(f1)
                 f2_list.append(f2)
         
-        df = pd.DataFrame(dict(metric=lrb_list, f1=f1_list, f2=f2_list))
+        df = pd.DataFrame(dict(metric=delt_rf_list, f1=f1_list, f2=f2_list))
         return df
     
 
@@ -1443,6 +1663,51 @@ class RunRfRatio(RunSingleTactic):
                 return f1_out
             else:
                 return None
+    @staticmethod
+    def _is_decreasing(L):
+        return all(x>y for x, y in zip(L, L[1:]))
+    
+    @staticmethod
+    def _is_increasing(L):
+        return not all(x>y for x, y in zip(L, L[1:]))
+
+    def get_f1_forK_from_df(self, df, K):
+        lessthanK = df[df['metric']<K]
+        equalsK = df[df['metric']==K]
+        morethanK = df[df['metric']>K]
+        
+        # check monotonicity
+        if not self._is_decreasing(list(df['metric'])):
+            # raise Exception(L, [x<y for x, y in zip(L, L[1:])], "non monotone")
+            print("not decreasing")
+            # return None
+        
+        if not self._is_increasing(list(df['metric'])):
+            # raise Exception(L, [x<y for x, y in zip(L, L[1:])], "non monotone")
+            print("not increasing")
+            # return None
+        
+        if self._is_increasing(list(df['metric'])):
+            # raise Exception(L, [x<y for x, y in zip(L, L[1:])], "non monotone")
+            print("IS increasing")
+            # return None
+
+
+        if len(equalsK):
+            print("is K")
+            if len(equalsK.f2)>1:
+                raise Exception("shouldn't be more than 1 dose")
+            else:
+                return equalsK.f1
+
+        else:
+            if len(lessthanK) and len(morethanK):
+                f1_out = self._interpolate_dfs(lessthanK, morethanK)
+                if f1_out>30:
+                    print(df, K, "wow")
+                return f1_out
+            else:
+                return None
 
 
     def _find_RFB_contour(self):
@@ -1459,6 +1724,25 @@ class RunRfRatio(RunSingleTactic):
         
         self.df_RFB['f1'] = [i/(self.N-1) for i in self.df_RFB.f1_inds]
         self.df_RFB['f2'] = [i/(self.N-1) for i in self.df_RFB.f2_inds]
+
+    def _find_RFB_contour_at_K(self, K):
+        """
+        Find contour along which logit rfs differ by K in breakdown year
+        """
+        df_RFB = pd.DataFrame()
+        for f2 in range(self.N):
+            df = self._get_rfb_df(f2)
+            f1 = self.get_f1_forK_from_df(df, K)
+
+            if f1 is not None:
+                df_RFB = df_RFB.append(dict(f1_inds=f1, f2_inds=f2), ignore_index=True)
+        
+        if "f1_inds" in df_RFB.columns:
+            df_RFB['f1'] = [i/(self.N-1) for i in df_RFB.f1_inds]
+            df_RFB['f2'] = [i/(self.N-1) for i in df_RFB.f2_inds]
+            return df_RFB
+        else:
+            return None
 
 
     def _find_EqS_contour(self):
@@ -1477,11 +1761,24 @@ class RunRfRatio(RunSingleTactic):
         self.df_EqS['f2'] = [i/(self.N-1) for i in self.df_EqS.f2_inds]
 
 
+    def get_multi_RFB_contours(self, cont_list):
+        out = []
+        for k in cont_list:
+            cont_df = self._find_RFB_contour_at_K(k)
+            
+            if cont_df is not None:
+                x_list = list(cont_df.f1)
+                y_list = list(cont_df.f2)
+                out.append([x_list, y_list])
+        return out
+
+
     def get_contours(self):
         self._find_RFB_contour()
         self._find_EqS_contour()
         return [self.df_RFB, self.df_EqS]
     
+
     def _run_RFB_contour(self, res_props):
         self._find_RFB_contour()
 

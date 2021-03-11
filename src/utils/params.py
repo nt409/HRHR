@@ -19,12 +19,8 @@ class Parameters:
         # self.alpha_2 = 0
         # self.alpha_2_C = 1
         
-        legal_dose = 1
-        t1 = 9.6
-        t2 = 9.6
-        
-        self.theta_1 = legal_dose*t1
-        self.theta_2 = legal_dose*t2
+        self.theta_1 = 9.6
+        self.theta_2 = 9.6
         
         # effect on latent period different?
         # self.omega_1_L = 1

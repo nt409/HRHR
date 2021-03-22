@@ -1,11 +1,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
-from math import ceil, log, log10
-import pickle
-import json
+from math import ceil, log10
 import copy
-import os
+# import pickle
+# import json
+# import os
 ##
 # import sys
 # sys.path.insert(0, '/utils/')
@@ -73,7 +73,7 @@ def recursion_algorithm(prr2,prs2,psr2,Yield_out,F_array,f_no,LTY_opt,LTY_int,do
     phi_vec = np.linspace(log_phi_min,0,n_p)
     x     = np.linspace(2*log_phi_min,0,2*n_p)
     y,z   = [phi_vec for i in range(2)]
-    Int_F   = RegularGridInterpolator((x,y,z),F_array,bounds_error = False,fill_value=f_no)
+    Int_F   = RegularGridInterpolator((x,y,z), F_array, bounds_error=False, fill_value=f_no)
     ##
     LTY_all      = np.zeros((2*n_p,n_p,n_p,n_d,n_d))
     LTY_opt      = copy.deepcopy(LTY_opt) # interpolation function was changing when the array did

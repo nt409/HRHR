@@ -1,10 +1,5 @@
-import json
-##
-# import sys
-# sys.path.insert(0, '/utils/')
-##
 from utils.params import PARAMS
-from utils.functions import object_dump, object_open, calculator_d_free
+from utils.functions import object_dump, object_open
 #----------------------------------------------------------------------------------------------
 asex_dict = object_open(PARAMS.JSON_path+'global.json','json')
 for i in range(2*asex_dict['n_phi']):

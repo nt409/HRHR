@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
-from math import ceil, log, floor, log10, exp
+from math import ceil, floor, log10
 from scipy.optimize import fsolve
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.axes_grid1 import make_axes_locatable

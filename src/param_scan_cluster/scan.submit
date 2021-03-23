@@ -25,7 +25,7 @@
 #SBATCH --mem=5980mb
 #! Submit a job array with index values between 0 and 31
 #! NOTE: This must be a range, not a single number (i.e. specifying '32' here would only run one job, with index 32). Here top number is x=n_p-1 (0-x is then n_p iterations)
-#SBATCH --array=0-31
+#SBATCH --array=0-7
 
 #! This is the partition name. This will request for a node with 6GB RAM for each task
 #SBATCH -p skylake
@@ -46,4 +46,4 @@ module load python3
 #! Command line that we want to run:
 #! The variable $SLURM_ARRAY_TASK_ID contains the array index for each job.
 #! In this example, each job will be passed its index, so each output file will contain a different value
-python3.sh param_scan.py phi_con_$SLURM_ARRAY_TASK_ID 3
+python3.sh param_scan_cluster.run.py $SLURM_ARRAY_TASK_ID

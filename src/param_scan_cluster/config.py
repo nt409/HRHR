@@ -16,7 +16,7 @@ import numpy as np
 # }
 
 config = {
-"RFS1": [10**(-k) for k in [-8,-5]],
+"RFS1": [10**(k) for k in [-8,-5]],
 "RFS2": [10**(k) for k in np.linspace(-8,-1, 5)],
 "RFD": [10**(k) for k in np.linspace(-15,-1, 4)],
 

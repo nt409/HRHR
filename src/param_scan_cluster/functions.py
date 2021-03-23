@@ -1,6 +1,6 @@
 import itertools
 import pandas as pd
-from tqdm import tqdm
+# from tqdm import tqdm
 import copy
 
 from runHRHR.config_classes import GridConfig
@@ -78,7 +78,7 @@ class ParamScan:
         
         run_index = 0
 
-        for rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2, sr_prop in tqdm(itertools.product(
+        for rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2, sr_prop in itertools.product(
                                 self.RFS1,
                                 self.RFS2,
                                 self.RFD,
@@ -86,7 +86,7 @@ class ParamScan:
                                 self.asym2,
                                 self.dec_rate1,
                                 self.dec_rate2,
-                                self.SR)):
+                                self.SR):
             
             self._get_inoc(rfs1, rfs2, rfD)
             

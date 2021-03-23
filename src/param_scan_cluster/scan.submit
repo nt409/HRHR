@@ -42,7 +42,8 @@ module load rhel7/default-peta4            # REQUIRED - loads the basic environm
 module load use.own                        # This line loads the own module list
 module load /rds/project/cag1/rds-cag1-general/epidem-modules/epidem.modules   # This line loads the Epidemiology group module list
 module load python3
-module load python-2.7.5-gcc-4.8.5-uqo2f4o
+# module load python-2.7.5-gcc-4.8.5-uqo2f4o
+module load anaconda/3.2019-10
 
 #! Command line that we want to run:
 #! The variable $SLURM_ARRAY_TASK_ID contains the array index for each job.

@@ -50,7 +50,7 @@ source activate /home/nt409/software/conda_envs/hrhr_env
 #! Command line that we want to run:
 #! The variable $SLURM_ARRAY_TASK_ID contains the array index for each job.
 #! In this example, each job will be passed its index
-which python
-which conda
-python -m param_scan_cluster.run 0
+# which python
+# which conda
+# python -m param_scan_cluster.run 0
 python -m param_scan_cluster.run $SLURM_ARRAY_TASK_ID

@@ -36,20 +36,20 @@
 #! Don't put any #SBATCH directives below this line, it is now safe to put normal commands below this line
 
 #! Modify the environment seen by the application. For this example we need the default modules.
-. /etc/profile.d/modules.sh                # This line enables the module command
-module purge                               # Removes all modules still loaded
-module load rhel7/default-peta4            # REQUIRED - loads the basic environment
-module load use.own                        # This line loads the own module list
-module load /rds/project/cag1/rds-cag1-general/epidem-modules/epidem.modules   # This line loads the Epidemiology group module list
+# . /etc/profile.d/modules.sh                # This line enables the module command
+# module purge                               # Removes all modules still loaded
+# module load rhel7/default-peta4            # REQUIRED - loads the basic environment
+# module load use.own                        # This line loads the own module list
+# module load /rds/project/cag1/rds-cag1-general/epidem-modules/epidem.modules   # This line loads the Epidemiology group module list
 
 # setup conda env
 module load miniconda3-4.5.4-gcc-5.4.0-hivczbz
-# source activate /home/nt409/software/conda_envs/hrhr_env
 source /usr/local/software/spack/spack-0.11.2/opt/spack/linux-rhel7-x86_64/gcc-5.4.0/miniconda3-4.5.4-hivczbzklvoccmuifapprxz7humnmn5c/bin/activate ~/software/conda_envs/hrhr_env/
+# source activate /home/nt409/software/conda_envs/hrhr_env
 
 #! Command line that we want to run:
 #! The variable $SLURM_ARRAY_TASK_ID contains the array index for each job.
-#! In this example, each job will be passed its index, so each output file will contain a different value
+#! In this example, each job will be passed its index
 which python
 which conda
 python -m param_scan_cluster.run $SLURM_ARRAY_TASK_ID

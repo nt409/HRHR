@@ -2,6 +2,7 @@ import itertools
 import pandas as pd
 from tqdm import tqdm
 import copy
+import numpy as np
 
 from runHRHR.config_classes import GridConfig
 from utils.params import PARAMS
@@ -12,14 +13,18 @@ from utils.functions import non_decreasing, non_increasing, RunGrid, \
 
 # Utility fns
 # ParamScan
-# combine_PS_outputs
+# ParamScanGrid
+# ParamScanRand
+# post process fns
+# - combine_PS_grid_outputs
+# - combine_PS_rand_outputs
 # PostProcess
 
 #----------------------------------------------------------------------
 
 # Utility fns
 
-def get_par_str(config):
+def get_PS_grid_str(config):
     string = ""
     
     for key in config.keys():
@@ -34,6 +39,27 @@ def get_par_str(config):
             string += f"{str(key)[:2]}={attribute}"
         else:
             string += f"{str(key)[:2]}={len(attribute)},{min(attribute)},{max(attribute)}"
+
+    string = string.replace(".", ",")
+
+    return string
+
+
+
+
+def get_PS_rand_str(config):
+    string = ""
+    
+    for key in config.keys():
+        attribute = config[key]
+
+        if key=="load_saved":
+            continue
+
+        if type(attribute)==float or type(attribute)==int:
+            string += f"{str(key)[:2]}={attribute}"
+        else:
+            string += f"{str(key)[:2]}=L{attribute[0]},U{attribute[1]}"
 
     string = string.replace(".", ",")
 
@@ -59,50 +85,6 @@ def _get_param_scan_conf_str(rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2, Conf):
 # End of Utility fns
 
 class ParamScan:
-    def __init__(self, config):
-        self.RFS1 = config["RFS1"]
-        self.RFS2 = config["RFS2"]
-        self.RFD = config["RFD"]
-        self.asym1 = config["asym1"]
-        self.asym2 = config["asym2"]
-        self.dec_rate1 = config["dec_rate1"]
-        self.dec_rate2 = config["dec_rate2"]
-        self.SR = config["SR"]
-        self.NDoses = config["NDoses"]
-
-
-
-    def run_param_scan(self):
-
-        df = pd.DataFrame()
-        
-        run_index = 0
-
-        for rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2, sr_prop in tqdm(itertools.product(
-                                self.RFS1,
-                                self.RFS2,
-                                self.RFD,
-                                self.asym1,
-                                self.asym2,
-                                self.dec_rate1,
-                                self.dec_rate2,
-                                self.SR)):
-            
-            self._get_inoc(rfs1, rfs2, rfD)
-            
-            self._get_fung_parms(om_1, om_2, delt_1, delt_2)
-
-            self._get_conf(rfs1, rfs2, rfD, om_1, om_2,
-                            delt_1, delt_2, sr_prop)
-
-            run_index += 1
-
-            out = self._get_df_this_run(sr_prop, run_index)
-            
-            df = df.append(out, ignore_index=True)
-        
-        return df
-
 
 
     def _get_inoc(self, rfs1, rfs2, rfD):
@@ -123,15 +105,19 @@ class ParamScan:
             theta_2 = PARAMS.theta_2,
             delta_1 = delta_1,
             delta_2 = delta_2,
-            )
+            )       
 
 
     def _get_conf(self, rfs1, rfs2, rfD, om_1, om_2,
-                            delt_1, delt_2, sr_prop):
+                            delt_1, delt_2, sr_prop, load_saved):
 
         Conf = GridConfig(20, None, None, self.NDoses, primary_inoculum=self.inoc)
         
         Conf.sex_prop = sr_prop
+
+        Conf.load_saved = load_saved
+
+        Conf.zeroth_season_reproduction = False
 
         Conf.add_string()
 
@@ -142,22 +128,18 @@ class ParamScan:
         Conf.config_string = _get_updated_conf_str(conf_str)
 
         self.GridConf = Conf
-        
 
 
 
-    def _get_df_this_run(self, sr_prop, run_index):
-        
+
+
+    def _get_df_this_run(self):
 
         self.grid_output = RunGrid(self.fung_parms).grid_of_tactics(self.GridConf)
         
-        processed = self._get_dict_of_output()
+        self._get_dict_of_output()
 
-        run_params = {**self.fung_parms, **self.inoc}
-        run_params["run"] = f"S{sr_prop}_ind={run_index}"
-
-        return self._generate_PS_df(processed, sr_prop, run_params)
-
+        self._generate_PS_df()
 
 
 
@@ -169,6 +151,8 @@ class ParamScan:
         
         FY = self.grid_output['FY']
 
+        econ_array = self.grid_output['econ']
+
         delt_rf_list = []
         MS_list = []
         f1_list = []
@@ -176,6 +160,7 @@ class ParamScan:
         f1_vals = []
         f2_vals = []
         EL_list = []
+        econ_list = []
         
         for f1, f2 in itertools.product(range(FY.shape[0]), range(FY.shape[1])):
             fy = int(FY[f1, f2])
@@ -197,15 +182,20 @@ class ParamScan:
                 
                 MS_list.append(f1/(FY.shape[0]-1) + f2/(FY.shape[1]-1))
                 EL_list.append(fy)
+
+                econ_list.append(econ_array[f1,f2])
         
 
-        return dict(delta_RFB=delt_rf_list,
+        self.processed = dict(delta_RFB=delt_rf_list,
                         f1=f1_list,
                         f2=f2_list,
                         f1_vals=f1_vals,
                         f2_vals=f2_vals,
                         MS=MS_list,
-                        EL=EL_list)
+                        EL=EL_list,
+                        econ=econ_list)
+
+
 
 
     @staticmethod
@@ -230,57 +220,240 @@ class ParamScan:
             return "NA"
 
 
-    def _get_PS_df(self, processed, other_cols, run_params):
+    def _add_doses_to_PS_df(self):
+        
         out = pd.DataFrame()
 
         for i in range(self.N):
             this_dose = {}
-            for key in processed.keys():
-                this_dose[key] = processed[key][i]
+            for key in self.processed.keys():
+                this_dose[key] = self.processed[key][i]
 
-            new_row = {**other_cols, **run_params, **this_dose}
+            new_row = {**self.calculated_cols, **self.this_run_params, **this_dose}
+            
             out = out.append(new_row, ignore_index=True)
+
         return out
 
 
 
-    def _generate_PS_df(self, processed, sr_prop, run_params):
+    def _generate_PS_df(self):
         
-        self.N = len(processed['EL'])
+        self.N = len(self.processed['EL'])
+
         
         if not self.N:
+            self.df_this_run = None
             return None
 
-        delta_RFB_list = list(processed['delta_RFB'])
+        delta_RFB_list = list(self.processed['delta_RFB'])
         
         positiveRFB = [e for e in delta_RFB_list if e>=0]
         
         negativeRFB = [e for e in delta_RFB_list if e<0]
         
-
-        other_cols = dict(sr_prop=sr_prop,            
+        self.calculated_cols = dict(
                     
-                    maxEL=max(processed['EL']),
-                    minMS=min(processed['MS']),
-                    maxMS=max(processed['MS']),
+                    maxEL=max(self.processed['EL']),
+                    minMS=min(self.processed['MS']),
+                    maxMS=max(self.processed['MS']),
+                    maxEcon=max(self.processed['econ']),
                     
                     minPosDeltaRFB = self._get_min_PD_RFB(positiveRFB),
                     maxNegDeltaRFB = self._get_max_ND_RFB(negativeRFB),
                     minAbsDeltaRFB = self._get_min_AD_RFB(delta_RFB_list),
                     )
 
-        out = self._get_PS_df(processed, other_cols, run_params)
-
-        return out
+        self.df_this_run = self._add_doses_to_PS_df()
 
 
 
 
 
 
-# used in analyse
 
-def combine_PS_outputs(config):
+
+class ParamScanGrid(ParamScan):
+    def __init__(self, config):
+        self.RFS1 = config["RFS1"]
+        self.RFS2 = config["RFS2"]
+        self.RFD = config["RFD"]
+        self.asym1 = config["asym1"]
+        self.asym2 = config["asym2"]
+        self.dec_rate1 = config["dec_rate1"]
+        self.dec_rate2 = config["dec_rate2"]
+        self.SR = config["SR"]
+        self.NDoses = config["NDoses"]
+        self.load_saved = config["load_saved"]
+
+
+    def _get_this_run_params_grid(self, sr_prop, run_index):
+
+        sr_dict = {"sr_prop": sr_prop}
+
+        run_params = {**self.fung_parms, **self.inoc, **sr_dict}
+
+        run_params["run"] = f"S{sr_prop}_ind={run_index}"
+
+        self.this_run_params = run_params
+
+
+
+    def run_param_scan(self):
+
+        df = pd.DataFrame()
+        
+        run_index = 0
+
+        for rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2, sr_prop in tqdm(itertools.product(
+                                self.RFS1,
+                                self.RFS2,
+                                self.RFD,
+                                self.asym1,
+                                self.asym2,
+                                self.dec_rate1,
+                                self.dec_rate2,
+                                self.SR)):
+            
+            self._get_inoc(rfs1, rfs2, rfD)
+            
+            self._get_fung_parms(om_1, om_2, delt_1, delt_2)
+
+            self._get_conf(rfs1, rfs2, rfD, om_1, om_2,
+                            delt_1, delt_2, sr_prop, self.load_saved)
+
+            run_index += 1
+
+            self._get_this_run_params_grid(sr_prop, run_index)
+
+            self._get_df_this_run()
+
+            df = df.append(self.df_this_run, ignore_index=True)
+        
+        return df
+
+
+
+    def run(self, index):
+        config_use = copy.copy(self.config)
+
+        config_use["SR"] = [self.config["SR"][index]]
+
+        df = self.run_param_scan()
+        
+        par_str = get_PS_grid_str(config_use)
+
+        df.to_csv(f"param_scan_cluster/outputs/param_grid_scan_{par_str}.csv", index=False)
+
+
+
+
+class ParamScanRand(ParamScan):
+    def __init__(self, config) -> None:
+        self.NDoses = config["NDoses"]
+        self.config = config
+    
+
+
+    def _get_random_pars(self):
+        conf = self.config
+        
+        rfs1_power = np.random.uniform(low=conf["RFS1"][0], high=conf["RFS1"][1])
+        rfs2_power = np.random.uniform(low=conf["RFS2"][0], high=conf["RFS2"][1]) 
+        rfD_power = np.random.uniform(low=conf["RFD"][0], high=conf["RFD"][1])
+        
+        rfs1 = 10**(rfs1_power)
+        rfs2 = 10**(rfs2_power)
+        rfD = 10**(rfD_power)
+
+        om_1 = np.random.uniform(low=conf["asym1"][0], high=conf["asym1"][1])
+        om_2 = np.random.uniform(low=conf["asym2"][0], high=conf["asym2"][1])
+        
+        delt_1 = np.random.uniform(low=conf["dec_rate1"][0], high=conf["dec_rate1"][1])
+        delt_2 = np.random.uniform(low=conf["dec_rate2"][0], high=conf["dec_rate2"][1])
+        
+        sr_prop = np.random.uniform(low=conf["SR"][0], high=conf["SR"][1])
+
+        return rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2, sr_prop
+
+
+    def _get_this_run_params_rand(self, sr_prop, run_index):
+
+        sr_dict = {"sr_prop": sr_prop}
+
+        run_params = {**self.fung_parms, **self.inoc, **sr_dict}
+
+        run_params["run"] = f"{run_index}"
+
+        self.this_run_params = run_params
+
+
+
+
+    def run_param_scan(self, seed):
+
+        df = pd.DataFrame()
+
+        np.random.seed(seed)
+
+        
+        for run_index in tqdm(range(self.config["NIts"])):
+            
+            rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2, sr_prop = self._get_random_pars()
+
+            self._get_inoc(rfs1, rfs2, rfD)
+            
+            self._get_fung_parms(om_1, om_2, delt_1, delt_2)
+
+            self._get_conf(rfs1, rfs2, rfD, om_1, om_2,
+                            delt_1, delt_2, sr_prop, self.config["load_saved"])
+            
+            self._get_this_run_params_rand(sr_prop, run_index)
+
+            self._get_df_this_run()
+            
+            if self.df_this_run is not None:        
+                df = df.append(self.df_this_run, ignore_index=True)
+                
+                validity = "Valid"
+            else:
+                validity = "Invalid"
+            
+            maxY = np.amax(self.grid_output["yield_array"])
+            print(self.this_run_params["omega_1"], self.this_run_params["omega_2"],self.this_run_params["delta_1"], self.this_run_params["delta_2"])
+            print(f"{validity} run - max yield is {maxY}")
+        
+        return df
+
+
+
+
+    def run(self, seed):
+        """
+        Run random scan over uniform dists
+        """
+
+        df = self.run_param_scan(seed)
+        
+        par_str = get_PS_rand_str(self.config)
+        
+        print(f"param_scan_cluster/outputs/param_scan_rand_seed={seed}_{par_str}.csv")
+        
+        df.to_csv(f"param_scan_cluster/outputs/param_scan_rand_seed={seed}_{par_str}.csv", index=False)
+
+
+
+
+
+
+
+
+
+
+
+# post process fns
+
+def combine_PS_grid_outputs(config):
     config_use = copy.copy(config)
 
     df = pd.DataFrame()
@@ -288,15 +461,38 @@ def combine_PS_outputs(config):
     for sr_prop in config["SR"]:
         config_use["SR"] = [sr_prop]
         
-        par_str = get_par_str(config_use)
+        par_str = get_PS_grid_str(config_use)
 
-        temporary = pd.read_csv(f"../outputs/csvs/param_scan_{par_str}.csv")
+        temporary = pd.read_csv(f"param_scan_cluster/outputs/param_grid_scan_{par_str}.csv")
         
         df = df.append(temporary, ignore_index=True)
     
-    par_str = get_par_str(config)
+    par_str = get_PS_grid_str(config)
     
-    df.to_csv(f"../outputs/csvs/PS_combined_output_{par_str}.csv")
+    df.to_csv(f"param_scan_cluster/outputs/PS_combined_grid_output_{par_str}.csv")
+
+
+def combine_PS_rand_outputs(config, seeds):
+
+    df = pd.DataFrame()
+    
+    par_str = get_PS_rand_str(config)
+
+    for seed in seeds:
+
+        temporary = pd.read_csv(f"param_scan_cluster/outputs/param_scan_rand_seed={seed}_{par_str}.csv")
+        
+        df = df.append(temporary, ignore_index=True)
+    
+    df.to_csv(f"param_scan_cluster/outputs/PS_combined_rand_output_{par_str}.csv")
+
+
+
+
+
+# End of post process fns
+
+
 
 
 
@@ -322,6 +518,7 @@ class PostProcess:
 
     def show_failed_runs(self):
         self.delt_failed = self.df[self.df["run"].isin(self.runs_failed)]
+        print("Failed runs:", self.delt_failed.run.unique())
 
 
     @staticmethod
@@ -330,9 +527,10 @@ class PostProcess:
 
 
 
-    def check_max_EL_by_MS(self):
+    def check_max_EL_by_MS(self, type):
+        # print(self.df.groupby(["run", "MS"]))
         grouped = (self.df.groupby(["run", "MS"]).pipe(self._max_MS))
-        grouped.to_csv(f"../outputs/csvs/maxEL_thisMS_{self.par_str}.csv")
+        grouped.to_csv(f"param_scan_cluster/outputs/{type}/maxEL_thisMS_{self.par_str}.csv")
 
 
     @staticmethod
@@ -351,9 +549,9 @@ class PostProcess:
 
 
 
-    def check_monotone_RFB(self):
-        grouped = (self.df.groupby(["run", "MS"]).apply(self._monotone_RFB))
-        grouped.to_csv(f"../outputs/csvs/monotoneRFB_{self.par_str}.csv")
+    def check_monotone_RFB(self, type):
+        grouped = self.df.groupby(["run", "MS"]).apply(self._monotone_RFB)
+        grouped.to_csv(f"param_scan_cluster/outputs/{type}/monotoneRFB_{self.par_str}.csv")
         print(f"Monotone RFB works in all cases: {all(grouped)}")
         
 # End of Param Scan fns

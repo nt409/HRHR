@@ -9,7 +9,7 @@ def get_conf_string(folder, filename):
 
 
 class BaselineConfig:
-    def __init__(self, n_years, rp1, rp2, primary_inoculum, zeroth_season_reproduction):
+    def __init__(self, n_years, rp1, rp2, primary_inoculum):
 
         self.load_saved = False
 
@@ -26,8 +26,8 @@ class BaselineConfig:
 
         self.primary_inoculum = primary_inoculum
 
-        self.zeroth_season_reproduction = zeroth_season_reproduction
-        
+
+
     def add_baseline_str(self):
 
         rp1 = self.res_props['f1']
@@ -41,8 +41,8 @@ class BaselineConfig:
         self.save_string = f"Ny={self.n_years}_" + \
             f"Rps={rp1},_{rp2}_" + \
             f"PI={inoc_str}_" + \
-            f"0th={str(self.zeroth_season_reproduction)[0]}_" + \
             f"Sex={self.sex_prop}"
+            # f"0th={str(self.zeroth_season_reproduction)[0]}_" + \
 
 
 
@@ -55,11 +55,11 @@ class SingleConfig(BaselineConfig):
                 d12,
                 d21,
                 d22,
-                primary_inoculum=None,
-                zeroth_season_reproduction=True
+                primary_inoculum=None
+                # zeroth_season_reproduction=True
                 ):
         
-        super().__init__(n_years, rp1, rp2, primary_inoculum, zeroth_season_reproduction)
+        super().__init__(n_years, rp1, rp2, primary_inoculum)
         
         self.fung1_doses = dict(
             spray_1 = [d11]*n_years,
@@ -95,11 +95,11 @@ class GridConfig(BaselineConfig):
             rp1,
             rp2,
             n_doses,
-            primary_inoculum=None,
-            zeroth_season_reproduction=True
+            primary_inoculum=None
+            # zeroth_season_reproduction=True
             ):
 
-        super().__init__(n_years, rp1, rp2, primary_inoculum, zeroth_season_reproduction)
+        super().__init__(n_years, rp1, rp2, primary_inoculum)
         
         self.strategy = 'mix'
 

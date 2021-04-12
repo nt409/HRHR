@@ -45,12 +45,9 @@ module load /rds/project/cag1/rds-cag1-general/epidem-modules/epidem.modules   #
 # setup conda env
 module load miniconda3-4.5.4-gcc-5.4.0-hivczbz
 source activate /home/nt409/software/conda_envs/hrhr_env
-# source /usr/local/software/spack/spack-0.11.2/opt/spack/linux-rhel7-x86_64/gcc-5.4.0/miniconda3-4.5.4-hivczbzklvoccmuifapprxz7humnmn5c/bin/activate ~/software/conda_envs/hrhr_env/
 
 #! Command line that we want to run:
 #! The variable $SLURM_ARRAY_TASK_ID contains the array index for each job.
 #! In this example, each job will be passed its index
-# which python
-# which conda
-# python -m param_scan_cluster.run 0
-python -m param_scan_cluster.run $SLURM_ARRAY_TASK_ID
+
+python -m param_scan_cluster.grid1_run $SLURM_ARRAY_TASK_ID

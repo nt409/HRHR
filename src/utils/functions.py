@@ -405,6 +405,10 @@ class Simulator:
 
     
     def _final_value_res_props(self):
+        """
+        Uses final value (end of season) to determine the res props. 
+        These are used for next season (with a SR step in between if sr_prop=/=0)
+        """
 
         disease = (self.solution[-1,PARAMS.IR_ind] + 
                         self.solution[-1,PARAMS.IRS_ind] +
@@ -430,6 +434,13 @@ class Simulator:
 
     
     def _integrated_res_props(self):
+        """
+        Not used in most recent version 
+        
+        - idea was to integrate over end of the season,
+        rather than just take the final value
+        
+        """
 
         disease = simps(self.solution[:,PARAMS.IR_ind] + self.solution[:,PARAMS.IRS_ind]
                          + self.solution[:,PARAMS.ISR_ind] + self.solution[:,PARAMS.IS_ind], self.solutiont)
@@ -462,7 +473,19 @@ class Simulator:
             return self._integrated_res_props()
 
 
+    def _integrated_inoc_val(self):
+        disease = simps(self.solution[:,PARAMS.IR_ind]+self.solution[:,PARAMS.IRS_ind] +
+                self.solution[:,PARAMS.ISR_ind]+self.solution[:,PARAMS.IS_ind],self.solutiont)
+        return PARAMS.init_den*((1-PARAMS.last_year_prop) + 
+                        PARAMS.last_year_prop * PARAMS.inoc_frac_integral * disease)
 
+
+    def _final_inoc_value(self):
+        return PARAMS.init_den*((1-PARAMS.last_year_prop) +
+                    PARAMS.last_year_prop * PARAMS.inoc_frac*
+                    (self.solution[-1,PARAMS.IR_ind]+self.solution[-1,PARAMS.IRS_ind]+
+                        self.solution[-1,PARAMS.ISR_ind]+self.solution[-1,PARAMS.IS_ind])
+                    ) 
 
     #----------------------------------------------------------------------------------------------
     def _get_inoculum_value(self):
@@ -470,22 +493,14 @@ class Simulator:
         method = PARAMS.res_prop_calc_method
         
         if method is None or method=='final_value':
-            inoc = PARAMS.init_den*((1-PARAMS.last_year_prop) +
-                    PARAMS.last_year_prop * PARAMS.inoc_frac*
-                    (self.solution[-1,PARAMS.IR_ind]+self.solution[-1,PARAMS.IRS_ind]+
-                        self.solution[-1,PARAMS.ISR_ind]+self.solution[-1,PARAMS.IS_ind])
-                    )
+            return self._final_inoc_value()
         
         elif method=='integrated':
-            disease = simps(self.solution[:,PARAMS.IR_ind]+self.solution[:,PARAMS.IRS_ind] +
-                self.solution[:,PARAMS.ISR_ind]+self.solution[:,PARAMS.IS_ind],self.solutiont)
-            inoc = PARAMS.init_den*((1-PARAMS.last_year_prop) + 
-                        PARAMS.last_year_prop * PARAMS.inoc_frac_integral * disease)
+            return self._integrated_inoc_val()
         
         else:
             raise Exception("inoculum method incorrect")
 
-        return inoc
 
 
     def _solve_ode(self,
@@ -493,7 +508,11 @@ class Simulator:
             fung2_doses,
             primary_inoc):
 
-        ##
+        initial_res_dict = dict(
+            f1 = primary_inoc['RR'] + primary_inoc['RS'],
+            f2 = primary_inoc['RR'] + primary_inoc['SR']
+            ) 
+
         y0 = [PARAMS.S_0] + [0]*9 + [primary_inoc['RR'],  primary_inoc['RS'], primary_inoc['SR'], primary_inoc['SS']] + [0]*2
         
         sol = ode(self._ode_system,jac=None).set_integrator('dopri5',nsteps= PARAMS.nstepz)
@@ -566,14 +585,9 @@ class Simulator:
         
 
         # #----------------------------------------------------------------------------------------------  
-        final_res_dict, props_out = self._calculate_res_props(method=PARAMS.res_prop_calc_method) # gives either integral or final value
+        final_res_dict, props_out = self._calculate_res_props(method=PARAMS.res_prop_calc_method)
         
         inoc = self._get_inoculum_value()
-        
-        initial_res_dict = dict(
-            f1 = primary_inoc['RR'] + primary_inoc['RS'],
-            f2 = primary_inoc['RR'] + primary_inoc['SR']
-            ) 
 
         # get selection
         selection = dict(
@@ -587,10 +601,14 @@ class Simulator:
 
         # get integral
         y_yield = y_list[-1]
+        
         t_yield = t_list[-1]
-        yield_integral = simps(y_yield[PARAMS.S_ind,:] + y_yield[PARAMS.ER_ind,:] 
+
+        yield_integral = simps(y_yield[PARAMS.S_ind,:] + 
+                            y_yield[PARAMS.ER_ind,:] 
                             + y_yield[PARAMS.ERS_ind,:] + y_yield[PARAMS.ESR_ind,:]
-                            + y_yield[PARAMS.ES_ind,:],t_yield)
+                            + y_yield[PARAMS.ES_ind,:],
+                            t_yield)
 
         out = dict(selection=selection,
                 final_res_dict=final_res_dict,
@@ -777,15 +795,16 @@ class RunSingleTactic:
         self.yield_vec = np.zeros(self.n_years)
         
         self.inoc_vec = np.zeros(self.n_years+1)
+        
+        if primary_inoculum is None:
+            primary_inoculum = self._primary_calculator(Config, res_props['f1'], res_props['f2'])
 
         self.res_vec_dict = dict(
             f1 = [res_props['f1']],
             f2 = [res_props['f2']]
             )
-        
-        if primary_inoculum is None:
-            primary_inoculum = self._primary_calculator(Config, res_props['f1'], res_props['f2'])
-        
+
+
         # array that has solution for each state variable for each year.
         self.sol_array = np.zeros((PARAMS.t_points, 
                                 PARAMS.no_variables,

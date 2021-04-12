@@ -2,12 +2,12 @@
 Combine the dataframes.
 """
 from .config import config
-from .functions import combine_PS_outputs
+from .functions import combine_PS_grid_outputs
 
 
 
 def main():
-    combine_PS_outputs(config)
+    combine_PS_grid_outputs(config)
 
 
 if __name__=="__main__":

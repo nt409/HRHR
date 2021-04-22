@@ -12,20 +12,18 @@ def main(config):
     par_str = get_PS_rand_str(config)
 
     df = pd.read_csv(f"param_scan_cluster/outputs/PS_combined_rand_output_{par_str}.csv")
-    # print(df.run.unique())
-    # exit()
 
     PP = PostProcess(df, par_str)
 
-    PP.process_param_scan_df()
-
-    PP.process_best_doses()
-
-    PP.show_failed_runs()
+    # PP.process_best_doses()
 
     PP.check_max_EL_by_MS("rand")
 
     PP.check_monotone_RFB("rand")
+    
+    PP.which_runs_worked(print_=True)
+    
+    PP.re_run_failures(config["NDoses"], failed_run_indices=list(range(3,6)))
 
 
 if __name__=="__main__":

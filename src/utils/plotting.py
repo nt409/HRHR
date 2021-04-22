@@ -388,7 +388,7 @@ def dose_grid_heatmap(data, Config, to_plot, conf_str):
 
     z = np.transpose(data[to_plot])
 
-    trace = go.Contour(
+    trace = go.Heatmap(
         x = x,
         y = y,
         z = z,
@@ -880,7 +880,7 @@ def first_year_yield(data, Config):
     x = np.linspace(0, 1, Config.n_doses)
     y = np.linspace(0, 1, Config.n_doses)
 
-    z = data['yield_array'][:,:,0]
+    z = np.transpose(data['yield_array'][:,:,0])
 
     trace = go.Contour(
         x = x,

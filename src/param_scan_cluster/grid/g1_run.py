@@ -13,8 +13,8 @@ then compile into one df using post_process.py
 
 import sys
 
-from .functions import ParamScanGrid
-from .config import config
+from ..functions import ParamScanGrid
+from ..config import config_grid
 
 
 def main(config, index):
@@ -25,4 +25,4 @@ if __name__=="__main__":
     
     if len(sys.argv)==2:
         index = int(sys.argv[1])
-        main(config, index)
+        main(config_grid, index)

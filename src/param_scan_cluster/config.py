@@ -1,21 +1,6 @@
 import numpy as np
 
-# config = {
-# "RFS1": [10**(k) for k in [-5]],
-# "RFS2": [10**(k) for k in [-5]],
-# "RFD": [10**(k) for k in [-6, -5]],
-
-# "asym1": [0.8],
-# "asym2": [0.8],
-
-# "dec_rate1": [(1.11*10**(-2))*(2**j) for j in [0]],
-# "dec_rate2": [(1.11*10**(-2))*(2**j) for j in [0]],
-
-# "SR": [0,0.5,1],
-# "NDoses": 3
-# }
-
-config = {
+config_grid = {
 "RFS1": [10**(k) for k in [-8,-5]],
 "RFS2": [10**(k) for k in np.linspace(-8,-1, 5)],
 "RFD": [10**(k) for k in np.linspace(-15,-1, 4)],
@@ -44,7 +29,11 @@ config_rand = {
     "dec_rate2": [0.5*1.11*10**(-2), 2*1.11*10**(-2)],
 
     "SR": [0,1],
-    "NDoses": 5,
-    "NIts": 100,
-    "load_saved": True
+    
+    "grid_number": 11,
+
+    "NIts": 10,
+    "load_saved": True,
+    
+    "contour_type": "RFB",
 }

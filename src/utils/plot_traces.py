@@ -372,7 +372,7 @@ def get_multi_contour_traces(data, Config):
     
     clrbar = my_colorbar(TITLE_MAP["FY"])
     
-    heatmap = go.Contour(
+    heatmap = go.Heatmap(
         x = xheat,
         y = yheat,
         z = z,

@@ -3,8 +3,8 @@ Analyse the parameter scan output
 """
 import pandas as pd
 
-from .config import config
-from .functions import PostProcess, get_PS_grid_str
+from ..config import config_grid
+from ..functions import PostProcess, get_PS_grid_str
 
 
 def main(config):
@@ -27,4 +27,4 @@ def main(config):
 
 
 if __name__=="__main__":
-    main(config)
+    main(config_grid)

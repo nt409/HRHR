@@ -911,7 +911,7 @@ def first_year_yield(data, Config):
     fig.write_image(filename)
 
 
-def eq_RFB_contours(data, Config):
+def eq_RFB_contours(data, Config, title=None):
     
     traces = get_multi_contour_traces(data, Config)
 
@@ -929,6 +929,8 @@ def eq_RFB_contours(data, Config):
     fig.update_yaxes(title="Dose (fungicide B)",
         range=[0-dy,1+dy],
         showgrid=False)
+
+    fig.update_layout(title=title)
 
     fig.show()
     conf_str = Config.config_string_img

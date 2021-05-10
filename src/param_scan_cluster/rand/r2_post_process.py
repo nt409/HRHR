@@ -1,8 +1,8 @@
 """
 Combine the dataframes.
 """
-from .config import config_rand
-from .functions import combine_PS_rand_outputs
+from ..config import config_rand
+from ..functions import combine_PS_rand_outputs
 
 
 

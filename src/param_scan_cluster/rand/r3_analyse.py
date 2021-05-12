@@ -36,7 +36,7 @@ def main(config):
         PP.re_run_failures(NDOSES, failed_run_indices=list(range(6)))
     
     else:
-        df = PP.get_maximum_along_contour_df()
+        PP.get_maximum_along_contour_df()
         
         PP.analyse_max_contour_df()
 
@@ -44,9 +44,9 @@ def main(config):
         
         PP.which_runs_worked_max_cont()
 
-        PP.re_run_failures(NDoses=11, failed_run_indices=None)
+        # PP.re_run_failures(NDoses=11, failed_run_indices=[0])
         
-        PP.check_high_or_low_dose()
+        # PP.check_high_or_low_dose()
 
 if __name__=="__main__":
     main(config_rand)

@@ -528,7 +528,6 @@ class ParamScanRand(ParamScan):
         df_this_run = pd.DataFrame()
 
         if not self.contours:
-            # df_this_run["notes"] = "no contours"
             self.df_this_run = df_this_run
             return None
 
@@ -634,8 +633,10 @@ class ParamScanRand(ParamScan):
 
 
     def _plot_df(self):
-        for i in self.df_this_run.contour_level.unique():
-            df_plot = self.df_this_run[self.df_this_run['contour_level']==i]
+        my_df = copy.copy(self.df_this_run)
+
+        for i in my_df.contour_level.unique():
+            df_plot = my_df[my_df['contour_level']==i]
 
             df_plot.plot(x="delta_RFB", y="EL", title=i, kind="scatter")
         
@@ -807,7 +808,6 @@ class ParamScanRandRFB(ParamScanRand):
         Result is more densely populated list of values (approximately) 
         along the contour
         """
-
         xx = copy.copy(self.contours[0]['x'])
         yy = copy.copy(self.contours[0]['y'])
 
@@ -843,6 +843,7 @@ class ParamScanRandRFB(ParamScanRand):
             self.contours = []
         else:    
             self.contours = _get_contours(self.EqSel_array, levels=[0.5], step=1)
+
             if self.contours and len(self.contours[0]['x'])<8:
                 self._interpolate_contours(8)
 
@@ -988,7 +989,9 @@ class ParamScanRandRFB(ParamScanRand):
 
     def _get_EqSel_columns(self, *this_run_parms):
         """
-        add on two columns to existing dataframe
+        adds on two columns to existing dataframe:
+        - maxEqSelEL
+        - EqSelValid
         """
         
         df_ERFB_data = copy.copy(self.df_this_run)
@@ -1032,33 +1035,10 @@ class ParamScanRandRFB(ParamScanRand):
 
 
 
-    def _get_df_ERFB_invalid(self, *this_run_parms):
-
-        print("ERFB impossible for this run - on to the next one! \n")
-
-        self._get_grid_output_df()
-
-        self._get_EqSel_columns(*this_run_parms)
-
-        par_df = self._get_params_df()
 
 
-        out = pd.concat([par_df,
-                    self.df_RFB_and_EqSel,
-                    self.grid_output_df],
-                    axis=1)
+    def _get_df_to_append(self, *this_run_parms):
         
-
-        return out
-    
-
-
-
-
-    def _get_df_ERFB_valid(self, *this_run_parms):
-        
-        self._get_data_this_conf_and_contrs(*this_run_parms)
-
         self._get_grid_output_df()
 
         self._get_EqSel_columns(*this_run_parms)
@@ -1066,7 +1046,6 @@ class ParamScanRandRFB(ParamScanRand):
         par_df = self._get_params_df()        
 
         out = pd.concat([par_df,
-                            # self.df_this_run,
                             self.df_RFB_and_EqSel,
                             self.grid_output_df,
                             ],
@@ -1088,6 +1067,9 @@ class ParamScanRandRFB(ParamScanRand):
         np.random.seed(seed)
 
         for run_index in tqdm(range(self.config["NIts"])):
+            
+            # initialise as empty
+            self.df_this_run = pd.DataFrame()
 
             this_run_parms = self._get_random_pars()
 
@@ -1108,11 +1090,11 @@ class ParamScanRandRFB(ParamScanRand):
 
             self._get_this_run_params_rand(sr_prop, run_index)
 
-            if not self.ERFB_valid:
-                new_df = self._get_df_ERFB_invalid(*this_run_parms)
-            else:
-                new_df = self._get_df_ERFB_valid(*this_run_parms)
-                
+            if self.ERFB_valid:
+                self._get_data_this_conf_and_contrs(*this_run_parms)
+        
+            new_df = self._get_df_to_append(*this_run_parms)
+
             df = pd.concat([df, new_df], axis=0)
             
             
@@ -1443,9 +1425,40 @@ class PostProcess:
         self.failed_pars.to_csv(f"param_scan_cluster/outputs/failed_pars/failed_maxCont_{n_fail}.csv")
 
 
-    
-    
-    
+    @staticmethod
+    def get_opt_df(data):
+        if not data['maxContEL'].shape[0]:
+            return None
+        
+        maxEL_this_run = float(list(data['maxContEL'])[0])
+
+        df = data[data['EL']==maxEL_this_run]
+        
+        return df
+
+
+
+
+    def min_opt_DS(self, data):
+        
+        df = self.get_opt_df(data)
+
+        if df is None or not df.shape[0]:
+            return "NA"
+
+        return min(df['dose1']+df['dose2'])
+
+
+
+    def max_opt_DS(self, data):
+        
+        df = self.get_opt_df(data)
+
+        if df is None or not df.shape[0]:
+            return "NA"
+        
+        return max(df['dose1']+df['dose2'])
+
     
     def _generate_max_along_contour_df(self):
         my_df = copy.copy(self.df)
@@ -1459,19 +1472,34 @@ class PostProcess:
         for string in strats:
             my_df[string + "%"] = 100*my_df[string + "EL"]/my_df["maxGridEL"]
         
-        my_df = my_df.drop(['Unnamed: 0', 'EL', 'econ'], axis=1)
+        my_df = my_df.drop(['Unnamed: 0', 'econ'], axis=1)
 
         counting = my_df.groupby(["run"]).size()
+
+        DS_df = pd.DataFrame()
+
+        DS_df['min_dose_sums'] = my_df.groupby(["run"]).apply(lambda data: min(data['dose1'] + data['dose2']))
+        DS_df['max_dose_sums'] = my_df.groupby(["run"]).apply(lambda data: max(data['dose1'] + data['dose2']))
+        DS_df['min_opt_DS'] = my_df.groupby(["run"]).apply(self.min_opt_DS)
+        DS_df['max_opt_DS'] = my_df.groupby(["run"]).apply(self.max_opt_DS)
+
+        DS_df['min_DS_best'] = np.where(DS_df['min_dose_sums']==DS_df['min_opt_DS'], True, DS_df['min_dose_sums']-DS_df['min_opt_DS'])
+        DS_df['max_DS_best'] = np.where(DS_df['max_dose_sums']==DS_df['max_opt_DS'], True, DS_df['max_dose_sums']-DS_df['max_opt_DS'])
+        DS_df['max_or_min_DS_best'] = np.where((DS_df['min_dose_sums']==DS_df['min_opt_DS'])
+                                        | (DS_df['max_dose_sums']==DS_df['max_opt_DS']),
+                                            True, False)
 
         grouped = my_df.groupby(["run"]).first()
 
         grouped['count'] = counting
         
         df_out = grouped.reset_index()
-        
-        df_out = df_out.sort_values(['ERFB_Valid', 'EqSelValid', 'maxCont%', 'maxEqSel%'])
 
-        return df_out
+        out = pd.concat([df_out, DS_df], axis=1)
+
+        out = out.sort_values(['ERFB_Valid', 'EqSelValid', 'maxCont%', 'maxEqSel%'])
+
+        return out
 
 
 
@@ -1505,7 +1533,8 @@ class PostProcess:
                     sum_total=sum_total,
                     work_pc=round(100*worked/sum_total,1),
                     mean=round(mean,1),
-                    conditional_mean=round(conditional_mean,1)
+                    conditional_mean=round(conditional_mean,1),
+                    strategy=strategy
                     )
         
         print(out)
@@ -1517,6 +1546,12 @@ class PostProcess:
     # @staticmethod
     def analyse_max_contour_df(self):
         df = copy.copy(self.max_along_contour_df)
+
+        df['min_corner'] = df[["corner_01", "corner_10"]].min(axis=1)
+
+        # filter so only consider those with min corner > 0
+
+        df = df[df['min_corner']>0]
 
         n_rows = df.shape[0]
         n_erfb = self.filtered_dataframe_outcome(df, "ERFB_Valid", "maxCont%")
@@ -1532,13 +1567,13 @@ class PostProcess:
 
         df = df_in[df_in['maxCont%']<100]
         
-        df = df.assign(delta_ratio=lambda d: d['delta_1']/d['delta_2'])
+        # df = df.assign(delta_ratio=lambda d: d['delta_1']/d['delta_2'])
         
-        df = df.assign(omega_ratio=lambda d: d['omega_1']/d['omega_2'])
+        # df = df.assign(omega_ratio=lambda d: d['omega_1']/d['omega_2'])
 
-        df = df.assign(sing_res_ratio=lambda d: d['SR']/d['RS'])
+        # df = df.assign(sing_res_ratio=lambda d: d['SR']/d['RS'])
         
-        df = df.assign(diff=lambda d: d['maxGridEL'] - d['maxContEL'])
+        df = df.assign(diff_from_opt=lambda d: d['maxGridEL'] - d['maxContEL'])
         
         df['max_sing_res'] = df[["SR", "RS"]].max(axis=1)
         
@@ -1546,9 +1581,10 @@ class PostProcess:
 
         df = df.sort_values(by=['min_corner', 'max_sing_res'])
 
-        # df = df[df['max_sing_res']<0.01]
+        print("\n")
+        print("These runs failed:\n")
         
-        print(df[['diff',
+        print(df[['diff_from_opt',
                     # 'sr_prop',
                     # 'SR',
                     # 'RS',

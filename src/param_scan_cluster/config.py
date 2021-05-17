@@ -18,8 +18,8 @@ config_grid = {
 
 
 config_rand = {
-    "RFS1": [-8,-1],
-    "RFS2": [-8,-1],
+    "RFS1": [-8,-2],
+    "RFS2": [-8,-2],
     "RFD": [-15,-3],
 
     "asym1": [0.4, 1],
@@ -30,9 +30,9 @@ config_rand = {
 
     "SR": [0,1],
     
-    "grid_number": 11,
+    "grid_number": 21,
 
-    "NIts": 10,
+    "NIts": 1500,
     "load_saved": True,
     
     "contour_type": "RFB",

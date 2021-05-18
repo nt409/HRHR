@@ -789,6 +789,10 @@ class ParamScanRandRFB(ParamScanRand):
     @staticmethod
     def _get_first_non_zero_element(vec):
         filtered = list(filter(lambda x: x>0, vec))
+
+        if not filtered:
+            return "NA"
+
         return filtered[0]
 
 
@@ -950,7 +954,7 @@ class ParamScanRandRFB(ParamScanRand):
 
         output = self.my_grid_output
 
-        minEqDoseELVec = [output['FY'][i, i] for i in range(output['FY'].shape[0])]
+        minEqDoseELVec = [float(output['FY'][i, i]) for i in range(output['FY'].shape[0])]
 
         data = dict(maxGridEL = np.amax(output['FY']),
                 ERFB_Valid = self.ERFB_valid,

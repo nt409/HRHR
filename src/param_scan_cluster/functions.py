@@ -418,7 +418,7 @@ class ParamScanGrid(ParamScan):
         
         par_str = get_PS_grid_str(config_use)
 
-        df.to_csv(f"param_scan_cluster/outputs/param_grid_scan_{par_str}.csv", index=False)
+        df.to_csv(f"./param_scan_cluster/outputs/param_grid_scan_{par_str}.csv", index=False)
 
 
 
@@ -762,7 +762,7 @@ class ParamScanRandFYY(ParamScanRand):
         
         par_str = get_PS_rand_str(self.config)
 
-        filename = f"param_scan_cluster/outputs/rand/par_scan/seed={seed}_{par_str}.csv"
+        filename = f"./param_scan_cluster/outputs/rand/par_scan/seed={seed}_{par_str}.csv"
         
         print(f"Random Scan, saved as {filename}")
         
@@ -1121,7 +1121,7 @@ class ParamScanRandRFB(ParamScanRand):
         
         par_str = get_PS_rand_str(self.config)
 
-        filename = f"param_scan_cluster/outputs/rand/par_scan/seed={seed}_{par_str}.csv"
+        filename = f"./param_scan_cluster/outputs/rand/par_scan/seed={seed}_{par_str}.csv"
         
         print(f"Random Scan, saved as:\n {filename}")
         
@@ -1157,13 +1157,13 @@ def combine_PS_grid_outputs(config):
         
         par_str = get_PS_grid_str(config_use)
 
-        temporary = pd.read_csv(f"param_scan_cluster/outputs/param_grid_scan_{par_str}.csv")
+        temporary = pd.read_csv(f"./param_scan_cluster/outputs/param_grid_scan_{par_str}.csv")
         
         df = df.append(temporary, ignore_index=True)
     
     par_str = get_PS_grid_str(config)
     
-    df.to_csv(f"param_scan_cluster/outputs/PS_combined_grid_output_{par_str}.csv")
+    df.to_csv(f"./param_scan_cluster/outputs/PS_combined_grid_output_{par_str}.csv")
 
 
 
@@ -1180,13 +1180,13 @@ def combine_PS_rand_outputs(config, seeds):
 
     for seed in seeds:
 
-        temporary = pd.read_csv(f"param_scan_cluster/outputs/rand/par_scan/seed={seed}_{par_str}.csv")
+        temporary = pd.read_csv(f"./param_scan_cluster/outputs/rand/par_scan/seed={seed}_{par_str}.csv")
 
         temporary["run"] = [seed*config["NIts"] + e for e in temporary["run"]]
         
         df = df.append(temporary, ignore_index=True)
 
-    df.to_csv(f"param_scan_cluster/outputs/rand/combined/output_{par_str}.csv")
+    df.to_csv(f"./param_scan_cluster/outputs/rand/combined/output_{par_str}.csv")
 
 
 
@@ -1276,7 +1276,7 @@ class PostProcess:
         grouped_df = self.df.groupby(["run", "contour_level"])
 
         grouped = grouped_df.pipe(self._max_EL)
-        grouped.to_csv(f"param_scan_cluster/outputs/{type}/analysis/maxEL_thisContour/{self.par_str}.csv")
+        grouped.to_csv(f"./param_scan_cluster/outputs/{type}/analysis/maxEL_thisContour/{self.par_str}.csv")
 
 
 
@@ -1351,7 +1351,7 @@ class PostProcess:
 
         self.monotoneRFB_df = combined
         
-        combined.to_csv(f"param_scan_cluster/outputs/{type}/analysis/monotoneRFB/{self.par_str}.csv")
+        combined.to_csv(f"./param_scan_cluster/outputs/{type}/analysis/monotoneRFB/{self.par_str}.csv")
         print(f"Monotone RFB works in all cases: {all(grouped_RFB_is_monotone)}")
 
 
@@ -1393,7 +1393,7 @@ class PostProcess:
 
         n_fail = self.failed_pars.shape[0]
         n_success = self.success_pars.shape[0]
-        self.failed_pars.to_csv(f"param_scan_cluster/outputs/failed_pars/failed_{n_fail}_out_of_{n_success+n_fail}.csv")
+        self.failed_pars.to_csv(f"./param_scan_cluster/outputs/failed_pars/failed_{n_fail}_out_of_{n_success+n_fail}.csv")
 
 
 
@@ -1424,7 +1424,7 @@ class PostProcess:
 
         n_fail = self.failed_pars.shape[0]
 
-        self.failed_pars.to_csv(f"param_scan_cluster/outputs/failed_pars/failed_maxCont_{n_fail}.csv")
+        self.failed_pars.to_csv(f"./param_scan_cluster/outputs/failed_pars/failed_maxCont_{n_fail}.csv")
 
 
     @staticmethod
@@ -1613,7 +1613,7 @@ class PostProcess:
         
         df_out = self._generate_max_along_contour_df()
 
-        filename = f"param_scan_cluster/outputs/rand/analysis/max_along_contour/df_{len(df_out)}.csv"
+        filename = f"./param_scan_cluster/outputs/rand/analysis/max_along_contour/df_{len(df_out)}.csv"
 
         print(f"Saving maximum along contour csv to: \n{filename}")
 
@@ -1666,7 +1666,7 @@ class PostProcess:
         
         df_out = df_out.sort_values(['FD_BetterThanMin', 'sr_prop'])
                 
-        filename = f"param_scan_cluster/outputs/rand/analysis/high_or_low_dose/df_{len(df_out)}.csv"
+        filename = f"./param_scan_cluster/outputs/rand/analysis/high_or_low_dose/df_{len(df_out)}.csv"
 
         print(f"Saving high or low dose csv to: \n{filename}")
         

@@ -976,7 +976,7 @@ class RunSingleTactic:
         self.t_vec = output['solutiont']
 
 
-    def _save_single(self):
+    def _save_single_run(self):
         model_output = {
                 'res_vec_dict': self.res_vec_dict,
                 'start_of_season': self.start_of_season,
@@ -1011,7 +1011,7 @@ class RunSingleTactic:
 
         self._loop_over_years(Config)
         
-        model_output = self._save_single()
+        model_output = self._save_single_run()
         
         return model_output
 

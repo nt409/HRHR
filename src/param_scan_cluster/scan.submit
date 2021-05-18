@@ -1,7 +1,7 @@
 #!/bin/bash
 #! Make sure all the SBATCH directives go in this section and no other commands
 #! Name of the job:
-#SBATCH -J optimal_HRHR
+#SBATCH -J HRHR_scan
 #! Project name for Cunniffe group, use SL2 for paying queue:
 #SBATCH -A CUNNIFFE-SL3-CPU
 #! Output filename:

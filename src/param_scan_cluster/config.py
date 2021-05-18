@@ -32,7 +32,7 @@ config_rand = {
     
     "grid_number": 26,
 
-    "NIts": 50,
+    "NIts": 75,
     "load_saved": False,
     
     "contour_type": "RFB",

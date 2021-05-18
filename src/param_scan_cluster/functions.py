@@ -1181,9 +1181,11 @@ def combine_PS_rand_outputs(config, seeds):
     for seed in seeds:
 
         temporary = pd.read_csv(f"param_scan_cluster/outputs/rand/par_scan/seed={seed}_{par_str}.csv")
+
+        temporary["run"] = [seed*config["NIts"] + e for e in temporary["run"]]
         
         df = df.append(temporary, ignore_index=True)
-    
+
     df.to_csv(f"param_scan_cluster/outputs/rand/combined/output_{par_str}.csv")
 
 

@@ -30,12 +30,11 @@ config_rand = {
 
     "SR": [0,1],
     
-    "grid_number": 26,
+    "grid_number": 51,
 
-    "NIts": 75,
+    "NIts": 32,
     "load_saved": True,
     
-    "contour_type": "RFB",
 }
 
 # config_rand = {

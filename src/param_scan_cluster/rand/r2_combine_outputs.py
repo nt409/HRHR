@@ -12,4 +12,5 @@ def main(config, seeds):
 
 if __name__=="__main__":
     seeds = list(range(31))
+    # seeds = [0]
     main(config_rand, seeds)

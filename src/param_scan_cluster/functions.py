@@ -86,6 +86,8 @@ def _get_contours(z, levels=None, step=1):
     output = []
 
     for level, conts in zip(levels, cs.allsegs):
+
+        # print(conts)
         
         if not conts:
             # why not?
@@ -94,13 +96,26 @@ def _get_contours(z, levels=None, step=1):
 
         cont = conts[0]
         
-        vals = dict(x=cont[:,0], y=cont[:,1])
+        x_list = cont[:,0]
+        y_list = cont[:,1]
+
+        x_vals = [x_list[0]] + list(x_list[1:-2:step]) + [x_list[-1]]
+        y_vals = [y_list[0]] + list(y_list[1:-2:step]) + [y_list[-1]]
+
+        x_max = max(x_vals)
+        y_max = max(y_vals)
+
+        # print(np.asarray(x_vals))
+        print("max thing is:")
+        print(x_max, y_max)
+
+        # exit()
             
         output.append(
             dict(
-                x = [vals['x'][0]] + list(vals['x'][1:-2:step]) + [vals['x'][-1]],
-                y = [vals['y'][0]] + list(vals['y'][1:-2:step]) + [vals['y'][-1]],
-                # level = levels[ind]
+                x = x_vals,
+                y = y_vals,
+                max_dose = max(x_max, y_max),
                 level = level
                 )
             )
@@ -381,6 +396,7 @@ class ParamScanRand(ParamScan):
                 self._get_data_this_contour(*params, dose1, dose2)
                
                 data = {"contour_level": contour['level'],
+                            "max_dose_on_contour": contour['max_dose'],
                             "dose1": dose1,
                             "dose2": dose2,
                             **self.this_contour_df}
@@ -390,11 +406,11 @@ class ParamScanRand(ParamScan):
 
 
 
-        df_this_run['maxContEL'] = max(df_this_run['EL'])
+        df_this_run['maxContEL'] = [max(df_this_run['EL'])] + [""]*(df_this_run.shape[0]-1)
 
-        df_this_run['minDeltaRFB'] = min(df_this_run['delta_RFB'])        
+        df_this_run['minDeltaRFB'] = [min(df_this_run['delta_RFB'])] + [""]*(df_this_run.shape[0]-1)
 
-        df_this_run['maxDeltaRFB'] = max(df_this_run['delta_RFB'])
+        df_this_run['maxDeltaRFB'] = [max(df_this_run['delta_RFB'])] + [""]*(df_this_run.shape[0]-1)
 
         self.df_this_run = df_this_run
 
@@ -552,7 +568,7 @@ class ParamScanRandRFB(ParamScanRand):
     def _find_contours_EqSel(self, min_number_pts_alng_cntr=12):
         self._find_EqSel_array()
 
-        self._check_EqSel_validity()
+        self._get_EqSelValid()
 
         if not self.EqSelValid:
             self.contours = []
@@ -594,13 +610,20 @@ class ParamScanRandRFB(ParamScanRand):
 
     
     
-    def _check_RFB_validity(self):
+    def _get_ERFB_valid(self):
         self.ERFB_valid = (np.nanmax(self.RFB_array)>0
                         and np.nanmin(self.RFB_array)<0)
 
 
 
-    def _check_EqSel_validity(self):
+    def _get_EqSelValid(self):
+        """
+        Check if Equal Selection is a possible tactic 
+
+        That is, are there dose pairs for which can select
+        more strongly for either fcide?
+
+        """
         self.EqSelValid = (np.nanmax(self.EqSel_array)>0.5
                         and np.nanmin(self.EqSel_array)<0.5)
 
@@ -613,7 +636,7 @@ class ParamScanRandRFB(ParamScanRand):
 
         self._find_RFB_array()
 
-        self._check_RFB_validity()
+        self._get_ERFB_valid()
 
         if not self.ERFB_valid:            
             self.contours = []
@@ -717,11 +740,17 @@ class ParamScanRandRFB(ParamScanRand):
 
         self._get_maxEL_EqSel()
 
-        self._check_EqSel_validity()
+        self._get_EqSelValid()
+
+        if not self.contours:
+            max_D = "NA"
+        else:
+            max_D = self.contours[0]["max_dose"]
 
         df_use = pd.DataFrame([dict(
                 maxEqSelEL = self.maxEqSelEL,
-                EqSelValid = self.EqSelValid
+                EqSelValid = self.EqSelValid,
+                max_dose_EL_cont = max_D
             )])
         
         self.df_RFB_and_EqSel = pd.concat([df_ERFB_data, df_use], axis=1)
@@ -1179,6 +1208,13 @@ class PostProcess:
         DS_df['max_dose_sums'] = my_df.groupby(["run"]).apply(lambda data: max(data['dose1'] + data['dose2']))
         DS_df['min_opt_DS'] = my_df.groupby(["run"]).apply(self.min_opt_DS)
         DS_df['max_opt_DS'] = my_df.groupby(["run"]).apply(self.max_opt_DS)
+        
+        DS_df['max_cont_d1'] = my_df.groupby(["run"]).apply(lambda data: max(data['dose1']))
+        DS_df['max_cont_d2'] = my_df.groupby(["run"]).apply(lambda data: max(data['dose2']))
+
+        DS_df['max_cont_dose_either_fung'] = DS_df[['max_cont_d1', 'max_cont_d2']].max(axis=1)
+
+
 
         DS_df['min_DS_best'] = np.where(DS_df['min_dose_sums']==DS_df['min_opt_DS'], True, DS_df['min_dose_sums']-DS_df['min_opt_DS'])
         DS_df['max_DS_best'] = np.where(DS_df['max_dose_sums']==DS_df['max_opt_DS'], True, DS_df['max_dose_sums']-DS_df['max_opt_DS'])
@@ -1267,11 +1303,7 @@ class PostProcess:
         df_in = copy.copy(self.max_along_contour_df)
 
         df = df_in[df_in['maxCont%']<100]
-        
-        # df = df.assign(delta_ratio=lambda d: d['delta_1']/d['delta_2'])        
-        # df = df.assign(omega_ratio=lambda d: d['omega_1']/d['omega_2'])
-        # df = df.assign(sing_res_ratio=lambda d: d['SR']/d['RS'])
-        
+
         df = df.assign(diff_from_opt=lambda d: d['maxGridEL'] - d['maxContEL'])
         
         df['max_sing_res'] = df[["SR", "RS"]].max(axis=1)
@@ -1284,7 +1316,7 @@ class PostProcess:
 
         print("\n")
         print("These runs failed:\n")
-        
+
         print(df[['diff_from_opt',
                     'run',
                     'count',
@@ -1293,6 +1325,9 @@ class PostProcess:
                     "min_corner",
                     'maxGridEL',
                     'maxContEL',
+                    # 'max_cont_d1',
+                    # 'max_cont_d2',
+                    'max_cont_dose_either_fung',
                     'max_sing_res']])
 
         

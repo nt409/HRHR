@@ -728,9 +728,9 @@ class RunSingleTactic:
 
         self._find_disease_free_yield()
 
-        self.yield_stopper = 0
+        self.yield_stopper = 95
 
-        self.FREQ_NAMES = ['RR', 'RS', 'SR', 'SS']
+        self.PATHOGEN_STRAIN_NAMES = ['RR', 'RS', 'SR', 'SS']
 
 
     def _find_disease_free_yield(self):
@@ -780,6 +780,38 @@ class RunSingleTactic:
 
         self.dis_free_yield = df_yield_integral
 
+
+    def _initialise_freqs(self):
+        out = {}
+        for key in self.PATHOGEN_STRAIN_NAMES:
+            out[key] = np.zeros(self.n_years+1)
+
+        return out
+
+
+
+
+    def _initialise_res_vec_dict(self, res_props):
+        out = {}
+        keys = ['f1', 'f2']
+        
+        for key in keys:
+            out[key] = np.zeros(self.n_years+1)
+            # set first year
+            out[key][0] = res_props[key]
+
+        return out
+
+
+
+    def _initialise_sel_vec_dict(self):
+        out = {}
+        keys = ['f1', 'f2']
+        
+        for key in keys:
+            out[key] = np.zeros(self.n_years+1)
+
+        return out
     
     
     def _initialise_variables_single_run(self, Config):
@@ -799,10 +831,7 @@ class RunSingleTactic:
         if primary_inoculum is None:
             primary_inoculum = self._primary_calculator(Config, res_props['f1'], res_props['f2'])
 
-        self.res_vec_dict = dict(
-            f1 = [res_props['f1']],
-            f2 = [res_props['f2']]
-            )
+        self.res_vec_dict = self._initialise_res_vec_dict(res_props)
 
 
         # array that has solution for each state variable for each year.
@@ -813,15 +842,12 @@ class RunSingleTactic:
         self.t_vec = np.zeros(PARAMS.t_points)
 
 
-        self.selection_vec_dict = dict(
-            f1 = [],
-            f2 = []
-            )
+        self.selection_vec_dict = self._initialise_sel_vec_dict()
 
         # post-sex from previous year
-        self.start_of_season = self._initialise_freqs(self.n_years)
+        self.start_of_season = self._initialise_freqs()
         # pre-sex
-        self.end_of_season = self._initialise_freqs(self.n_years)
+        self.end_of_season = self._initialise_freqs()
         
         self.inoc_vec[0] = PARAMS.init_den
 
@@ -830,14 +856,14 @@ class RunSingleTactic:
 
 
     def update_start_of_season(self, yr):
-        for key in self.FREQ_NAMES:
+        for key in self.PATHOGEN_STRAIN_NAMES:
             self.start_of_season[key][yr] = self.strain_freqs[key]
     
 
 
     def get_initial_freqs(self, yr):
         out = {}
-        for key in self.FREQ_NAMES:
+        for key in self.PATHOGEN_STRAIN_NAMES:
             out[key] = self.inoc_vec[yr]*self.strain_freqs[key]
         return out
 
@@ -848,15 +874,6 @@ class RunSingleTactic:
         if os.path.isfile(filename) and "single" in filename:
             loaded_run = pickle.load(open(filename, 'rb'))
             return loaded_run
-
-
-
-    def _initialise_freqs(self, n_years):
-        out = {}
-        for key in self.FREQ_NAMES:
-            out[key] = np.zeros(n_years+1)
-
-        return out
 
 
 
@@ -889,12 +906,29 @@ class RunSingleTactic:
             
             return out
     
+
+
+    
     @staticmethod
     def _get_single_fung_dose(dose_vec, yr):
         return dict(
                     spray_1 = dose_vec['spray_1'][yr],
                     spray_2 = dose_vec['spray_2'][yr]
                     )
+
+
+    def _update_failure_year(self, yr):
+        """
+        Set failure year if:
+        - yield is below threshold
+        - started above threshold
+        - is first time it has dropped below threshold
+        """
+        if ((self.yield_vec[yr]<PARAMS.yield_threshold) and 
+                (self.yield_vec[0]>PARAMS.yield_threshold) and 
+                (self.failure_year==0)):
+            self.failure_year = yr+1
+
 
 
 
@@ -912,16 +946,15 @@ class RunSingleTactic:
 
         self._process_single_output(output, Config, yr)
 
-        if ((self.yield_vec[yr]<PARAMS.yield_threshold) and 
-                (self.yield_vec[0]>PARAMS.yield_threshold) and 
-                (self.failure_year==0)):
-            self.failure_year = yr+1
+        self._update_failure_year(yr)
+
+
 
     
     def _loop_over_years(self, Config):
         for yr in range(self.n_years):
             # stop the solver after we drop below threshold
-            if not (yr>0 and self.yield_vec[yr-1] < self.yield_stopper): 
+            if not (yr>0 and self.yield_vec[yr-1]<self.yield_stopper):
                 self._run_single_year(Config, yr)
         
         if min(self.yield_vec)>PARAMS.yield_threshold:
@@ -929,20 +962,23 @@ class RunSingleTactic:
 
 
 
-    def _update_selection_vec_dict(self, output):
+    def _update_selection_vec_dict(self, output, yr):
         for key in ['f1', 'f2']:
-            self.selection_vec_dict[key].append(output['selection'][key])
+            self.selection_vec_dict[key][yr] = output['selection'][key]
 
 
-    def _update_res_vec_dict(self, output):
+    def _update_res_vec_dict(self, output, yr):
         for key in ['f1', 'f2']:
-            self.res_vec_dict[key].append(output['final_res_dict'][key])
+            self.res_vec_dict[key][yr] = output['final_res_dict'][key]
 
 
     def _update_end_of_season(self, freqs_out, yr):
         for key in freqs_out.keys():
             self.end_of_season[key][yr] = freqs_out[key]
         
+
+
+
 
     def _process_single_output(self, output, Config, yr):
         """
@@ -968,12 +1004,17 @@ class RunSingleTactic:
 
         self.inoc_vec[yr+1] = output['inoc']
 
-        self._update_selection_vec_dict(output)
+        self._update_selection_vec_dict(output, yr+1)
 
-        self._update_res_vec_dict(output)
+        self._update_res_vec_dict(output, yr+1)
         
         self.sol_array[:,:,yr] = output['solution']
+
         self.t_vec = output['solutiont']
+
+
+
+
 
 
     def _save_single_run(self):
@@ -1017,7 +1058,6 @@ class RunSingleTactic:
 
 
 # End of RunSingleTactic
-
 
 
 
@@ -1083,9 +1123,13 @@ class RunMultipleTactics:
         
         return total_profit
 
+
+
     @staticmethod
     def _total_yield(Y_vec):
         return sum(Y_vec)/100
+
+
 
     @staticmethod
     def _load_multi_tactic(filename):
@@ -1096,68 +1140,87 @@ class RunMultipleTactics:
             return None
 
 
+
+    @staticmethod
+    def _get_dict_of_zero_arrays(keys, shape):
+        out = {}
+        for key in keys:
+            out[key] = np.zeros(shape)
+        return out
+
+
+
     def _initialise_multi_vars(self, n_doses, n_years):
+
         self.LTY = np.zeros((n_doses, n_doses))
         self.TY = np.zeros((n_doses, n_doses))
         self.FY = np.zeros((n_doses, n_doses))
         self.econ = np.zeros((n_doses, n_doses))
         
         self.yield_array = np.zeros((n_doses, n_doses, n_years))
-        
-        self.res_arrays = {}
-        self.selection_arrays = {}
-        for key in ['f1', 'f2']:
-            self.res_arrays[key] = np.zeros((n_doses, n_doses, n_years+1))
-            self.selection_arrays[key] = np.zeros((n_doses, n_doses, n_years))
-
-        self.start_freqs = {}
-        for key in ['RR', 'RS', 'SR', 'SS']:
-            self.start_freqs[key] = np.zeros((n_doses, n_doses, n_years+1))
-        
         self.inoc_array  = np.zeros((n_doses, n_doses, n_years+1))
+        
+        fung_keys = ['f1', 'f2']
+        self.res_arrays = self._get_dict_of_zero_arrays(fung_keys, (n_doses, n_doses, n_years+1))
+        self.selection_arrays = self._get_dict_of_zero_arrays(fung_keys, (n_doses, n_doses, n_years+1))
+
+        strain_keys = ['RR', 'RS', 'SR', 'SS']
+        self.start_freqs = self._get_dict_of_zero_arrays(strain_keys, (n_doses, n_doses, n_years+1))
+        
 
     
     def _get_fung_strat(self, Conf):
         self.fung_strat = FungicideStrategy(Conf.strategy, Conf.n_years)
 
-    def _update_LTY_TY_FY_econ(self, output, f1_ind, f2_ind, Conf):
+
+
+    def _update_dict_array_this_dose(self, to_update, data, f1_ind, f2_ind, key1):
+
+
+        for key_ in to_update.keys():
+            to_update[key_][f1_ind,f2_ind,:] = data[key1][key_]
+        
+        # print(to_update[key_][f1_ind, f2_ind, :])
+        
+        return to_update
+    
+       
+
+
+    @staticmethod
+    def _get_total_doses_applied_this_year(Conf):
         total_dose_f1 = Conf.fung1_doses['spray_1'][0] + Conf.fung1_doses['spray_2'][0]
         total_dose_f2 = Conf.fung2_doses['spray_1'][0] + Conf.fung2_doses['spray_2'][0]
+        return total_dose_f1, total_dose_f2
 
-        self.LTY[f1_ind,f2_ind] = self._lifetime_yield(output['yield_vec'],output['failure_year'])
-        self.TY[f1_ind,f2_ind] = self._total_yield(output['yield_vec'])
-        self.econ[f1_ind, f2_ind] = self._economic_life(output['yield_vec'], total_dose_f1, total_dose_f2)        
-        self.FY[f1_ind,f2_ind] = output['failure_year']
-        
-
-
-    def _update_other_vars(self, output, f1_ind, f2_ind):
-        
-        vars_to_update = {
-            'yield_vec': self.yield_array,
-            'res_vec_dict': self.res_arrays,
-            'start_of_season': self.start_freqs,
-            'selection_vec_dict': self.selection_arrays,
-            'inoc_vec': self.inoc_array
-            }
-
-        for key in vars_to_update.keys():
-            to_update = vars_to_update[key]
-            if key in ['res_vec_dict', 'start_of_season', 'selection_vec_dict']:
-                for key_ in to_update.keys():
-                    to_update[key_][f1_ind,f2_ind,:] = output[key][key_]
-            else:
-                to_update[f1_ind,f2_ind,:] = output[key]
 
 
 
     
-    def _post_process_multi(self, output, f1_ind, f2_ind, Conf):
-        self._update_LTY_TY_FY_econ(output, f1_ind, f2_ind, Conf)
-        self._update_other_vars(output, f1_ind, f2_ind)
+    def _post_process_multi(self, data_this_dose, f1_ind, f2_ind, Conf):
+
+        self.LTY[f1_ind,f2_ind] = self._lifetime_yield(data_this_dose['yield_vec'],data_this_dose['failure_year'])
+
+        self.TY[f1_ind,f2_ind] = self._total_yield(data_this_dose['yield_vec'])
+
+        total_dose_f1, total_dose_f2 = self._get_total_doses_applied_this_year(Conf)
+
+        self.econ[f1_ind, f2_ind] = self._economic_life(data_this_dose['yield_vec'], total_dose_f1, total_dose_f2)        
+        
+        self.FY[f1_ind,f2_ind] = data_this_dose['failure_year']
+
+        self.inoc_array[f1_ind,f2_ind,:] = data_this_dose["inoc_vec"]
+        self.yield_array[f1_ind,f2_ind,:] = data_this_dose["yield_vec"]
+
+        self.res_arrays = self._update_dict_array_this_dose(copy.copy(self.res_arrays), data_this_dose, f1_ind, f2_ind, "res_vec_dict")
+        self.start_freqs = self._update_dict_array_this_dose(copy.copy(self.start_freqs), data_this_dose, f1_ind, f2_ind, "start_of_season")
+        self.selection_arrays = self._update_dict_array_this_dose(copy.copy(self.selection_arrays), data_this_dose, f1_ind, f2_ind, "selection_vec_dict")
 
 
     
+
+
+
 
 
 
@@ -1180,6 +1243,8 @@ class RunGrid(RunMultipleTactics):
         self.t_vec = one_tact_output['t_vec']
 
 
+
+
     def _save_grid(self):
         grid_output = {'LTY': self.LTY,
                     'TY': self.TY,
@@ -1196,6 +1261,9 @@ class RunGrid(RunMultipleTactics):
         object_dump(self.filename, grid_output)
         
         return grid_output
+
+
+
 
 
     def grid_of_tactics(self, ConfigG):
@@ -1223,6 +1291,10 @@ class RunGrid(RunMultipleTactics):
         return grid_output
 
     
+
+
+
+
 
 
 
@@ -1364,7 +1436,7 @@ class RunRadial(RunMultipleTactics):
                 total_dose_f1 = Conf.fung1_doses['spray_1'][0] + Conf.fung1_doses['spray_2'][0]
                 total_dose_f2 = Conf.fung2_doses['spray_1'][0] + Conf.fung2_doses['spray_2'][0]
 
-                econ= self._economic_life(one_tact_output['yield_vec'], total_dose_f1, total_dose_f2)
+                econ = self._economic_life(one_tact_output['yield_vec'], total_dose_f1, total_dose_f2)
 
                 self.row_list.append(dict(d1=f1_val,
                             d2=f2_val,

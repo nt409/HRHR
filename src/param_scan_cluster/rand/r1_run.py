@@ -13,15 +13,12 @@ then compile into one df using post_process.py
 
 import sys
 
-from ..functions import ParamScanRandRFB, ParamScanRandFYY
+from ..functions import ParamScanRandRFB
 from ..config import config_rand
 
 
 def main(config, seed):
-    if config['contour_type']=="RFB":
-        ParamScanRandRFB(config).run(seed)
-    else:
-        ParamScanRandFYY(config).run(seed)
+    ParamScanRandRFB(config).run(seed)
 
 
 if __name__=="__main__":

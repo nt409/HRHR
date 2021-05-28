@@ -11,9 +11,7 @@ def main(config):
     
     par_str = get_PS_rand_str(config)
 
-    df = pd.read_csv(f"param_scan_cluster/outputs/rand/combined/output_{par_str}.csv")
-
-    PP = PostProcess(df, par_str)
+    PP = PostProcess(par_str)
 
     PP.get_maximum_along_contour_df()
     
@@ -23,7 +21,7 @@ def main(config):
     
     PP.which_runs_worked_max_cont()
 
-    PP.re_run_failures(NDoses=11, failed_run_indices=None)
+    PP.re_run_failures(NDoses=51, failed_run_indices=[12])
         
     # PP.check_high_or_low_dose()
 

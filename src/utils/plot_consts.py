@@ -20,6 +20,7 @@ ATTRS_DICT = {
     }
 
 LABEL_COLOR = "rgb(110,110,110)"
+
 NULL_HEATMAP_COLOUR = "rgb(100, 100, 100)"
 
 STRAIN_ATTRS = dict(SS=dict(color="rgb(34,140,34)", dash="dot", longname='Double sensitive', abbrv="SS"),

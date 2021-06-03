@@ -3,12 +3,12 @@ import numpy as np
 from .plot_consts import NULL_HEATMAP_COLOUR, PLOT_WIDTH, PLOT_HEIGHT, LABEL_COLOR
 
 
-def standard_layout(legend_on):
+def standard_layout(legend_on, width=PLOT_WIDTH, height=PLOT_HEIGHT):
     return go.Layout(
-            font = dict(size=22),
+            font = dict(size=20),
             template="plotly_white",
-            width=PLOT_WIDTH,
-            height=PLOT_HEIGHT,
+            width=width,
+            height=height,
             showlegend=legend_on,
             xaxis=dict(showgrid=False),
             )
@@ -56,6 +56,27 @@ def get_text_annotation(x, y, text):
                 ),
         )
 
+
+def get_big_text_annotation(x, y, text):
+    return dict(
+            x=x,
+            y=y,
+            text=text,
+            
+            showarrow=False,
+                
+            xref='paper',
+            yref='paper',
+
+            xanchor="center",
+            yanchor="top",
+
+            font=dict(
+                    size=30,
+                    color="black",
+                ),
+        )
+
 def get_arrow_annotation(x, y, dx, dy):
     return dict(
             x=x,
@@ -82,5 +103,6 @@ def get_arrow_annotation(x, y, dx, dy):
                     color=LABEL_COLOR,
                 ),
         )
+
 
 # End of utility functions

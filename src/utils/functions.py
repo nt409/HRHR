@@ -73,12 +73,6 @@ def logit10_difference(x1, x2):
     return logit10(x1) - logit10(x2)
 
 
-def non_increasing(L):
-    return all(x>=y for x, y in zip(L, L[1:]))
-
-def non_decreasing(L):
-    return all(x<=y for x, y in zip(L, L[1:]))
-
 # End of utility functions
 
 
@@ -1762,4 +1756,98 @@ def compare_me_vs_hobb_by_ratio(ConfigGridRun, rf1, ratios):
 
 
 
+class EqualResFreqBreakdownArray:
+    def __init__(self, grid_output) -> None:
+        self.FYs = grid_output['FY']
+        self.res_arrays = grid_output['res_arrays']
+        self.array = self._generate_RFB_array()
+        self.is_valid = self._check_valid()
+        
+    def _generate_RFB_array(self):
+        FYs = self.FYs
+
+        out = np.ones(FYs.shape)
+        
+        for i, j in itertools.product(range(FYs.shape[0]), range(FYs.shape[1])):
+            
+            fy = FYs[i,j]
+
+            if not fy>0:
+                out[i,j] = None
+            
+            else:
+                
+                rf1 = self.res_arrays['f1'][i,j,int(fy)]
+                rf2 = self.res_arrays['f2'][i,j,int(fy)]
+
+                try:
+                    out[i,j] = logit10_difference(rf1, rf2)
+                except:
+                    out[i,j] = None
+
+        return out            
+
+
+    def _check_valid(self):
+        """
+        Are there some doses where RFB favours fung A and 
+        some where RFB favours fung B?
+        """
+        return (np.nanmax(self.array)>0
+                            and np.nanmin(self.array)<0)
+
+
+
+
+class EqualSelectionArray:
+    def __init__(self, grid_output) -> None:
+        
+        self.FYs = grid_output['FY']
+
+        self.start_freqs = grid_output['start_freqs']
+
+        self.array = self._generate_EqSel_array()
+
+        self.is_valid = self._check_valid()
+        
+
+
+
+
+    def _generate_EqSel_array(self):
+
+        start_freqs = self.start_freqs
+        
+        out = np.ones(start_freqs['SR'][:,:,0].shape)
+        
+        for i, j in itertools.product(range(out.shape[0]), 
+                                        range(out.shape[1])):
+            
+            fy = self.FYs[i,j]
+
+            if not fy>0:
+                out[i,j] = None
+            
+            else:
+                
+                sr1 = start_freqs['RS'][i,j,1]/start_freqs['RS'][i,j,0]
+                sr2 = start_freqs['SR'][i,j,1]/start_freqs['SR'][i,j,0]
+
+                try:
+                    out[i,j] = sr1/(sr1+sr2)
+                except:
+                    out[i,j] = None
+
+        return out
+
+
+    def _check_valid(self):
+        """
+        Check if Equal Selection is a possible tactic:
+        
+        - are there dose pairs for which can select
+        more strongly for either fcide?
+        """
+        return (np.nanmax(self.array)>0.5
+                            and np.nanmin(self.array)<0.5)
 

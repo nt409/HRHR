@@ -1,15 +1,27 @@
+import itertools
+from numpy.core.defchararray import title
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 import pandas as pd
 from math import log2, floor, log10, pi
+import plotly.express as px
+
+
+
+
+from .params import PARAMS
 
 from .plot_traces import get_RFB_diff_traces, get_eq_sel_traces, get_heatmap_lines, \
     get_strain_freq_traces, contour_at_0, get_multi_contour_traces, \
-    get_MRFB_contour_traces, get_MS_RFB_traces
+    get_MRFB_contour_traces, get_MS_RFB_traces, contour_at_single_level
+
 from .plot_utils import get_text_annotation, get_arrow_annotation, standard_layout, \
-    grey_colorscale, my_colorbar
+    grey_colorscale, my_colorbar, get_big_text_annotation
+
 from .plot_consts import ATTRS_DICT, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT
+
+from .functions import EqualResFreqBreakdownArray, EqualSelectionArray
 
 # TOC
 # Single Tactic
@@ -18,6 +30,7 @@ from .plot_consts import ATTRS_DICT, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT
 # Grid of tactics
 # Dose space
 # RF Ratio
+# Paper Figs
 
 
 
@@ -408,6 +421,8 @@ def dose_grid_heatmap(data, Config, to_plot, conf_str):
     filename = conf_str.replace("/grid/", f"/grid/dose_grid/{to_plot}")
     fig.write_image(filename)
 
+
+
 def dose_grid_RA_heatmap(data, Config, conf_str, yr):
     traces = []
     
@@ -437,6 +452,8 @@ def dose_grid_RA_heatmap(data, Config, conf_str, yr):
     fig.show()
     filename = conf_str.replace("/grid/", f"/grid/dose_grid/res_array_{yr}")
     fig.write_image(filename)
+
+
 
 
 
@@ -1098,3 +1115,532 @@ def outcomes_by_ratio(data, conf_str):
     fig.write_image(filename)
 
 # End of RF Ratio
+
+
+
+# Paper Figs
+    
+class DiseaseProgressCurvesAll:
+    def __init__(self, data, conf_str) -> None:
+
+        self.width = 800
+
+        self.height = 650
+
+        self.xx = data['t_vec']
+        
+        self.array = data['sol_array']
+
+        fig = self.generate_figure()
+
+        self.save_and_show(fig, conf_str)
+
+
+
+
+    def generate_figure(self):
+
+        self.config = self.get_config()
+
+        traces_dict = self.get_model_output_overview_traces()
+
+        ugly_fig = self.add_traces_to_layout_model_output_overview(traces_dict)
+
+        fig = self.sort_layout(ugly_fig)
+
+        return fig
+        
+    
+
+
+    @staticmethod
+    def get_config():
+
+        E_cols = [px.colors.sequential.Viridis[x] for x in range(0,7,2)]
+        I_cols = [px.colors.sequential.Plasma[x] for x in range(1,8,2)]
+
+
+        return {
+            'S': dict(color='green', dash='solid', name='Susceptible', ind=PARAMS.S_ind),
+            'R': dict(color='black', dash='solid', name='Removed', ind=PARAMS.R_ind),
+
+            'ESS': dict(color=E_cols[0], dash='solid', name='E (SS)', ind=PARAMS.ES_ind),
+            'ERS': dict(color=E_cols[1], dash='dash', name='E (RS)', ind=PARAMS.ERS_ind),
+            'ESR': dict(color=E_cols[2], dash='dashdot', name='E (SR)', ind=PARAMS.ESR_ind),
+            'ERR': dict(color=E_cols[3], dash='dot', name='E (RR)', ind=PARAMS.ER_ind),
+
+            'ISS': dict(color=I_cols[0], dash='solid', name='I (SS)', ind=PARAMS.IS_ind),
+            'IRS': dict(color=I_cols[1], dash='dash', name='I (RS)', ind=PARAMS.IRS_ind),
+            'ISR': dict(color=I_cols[2], dash='dashdot', name='I (SR)', ind=PARAMS.ISR_ind),
+            'IRR': dict(color=I_cols[3], dash='dot', name='I (RR)', ind=PARAMS.IR_ind),
+
+            'F1': dict(color='orange', dash='solid', name='Fungicide A', ind=PARAMS.Fung1_ind),
+            'F2': dict(color='red', dash='dot', name='Fungicide B', ind=PARAMS.Fung2_ind),
+        }
+
+
+
+    def get_model_output_overview_traces(self):
+        S_R_traces = self.get_S_R_traces()
+        E_traces = self.get_E_traces()
+        I_traces = self.get_I_traces()
+        F_traces = self.get_F_traces()
+
+        out = dict(S_R = S_R_traces,
+                    E = E_traces,
+                    I = I_traces,
+                    F = F_traces)
+
+        return out
+    
+
+
+
+    def get_S_R_traces(self):
+        
+        out = []
+
+        for key in ['S', 'R']:
+            out.append(self.get_DPC_trace(key))
+        return out
+    
+    
+
+    def get_E_traces(self):
+        
+        out = []
+
+        for key in ['ESS', 'ERS', 'ESR', 'ERR']:
+            out.append(self.get_DPC_trace(key))
+
+        return out
+    
+
+
+    
+    def get_I_traces(self):
+        
+        out = []
+
+        for key in ['ISS', 'IRS', 'ISR', 'IRR']:
+            out.append(self.get_DPC_trace(key))
+
+        return out
+    
+
+
+    def get_F_traces(self):
+
+        out = []
+
+        for key in ['F1', 'F2']:
+            out.append(self.get_DPC_trace(key))
+
+        return out
+
+
+
+    def get_DPC_trace(self, key):
+        clr = self.config[key]['color']
+        dash = self.config[key]['dash']
+        name = self.config[key]['name']
+        ind = self.config[key]['ind']
+
+        return go.Scatter(x=self.xx,
+                    y=self.array[:, ind, 0],
+                    line=dict(color=clr, dash=dash),
+                    name=name
+                    )
+
+
+
+
+
+
+    def add_traces_to_layout_model_output_overview(self, data_dict):
+        fig = make_subplots(rows=2, cols=2, horizontal_spacing=0.2)
+
+        self.add_traces(fig, data_dict['S_R'], 1, 1)
+        self.add_traces(fig, data_dict['E'], 1, 2)
+        self.add_traces(fig, data_dict['I'], 2, 1)
+        self.add_traces(fig, data_dict['F'], 2, 2)
+
+        return fig
+
+
+
+    def sort_layout(self, fig):
+        fig = self.update_axes(fig)
+
+
+        fig.update_layout(standard_layout(False, self.width, self.height))
+        
+        fig = self.add_corner_text_labels(fig)
+
+        fig = self.sort_legend(fig)
+
+        return fig
+
+
+    def sort_legend(self, fig):
+        fig.update_layout(showlegend=True, legend=dict(font=dict(size=16)))
+        return fig
+
+
+
+    def add_corner_text_labels(self, fig):
+        top_row = 1.08
+        bottom_row = 0.5
+        
+        left = 0.01
+        middle = 0.58
+
+        c1 = get_big_text_annotation(left, top_row, 'A')
+        c2 = get_big_text_annotation(middle, top_row, 'B')
+        c3 = get_big_text_annotation(left, bottom_row, 'C')
+        c4 = get_big_text_annotation(middle, bottom_row, 'D')
+        
+        annotz = [c1, c2, c3, c4]
+
+        fig.update_layout(annotations=annotz)
+        return fig
+
+
+
+
+    def add_traces(self, fig, traces, row, col):
+        for trace in traces:
+            fig.add_trace(trace, row, col)
+
+        return fig
+
+
+
+
+    def update_axes(self, fig):
+        fig.update_xaxes(row=1, col=1, showgrid=False)
+        fig.update_xaxes(row=1, col=2, showgrid=False)
+        
+        fig.update_xaxes(title="Time (degree-days)", row=2, col=1, showgrid=False)
+        fig.update_xaxes(title="Time (degree-days)", row=2, col=2, showgrid=False)
+        
+        fig.update_yaxes(title="L.A.I.", row=1, col=1)
+        fig.update_yaxes(title="L.A.I.", row=1, col=2)
+        fig.update_yaxes(title="L.A.I.", row=2, col=1)
+        fig.update_yaxes(title="Concentration", row=2, col=2)
+
+        return fig
+    
+
+
+    def save_and_show(self, fig, conf_str):
+        fig.show()
+        filename = conf_str.replace("/single/", "/paper_figs/model_overview_")
+        
+        print("saving figure to: \n", filename)
+
+        fig.write_image(filename)
+
+
+
+
+class DoseSpaceScenariosPlot:
+    def __init__(self, data, conf_str) -> None:
+
+        self.width = 800
+
+        self.height = 620
+
+        self.data = data
+
+        fig = self.generate_figure()
+
+        self.save_and_show(fig, conf_str)
+
+
+
+    def generate_figure(self):
+        traces = self.get_traces()
+
+        ugly_fig = self.add_traces_to_figure(traces)
+
+        fig = self.sort_layout(ugly_fig)
+
+        return fig
+
+
+
+    def get_traces(self):        
+        traces = []
+
+        traces.append(self.get_ERFB_legend_entry())
+        traces.append(self.get_EqSel_legend_entry())
+
+        traces.append(self.get_FY_heatmap())
+        
+        traces.append(self.get_ERFB_contour())
+        traces.append(self.get_EqSel_contour())
+        
+        traces.append(self.get_full_dose_point())
+        traces.append(self.get_min_dose_point())
+        
+
+        return traces
+
+
+    def get_EqSel_legend_entry(self):
+        return go.Scatter(x=[1], 
+                    y=[1],
+                    mode="lines",
+                    line=dict(color="blue", dash="dot"),
+                    name="ES contour"
+                    )
+
+
+    def get_ERFB_legend_entry(self):
+        return go.Scatter(x=[1], 
+                    y=[1],
+                    mode="lines",
+                    line=dict(color="black", dash="solid"),
+                    name="ERFB contour"
+                    )
+
+    def get_FY_heatmap(self):
+        FY = self.data['FY']
+
+        xheat = np.linspace(0, 1, FY.shape[0])
+        yheat = np.linspace(0, 1, FY.shape[1])
+
+        clrbar = my_colorbar(TITLE_MAP["FY"])
+
+        heatmap = go.Heatmap(
+            x = xheat,
+            y = yheat,
+            z = FY,
+            colorscale=grey_colorscale(FY),
+            colorbar=clrbar
+        )
+
+        return heatmap
+
+
+    def get_ERFB_contour(self):
+        z = EqualResFreqBreakdownArray(self.data).array
+
+        x = np.linspace(0, 1, z.shape[0])
+        y = np.linspace(0, 1, z.shape[1])
+
+        out = contour_at_0(x, y, z, 'black', 'solid')
+        out['name'] = "Delta RFB"
+
+        return out
+
+
+
+    def get_EqSel_contour(self):
+        z = EqualSelectionArray(self.data).array
+
+        x = np.linspace(0, 1, z.shape[0])
+        y = np.linspace(0, 1, z.shape[1])
+
+        out = contour_at_single_level(x, y, z, 0.5, 'blue', 'dot')
+        out['name'] = "Equal Selection"
+
+        return out
+
+    @staticmethod
+    def get_full_dose_point():
+        out = go.Scatter(x=[1],
+                y=[1],
+                marker=dict(color='red', size=16),
+                marker_symbol='circle',
+                mode='markers',
+                name="Full dose",
+                )
+
+        return out
+
+
+
+    def get_min_dose_point(self):
+        FYs = self.data['FY']
+
+        x = np.linspace(0, 1, FYs.shape[0])
+        
+        minEqDoseELVec = np.asarray([float(FYs[i, i]) for i in range(FYs.shape[0])])
+
+        ind = np.where(minEqDoseELVec>0)
+
+        min_val = x[int(ind[0][0])]
+
+        out = go.Scatter(x=[min_val],
+                y=[min_val],
+                marker=dict(color='green', size=16),
+                mode='markers',
+                marker_symbol='square',
+                name="Min. dose",
+                )
+
+        return out
+
+
+
+
+    def add_traces_to_figure(self, traces):
+        fig = go.Figure(data=traces, layout=standard_layout(True, self.width, self.height))
+        return fig
+
+
+
+    def sort_layout(self, fig):
+        fig = self._update_axes(fig)
+        fig = self._update_legend(fig)
+        return fig
+    
+
+
+    @staticmethod
+    def _update_axes(fig):
+        eps = 0.04
+        fig.update_xaxes(title="Dose (fungicide A)", range=[0-eps,1+eps])
+        fig.update_yaxes(title="Dose (fungicide B)", range=[0-eps,1+eps])
+        return fig
+    
+
+
+
+    @staticmethod
+    def _update_legend(fig):
+        fig.update_layout(legend=dict(x=1.2, y=0.95))
+        return fig
+    
+    
+    
+    
+    def save_and_show(self, fig, conf_str):
+        fig.show()
+        filename = conf_str.replace("/grid/", "/paper_figs/dose_space_")
+        
+        print("saving figure to: \n", filename)
+
+        fig.write_image(filename)
+
+
+
+
+
+class DosesScatterPlot:
+    def __init__(self, data, conf_str) -> None:
+
+        self.width = 800
+
+        self.height = 620
+
+        self.data = data
+
+        fig = self.generate_figure()
+
+        self.save_and_show(fig, conf_str)
+
+
+
+    def generate_figure(self):
+        traces = self.get_traces()
+
+        ugly_fig = self.add_traces_to_figure(traces)
+
+        fig = self.sort_layout(ugly_fig)
+
+        return fig
+
+
+
+    def get_traces(self):        
+        traces = []
+        
+        line = go.Scatter(x=[0,0],
+                    y=[0,12.5],
+                    line=dict(color='rgb(50,50,50)', dash='dot'),
+                    mode="lines"
+                    )
+        
+        traces.append(line)
+
+        z = EqualResFreqBreakdownArray(self.data).array
+        FYs = self.data['FY']
+
+        x = np.asarray(z).flatten()
+        y = np.asarray(FYs).flatten()
+
+        dose_sum_cols = self.get_dose_sum_vec(z.shape, y)
+        
+
+        scatter = go.Scatter(
+                x=x,
+                y=y,
+                mode="markers",
+                text=dose_sum_cols,
+                marker=dict(color=dose_sum_cols,
+                    size=6,
+                    line=dict(width=0.2,
+                            color='black'),
+
+                    colorbar=dict(title="Sum of doses"),
+                    colorscale='Viridis',
+                    showscale=True)
+                )
+
+        traces.append(scatter)
+
+        return traces
+
+
+
+    def get_dose_sum_vec(self, matrix_shape, FYs_flat):
+        array = np.zeros(matrix_shape)
+
+        for i in range(matrix_shape[0]):
+            for j in range(matrix_shape[1]):
+                array[i,j] = i+j
+        
+        array = array*(2/array[-1,-1])
+
+        
+        ds_cols = array.flatten()
+
+        dose_sum_cols = [ds_cols[i] if FYs_flat[i] else "grey" for i in range(len(ds_cols))]
+
+        return dose_sum_cols
+
+
+
+    def add_traces_to_figure(self, traces):
+        fig = go.Figure(data=traces, layout=standard_layout(False, self.width, self.height))
+        return fig
+
+
+
+    def sort_layout(self, fig):
+        fig = self._update_axes(fig)
+        return fig
+    
+
+
+    @staticmethod
+    def _update_axes(fig):
+        fig.update_xaxes(title=r"$\Delta_{RFB}$")
+        fig.update_yaxes(title="Effective life")
+        return fig
+
+    
+    
+    
+    
+    def save_and_show(self, fig, conf_str):
+        fig.show()
+        filename = conf_str.replace("/grid/", "/paper_figs/doses_scatter_")
+        
+        print("saving figure to: \n", filename)
+
+        fig.write_image(filename)
+

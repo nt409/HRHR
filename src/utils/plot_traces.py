@@ -338,6 +338,18 @@ def contour_at_0(x, y, z, color, dash):
                     )
 
 
+def contour_at_single_level(x, y, z, level, color, dash):
+    return go.Contour(x=x,
+                    y=y,
+                    z=z,
+                    contours=dict(start=level, end=level),
+                    contours_coloring='lines',
+                    colorscale=[color]*2,
+                    line=dict(width=2, dash=dash),
+                    colorbar=invisible_colorbar(0.42),
+                    )
+
+
 # Eq RFB contours
 
 def _multi_contours(x, y, z, cont_list, colors):
@@ -362,7 +374,9 @@ def _multi_contours(x, y, z, cont_list, colors):
 
 
 def get_multi_contour_traces(data, Config):
-    cont_list = [-4, -1, -0.1, 0, 0.1, 1]
+    # cont_list = [-4, -1, -0.1, 0, 0.1, 1]
+    # cont_list = [-1, 0, 1]
+    cont_list = [0]
     
     xheat = np.linspace(0, 1, Config.n_doses)
     yheat = np.linspace(0, 1, Config.n_doses)
@@ -555,4 +569,3 @@ def get_MS_RFB_traces(data):
     traces += _get_legend_traces(colors, limits)
 
     return traces
-    

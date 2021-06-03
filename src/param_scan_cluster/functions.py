@@ -9,8 +9,9 @@ import matplotlib.pyplot as plt
 
 from runHRHR.config_classes import GridConfig, SingleConfig
 from utils.params import PARAMS
-from utils.functions import non_decreasing, non_increasing, RunGrid, \
-    RunSingleTactic, logit10_difference
+from utils.functions import RunGrid, RunSingleTactic, \
+    logit10_difference, EqualResFreqBreakdownArray, \
+    EqualSelectionArray
 from utils.plotting import dose_grid_heatmap, eq_RFB_contours
 
 # TOC:
@@ -69,60 +70,121 @@ def _get_param_scan_conf_str(rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2, Conf):
 
 
 
-
-def _get_contours(z, levels=None, step=1):
-    """
-    Takes an array z and returns a list of dictionaries containing:
-    - x values
-    - y values
-    - the contour level
-    """
-    
-    x, y = np.mgrid[0:1:z.shape[0]*1j, 0:1:z.shape[1]*1j]
-
-    cs = plt.contour(x, y, z, levels=levels)
-
-    output = []
-
-    for level, conts in zip(levels, cs.allsegs):
-
-        # print(conts)
+class ContourFinder:
+    def __init__(self, z, levels, min_n_pts_alng_cntr=12) -> None:
         
-        if not conts:
-            # why not?
-            # suspect too many 'nan's to create a proper contour
-            continue
+        cs = self._get_contour_set(z, levels)
+        
+        cntrs_out = self._get_contours(cs, levels)
 
+        if cntrs_out and len(cntrs_out[0]['x'])<min_n_pts_alng_cntr:
+            cntrs_out = self._interpolate_contours(cntrs_out, min_n_pts_alng_cntr)
+
+        self.cont_list = cntrs_out
+
+
+
+    @staticmethod
+    def _get_contour_set(z, levels):
+
+        x, y = np.mgrid[0:1:z.shape[0]*1j, 0:1:z.shape[1]*1j]
+
+        cs = plt.contour(x, y, z, levels=levels)
+
+        return cs
+
+
+
+    def _get_contours(self, cs, levels):
+        """
+        Takes a contour set and returns a list of dictionaries containing:
+        - x values
+        - y values
+        - the contour level
+        """
+
+        output = []
+
+        for level, conts in zip(levels, cs.allsegs):
+
+            if not conts:
+                # why not?
+                # suspect too many 'nan's to create a proper contour
+                continue
+            
+            this_cont_dict = self._get_contour_dict(level, conts)
+
+            output.append(this_cont_dict)
+        
+        return output
+
+
+    @staticmethod
+    def _get_contour_dict(level, conts):
+        
         cont = conts[0]
         
-        x_list = cont[:,0]
-        y_list = cont[:,1]
+        # was x_list, y_list
+        x_vals = cont[:,0]
+        y_vals = cont[:,1]
 
-        x_vals = [x_list[0]] + list(x_list[1:-2:step]) + [x_list[-1]]
-        y_vals = [y_list[0]] + list(y_list[1:-2:step]) + [y_list[-1]]
+        # x_vals = [x_list[0]] + list(x_list[1:-2]) + [x_list[-1]]
+        # y_vals = [y_list[0]] + list(y_list[1:-2]) + [y_list[-1]]
 
         x_max = max(x_vals)
         y_max = max(y_vals)
 
         print(f"max dose along contour: (x,y) = {round(x_max,2), round(y_max,2)}")
-        
 
-        output.append(
-            dict(
+        out = dict(
                 x = x_vals,
                 y = y_vals,
                 max_dose = max(x_max, y_max),
                 level = level
                 )
-            )
-    
-    if False:
-        for ind in range(len(output)):
-            plt.scatter(output[ind]['x'], output[ind]['y'])
 
-        plt.show()
+        return out
+
+    
+
+
+    def _interpolate_contours(self, cntrs, num=15):
+        """
+        Takes old contours and adds in some interpolated values
         
-    return output
+        Result is more densely populated list of values (approximately) 
+        along the contour
+        """
+
+        xx = copy.copy(cntrs[0]['x'])
+        yy = copy.copy(cntrs[0]['y'])
+
+        cntrs[0]['x'] = self._interp_vec(xx, num)
+        cntrs[0]['y'] = self._interp_vec(yy, num)
+        
+        return cntrs
+    
+
+
+
+    @staticmethod
+    def _interp_vector(old, num):
+        
+        nn = len(old)
+        
+        fp = list(range(nn))
+        
+        start = float(fp[0])
+        stop = float(fp[-1])
+
+        to_find = np.linspace(start, stop, num)
+        
+        interp = np.interp(to_find, fp, old)
+
+        # include the old ones as well as interpolated ones
+        out = list(old) + list(interp)[1:-1]
+
+        return out
 
 
 # End of Utility fns
@@ -201,74 +263,10 @@ class ParamScan:
 
 
 
-    @staticmethod
-    def _get_max_ND_RFB(negativeRFB):
-        try:
-            return max(negativeRFB)
-        except:
-            return "NA"
-
-    @staticmethod
-    def _get_min_PD_RFB(positiveRFB):
-        try:
-            return min(positiveRFB)
-        except:
-            return "NA"
-
-    @staticmethod
-    def _get_min_AD_RFB(delta):
-        try:
-            return min([abs(e) for e in delta])
-        except:
-            return "NA"
-
-
-    def _add_doses_to_PS_df(self):
-        
-        out = pd.DataFrame()
-
-        for i in range(self.N):
-            this_dose = {}
-            for key in self.processed.keys():
-                this_dose[key] = self.processed[key][i]
-
-            new_row = {**self.calculated_cols, **self.this_run_params_dict, **this_dose}
-            
-            out = out.append(new_row, ignore_index=True)
-
-        return out
 
 
 
-    def _generate_PS_df(self):
-        
-        self.N = len(self.processed['EL'])
 
-        
-        # if not self.N:
-        #     # print("self N:", self.N)
-        #     self.df_this_run = None
-        #     return None
-
-        deltRFB_list = list(self.processed['delta_RFB'])
-        
-        positiveRFB = [e for e in deltRFB_list if e>=0]
-        
-        negativeRFB = [e for e in deltRFB_list if e<0]
-        
-        self.calculated_cols = dict(
-                    
-                    maxEL=max(self.processed['EL']),
-                    minMS=min(self.processed['MS']),
-                    maxMS=max(self.processed['MS']),
-                    maxEcon=max(self.processed['econ']),
-                    
-                    minPosDeltaRFB = self._get_min_PD_RFB(positiveRFB),
-                    maxNegDeltaRFB = self._get_max_ND_RFB(negativeRFB),
-                    minAbsDeltaRFB = self._get_min_AD_RFB(deltRFB_list),
-                    )
-
-        self.df_this_run = self._add_doses_to_PS_df()
 
 
 
@@ -392,26 +390,26 @@ class ParamScanRand(ParamScan):
 
 
 
-    def _get_data_this_conf_and_contrs(self, *params):
+    def _get_data_this_conf_and_contrs(self, cntrs, *params):
         
         df_this_run = pd.DataFrame()
 
-        if not self.contours:
+        if not cntrs:
             self.df_this_run = df_this_run
             return None
 
 
-        for contour in self.contours:
+        for contour in cntrs:
             
             for dose1, dose2 in zip(contour['x'], contour['y']):            
 
-                self._get_data_this_contour(*params, dose1, dose2)
+                this_contour_dict = self._get_data_this_contour(*params, dose1, dose2)
                
                 data = {"contour_level": contour['level'],
                             "max_dose_on_contour": contour['max_dose'],
                             "dose1": dose1,
                             "dose2": dose2,
-                            **self.this_contour_df}
+                            **this_contour_dict}
 
                 df_this_run = df_this_run.append(data, ignore_index=True)
         
@@ -437,20 +435,22 @@ class ParamScanRand(ParamScan):
                 
         self.this_run_output = RunSingleTactic(self.fung_parms).run_single_tactic(self.ThisDoseConf)
 
-        self.fy = self.this_run_output['failure_year']
+        fy = self.this_run_output['failure_year']
         
-        self._get_this_contour_df()
+        out = self._get_this_contour_dict(fy)
+        
+        return out
 
 
 
 
 
 
-    def _get_this_contour_df(self):
+    def _get_this_contour_dict(self, fy_in):
 
         res_vecs = self.this_run_output['res_vec_dict']
         
-        fy = int(self.fy)
+        fy = int(fy_in)
 
         rf1 = res_vecs['f1'][fy]
         
@@ -463,9 +463,11 @@ class ParamScanRand(ParamScan):
 
         econ = "NA"
         
-        self.this_contour_df = dict(delta_RFB=delt_rf,
+        out = dict(delta_RFB=delt_rf,
                                     EL=fy,
                                     econ=econ)
+        
+        return out
 
 
 
@@ -534,8 +536,13 @@ class ParamScanRandRFB(ParamScanRand):
 
 
 
-    def _get_grid_output_this_run(self):
-        self.my_grid_output = RunGrid(self.fung_parms).grid_of_tactics(self.MyGridConf)
+    def _get_grid_output_this_run(self, *this_run_parms):
+        grid_config = self._get_grid_conf(*this_run_parms,
+                        self.config["load_saved"],
+                        n_years=self.n_years,
+                        n_doses=self.config["grid_number"])
+
+        self.my_grid_output = RunGrid(self.fung_parms).grid_of_tactics(grid_config)
 
 
 
@@ -543,162 +550,66 @@ class ParamScanRandRFB(ParamScanRand):
 
 
 
-    def _interpolate_contours(self, num=15):
-        """
-        Takes old contours and adds in some interpolated values
+
+
+
+
+
+
+
+    def _find_contours_EqSel(self):
         
-        Result is more densely populated list of values (approximately) 
-        along the contour
-        """
-        xx = copy.copy(self.contours[0]['x'])
-        yy = copy.copy(self.contours[0]['y'])
-
-        nn = len(xx)
+        eq_sel_obj = EqualSelectionArray(self.my_grid_output)
         
-        fp = list(range(nn))
-        
-        start = float(fp[0])
-        stop = float(fp[-1])
+        self.EqSel_array = eq_sel_obj.array
 
-        to_find = np.linspace(start, stop, num)
-        
-        int_x = np.interp(to_find, fp, xx)
-        int_y = np.interp(to_find, fp, yy)
-
-        # include the old ones as well as interpolated ones
-
-        cont_x = list(xx) + list(int_x)[1:-1]
-        cont_y = list(yy) + list(int_y)[1:-1]
-
-        self.contours[0]['x'] = cont_x
-        self.contours[0]['y'] = cont_y
-
-
-
-
-
-
-    def _find_contours_EqSel(self, min_number_pts_alng_cntr=12):
-        self._find_EqSel_array()
-
-        self._get_EqSelValid()
+        self.EqSelValid = eq_sel_obj.is_valid
 
         if not self.EqSelValid:
-            self.contours = []
+            cntrs_out = []
+            return cntrs_out
         else:    
-            self.contours = _get_contours(self.EqSel_array, levels=[0.5], step=1)
+            cntrs_out = ContourFinder(self.EqSel_array, levels=[0.5]).cont_list
+            return cntrs_out
 
-            if self.contours and len(self.contours[0]['x'])<min_number_pts_alng_cntr:
-                self._interpolate_contours(min_number_pts_alng_cntr)
-
-
-
-
-
-    def _find_EqSel_array(self):
-
-        data = self.my_grid_output
-
-        out = np.ones(data['start_freqs']['SR'][:,:,0].shape)
-        
-        for i, j in itertools.product(range(out.shape[0]), 
-                                        range(out.shape[1])):
-            
-            self.fy = data['FY'][i,j]
-
-            if not self.fy>0:
-                out[i,j] = None
-            
-            else:
-                
-                sr1 = data['start_freqs']['RS'][i,j,1]/data['start_freqs']['RS'][i,j,0]
-                sr2 = data['start_freqs']['SR'][i,j,1]/data['start_freqs']['SR'][i,j,0]
-
-                try:
-                    out[i,j] = sr1/(sr1+sr2)
-                except:
-                    out[i,j] = None
-
-        self.EqSel_array = out
-        
-
-
-    
-    
-    def _get_ERFB_valid(self):
-        self.ERFB_valid = (np.nanmax(self.RFB_array)>0
-                        and np.nanmin(self.RFB_array)<0)
 
 
 
 
 
-    def _get_EqSelValid(self):
-        """
-        Check if Equal Selection is a possible tactic 
-
-        That is, are there dose pairs for which can select
-        more strongly for either fcide?
-
-        """
-        self.EqSelValid = (np.nanmax(self.EqSel_array)>0.5
-                        and np.nanmin(self.EqSel_array)<0.5)
+    
 
 
 
 
 
-    def _find_contours_RFB(self, min_number_pts_alng_cntr=12):
+
+
+    def _find_contours_RFB(self):
         """
         Find doses along the contours of constant first year yield.
         """
 
-        self._find_RFB_array()
-
-        self._get_ERFB_valid()
+        rfb_obj = EqualResFreqBreakdownArray(self.my_grid_output)
+        
+        self.RFB_array = rfb_obj.array
+        
+        self.ERFB_valid = rfb_obj.is_valid
 
         if not self.ERFB_valid:            
-            self.contours = []
+            cntrs_out = []
+            return cntrs_out
         else:
-            self.contours = _get_contours(self.RFB_array, levels=[0], step=1)
-            if self.contours and len(self.contours[0]['x'])<min_number_pts_alng_cntr:
-                self._interpolate_contours(min_number_pts_alng_cntr)
+            cntrs_out = ContourFinder(self.RFB_array, levels=[0]).cont_list
+            return cntrs_out
 
 
 
 
 
 
-    def _find_RFB_array(self):
-        
-        data = self.my_grid_output
-        
-        FYs = data['FY'][:,:]
 
-        out = np.ones(FYs.shape)
-        
-        for i, j in itertools.product(range(FYs.shape[0]), range(FYs.shape[1])):
-            
-            self.fy = data['FY'][i,j]
 
-            if not self.fy>0:
-                out[i,j] = None
-            
-            else:
-                
-                rf1 = data['res_arrays']['f1'][i,j,int(self.fy)]
-                rf2 = data['res_arrays']['f2'][i,j,int(self.fy)]
-
-                try:
-                    out[i,j] = logit10_difference(rf1, rf2)
-                except:
-                    out[i,j] = None
-            
-
-        self.RFB_array = out
-
-        # plt.imshow(out)
-        # plt.show()
 
 
 
@@ -707,22 +618,24 @@ class ParamScanRandRFB(ParamScanRand):
 
     def _get_grid_output_df(self):
 
-        output = self.my_grid_output
+        FYs = self.my_grid_output['FY']
 
-        minEqDoseELVec = [float(output['FY'][i, i]) for i in range(output['FY'].shape[0])]
+        minEqDoseELVec = [float(FYs[i, i]) for i in range(FYs.shape[0])]
 
-        data = dict(maxGridEL = np.amax(output['FY']),
+        data = dict(maxGridEL = np.amax(FYs),
                 ERFB_Valid = self.ERFB_valid,
                 GridMinRFB = np.nanmin(self.RFB_array),
                 GridMaxRFB = np.nanmax(self.RFB_array),
                 minEqDoseEL = self._get_first_non_zero_element(minEqDoseELVec),
-                fullDoseEL = output['FY'][-1, -1],
-                corner_00 = output['FY'][0, 0],
-                corner_10 = output['FY'][-1, 0],
-                corner_01 = output['FY'][0, -1],
-                corner_11 = output['FY'][-1, -1])
+                fullDoseEL = FYs[-1, -1],
+                corner_00 = FYs[0, 0],
+                corner_10 = FYs[-1, 0],
+                corner_01 = FYs[0, -1],
+                corner_11 = FYs[-1, -1])
 
-        self.grid_output_df = pd.DataFrame([data])
+        out = pd.DataFrame([data])
+
+        return out
 
 
 
@@ -738,9 +651,21 @@ class ParamScanRandRFB(ParamScanRand):
         data = self.df_this_run
 
         if data.shape[0]>0:
-            self.maxEqSelEL = max(data['EL'])
+            return max(data['EL'])
         else:
-            self.maxEqSelEL = "NA"
+            return "NA"
+
+
+
+
+
+    @staticmethod
+    def _get_maxD(cntrs):
+        if not cntrs:
+            return "NA"
+        else:
+            return cntrs[0]["max_dose"]
+
 
 
 
@@ -755,40 +680,59 @@ class ParamScanRandRFB(ParamScanRand):
         
         df_ERFB_data = copy.copy(self.df_this_run)
 
-        self._find_contours_EqSel()
+        EqSel_cntrs = self._find_contours_EqSel()
 
-        self._get_data_this_conf_and_contrs(*this_run_parms)
+        self._get_data_this_conf_and_contrs(EqSel_cntrs, *this_run_parms)
 
-        self._get_maxEL_EqSel()
+        maxEqSelEL = self._get_maxEL_EqSel()
 
-        self._get_EqSelValid()
-
-        if not self.contours:
-            max_D = "NA"
-        else:
-            max_D = self.contours[0]["max_dose"]
+        max_D = self._get_maxD(EqSel_cntrs)
 
         df_use = pd.DataFrame([dict(
-                maxEqSelEL = self.maxEqSelEL,
+                maxEqSelEL = maxEqSelEL,
                 EqSelValid = self.EqSelValid,
                 max_dose_EL_cont = max_D
-            )])
+                )])
         
-        self.df_RFB_and_EqSel = pd.concat([df_ERFB_data, df_use], axis=1)
+        out = pd.concat([df_ERFB_data, df_use], axis=1)
+
+        return out
         
 
 
 
 
 
-    def _get_params_df(self):
+
+
+
+
+
+
+    def _combine_all_dfs(self, df_RFB_and_EqSel, grid_df):
+        n_rows = df_RFB_and_EqSel.shape[0]
+        
+        par_df = self._get_params_and_run_index_df(n_rows)
+
+        out = pd.concat([par_df,
+                            df_RFB_and_EqSel,
+                            grid_df],
+                            axis=1)
+        
+        return out
+
+
+
+
+
+
+    def _get_params_and_run_index_df(self, n_rows):
+
         parms_df = pd.DataFrame([{**self.this_run_params_dict}])
 
         run_index = int(parms_df.loc[0, 'run'])
 
         parms_df = parms_df.drop(["run"], axis=1)
-
-        n_rows = self.df_RFB_and_EqSel.shape[0]
 
         run_df = pd.DataFrame([{"run": run_index}]*n_rows)
 
@@ -802,21 +746,6 @@ class ParamScanRandRFB(ParamScanRand):
 
 
 
-    def _get_df_to_append(self, *this_run_parms):
-        
-        self._get_grid_output_df()
-
-        self._get_EqSel_columns(*this_run_parms)
-
-        par_df = self._get_params_df()        
-
-        out = pd.concat([par_df,
-                            self.df_RFB_and_EqSel,
-                            self.grid_output_df,
-                            ],
-                            axis=1)
-
-        return out
 
 
 
@@ -862,22 +791,21 @@ class ParamScanRandRFB(ParamScanRand):
         self._get_inoc_dict(rfs1, rfs2, rfD)
         
         self._get_fung_parms_dict(om_1, om_2, delt_1, delt_2)
-
-        self.MyGridConf = self._get_grid_conf(*this_run_parms,
-                        self.config["load_saved"],
-                        n_years=self.n_years,
-                        n_doses=self.config["grid_number"])
-        
-        self._get_grid_output_this_run()
-        
-        self._find_contours_RFB()
-
+      
         self._get_this_run_all_parms_dict(sr_prop, run_index)
 
-        if self.ERFB_valid:
-            self._get_data_this_conf_and_contrs(*this_run_parms)
+        self._get_grid_output_this_run(*this_run_parms)
+        
+        RFB_cntrs = self._find_contours_RFB()
     
-        out = self._get_df_to_append(*this_run_parms)
+        if self.ERFB_valid:
+            self._get_data_this_conf_and_contrs(RFB_cntrs, *this_run_parms)
+        
+        grid_df = self._get_grid_output_df()
+
+        df_RFB_and_EqSel = self._get_EqSel_columns(*this_run_parms)
+
+        out = self._combine_all_dfs(df_RFB_and_EqSel, grid_df)
 
         return out
 
@@ -1091,7 +1019,6 @@ class PostProcess:
         fail['min_corner'] = fail[["corner_01", "corner_10"]].min(axis=1)
 
         # fail = fail.sort_values(by=['diff_from_opt', 'max_cont_dose_either_fung'])
-        fail = fail.sort_values(by=['run'])
 
         # fail = fail[(fail['min_corner']>0) & (fail['max_cont_dose_either_fung']<1)]
 

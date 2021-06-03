@@ -11,11 +11,11 @@ def get_conf_string(folder, filename):
 class BaselineConfig:
     def __init__(self, n_years, rp1, rp2, primary_inoculum):
 
-        self.load_saved = False
+        self.load_saved = True
 
         self.folder_save_run = '../outputs/saved_runs/'
 
-        self.sex_prop = 0.9
+        self.sex_prop = 0
         
         self.n_years = n_years
 

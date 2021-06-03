@@ -49,6 +49,10 @@ def get_PS_grid_str(config):
 
 
 class ParamScanGrid(ParamScan):
+    """
+    almost certainly won't work now have updated ParamScan and moved on
+    """
+
     def __init__(self, config):
         super().__init__()
         self.RFS1 = config["RFS1"]
@@ -72,6 +76,77 @@ class ParamScanGrid(ParamScan):
         run_params["run"] = f"S{sr_prop}_ind={run_index}"
 
         self.this_run_params = run_params
+
+    @staticmethod
+    def _get_max_ND_RFB(negativeRFB):
+        try:
+            return max(negativeRFB)
+        except:
+            return "NA"
+
+    @staticmethod
+    def _get_min_PD_RFB(positiveRFB):
+        try:
+            return min(positiveRFB)
+        except:
+            return "NA"
+
+    @staticmethod
+    def _get_min_AD_RFB(delta):
+        try:
+            return min([abs(e) for e in delta])
+        except:
+            return "NA"
+
+
+    def _add_doses_to_PS_df(self):
+        
+        out = pd.DataFrame()
+
+        for i in range(self.N):
+            this_dose = {}
+            for key in self.processed.keys():
+                this_dose[key] = self.processed[key][i]
+
+            new_row = {**self.calculated_cols, **self.this_run_params_dict, **this_dose}
+            
+            out = out.append(new_row, ignore_index=True)
+
+        return out
+
+
+
+    def _generate_PS_df(self):
+        
+        self.N = len(self.processed['EL'])
+
+        
+        # if not self.N:
+        #     # print("self N:", self.N)
+        #     self.df_this_run = None
+        #     return None
+
+        deltRFB_list = list(self.processed['delta_RFB'])
+        
+        positiveRFB = [e for e in deltRFB_list if e>=0]
+        
+        negativeRFB = [e for e in deltRFB_list if e<0]
+        
+        self.calculated_cols = dict(
+                    
+                    maxEL=max(self.processed['EL']),
+                    minMS=min(self.processed['MS']),
+                    maxMS=max(self.processed['MS']),
+                    maxEcon=max(self.processed['econ']),
+                    
+                    minPosDeltaRFB = self._get_min_PD_RFB(positiveRFB),
+                    maxNegDeltaRFB = self._get_max_ND_RFB(negativeRFB),
+                    minAbsDeltaRFB = self._get_min_AD_RFB(deltRFB_list),
+                    )
+
+        self.df_this_run = self._add_doses_to_PS_df()
+
+
 
 
 

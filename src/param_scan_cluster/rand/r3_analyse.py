@@ -21,7 +21,7 @@ def main(config):
     
     PP.which_runs_worked_max_cont()
 
-    PP.re_run_failures(NDoses=51, failed_run_indices=[12])
+    PP.re_run_failures(NDoses=51, failed_run_indices=list(range(5)))
         
     # PP.check_high_or_low_dose()
 

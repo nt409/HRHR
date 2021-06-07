@@ -1,4 +1,5 @@
 import itertools
+from numpy import random
 import pandas as pd
 from tqdm import tqdm
 import copy
@@ -51,20 +52,7 @@ def get_PS_rand_str(config):
 
 
 
-def _get_updated_conf_str(conf_str):
-    saved_run_str = conf_str.replace(".png", ".pickle")
-    return saved_run_str.replace("figures/", "saved_runs/")
 
-
-
-def _get_param_scan_conf_str(rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2, Conf):
-    conf_str = Conf.config_string_img
-    conf_str = conf_str.replace("grid", "param_scan")
-    par_str = f"_fung_pars={om_1},{om_2},{delt_1},{delt_2},rf1={rfs1},rf2={rfs2},rfd={rfD}"
-    par_str = par_str.replace(".", ",")
-    conf_str = conf_str.replace(".png", par_str + ".png")
-    
-    return conf_str
 
 
 
@@ -159,8 +147,8 @@ class ContourFinder:
         xx = copy.copy(cntrs[0]['x'])
         yy = copy.copy(cntrs[0]['y'])
 
-        cntrs[0]['x'] = self._interp_vec(xx, num)
-        cntrs[0]['y'] = self._interp_vec(yy, num)
+        cntrs[0]['x'] = self._interp_vector(xx, num)
+        cntrs[0]['y'] = self._interp_vector(yy, num)
         
         return cntrs
     
@@ -204,56 +192,79 @@ class ContourFinder:
 
 
 
-class ParamScan:
-    def __init__(self):
-        self.n_years = 20
 
-    def _get_inoc_dict(self, rfs1, rfs2, rfD):
-        self.inoc = dict(
-                    RR = rfD,
-                    RS = rfs1,
-                    SR = rfs2,
-                    SS = 1 - rfD - rfs1 - rfs2
-                    )
+class ConfigsParScan:
+    def __init__(self, *params, sr_prop, inoc, load_saved, n_years):
 
-    
+        # params = rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2
+        self.pars = params
 
-    def _get_fung_parms_dict(self, omega_1, omega_2, delta_1, delta_2):
-        self.fung_parms = dict(
-            omega_1 = omega_1,
-            omega_2 = omega_2,
-            theta_1 = PARAMS.theta_1,
-            theta_2 = PARAMS.theta_2,
-            delta_1 = delta_1,
-            delta_2 = delta_2,
-            )       
+        self.sr_prop = sr_prop
+
+        self.inoc = inoc
+
+        self.load_saved = load_saved
+
+        self.n_years = n_years
+  
 
 
-    def _get_grid_conf(self, rfs1, rfs2, rfD, om_1, om_2,
-                            delt_1, delt_2, sr_prop, load_saved,
-                            n_years=None, n_doses=None):
+    def _get_grid_conf(self, n_doses):
 
-        if n_years is None:
-            n_years = self.n_years
+        conf = GridConfig(self.n_years, None, None, n_doses, 
+                                    primary_inoculum=self.inoc)
 
-        if n_doses is None:
-            n_doses = self.NDoses
+        config_out = self._process_conf(conf)
+
+        return config_out
 
 
-        Conf = GridConfig(n_years, None, None, n_doses, primary_inoculum=self.inoc)
+
+    def _get_single_conf(self, dose1, dose2):
+
+        conf = SingleConfig(self.n_years, None, None, 
+                                dose1, dose1, dose2, dose2,
+                                primary_inoculum=self.inoc)
         
-        Conf.sex_prop = sr_prop
+        config_out = self._process_conf(conf)
 
-        Conf.load_saved = load_saved
+        return config_out
+
+
+
+
+
+    def _process_conf(self, Conf):
+
+        Conf.sex_prop = self.sr_prop
+
+        Conf.load_saved = self.load_saved
 
         Conf.add_string()
 
-        conf_str = _get_param_scan_conf_str(rfs1, rfs2, rfD, om_1, om_2,
-                                                        delt_1, delt_2, Conf)
+        config_out = self._update_par_scan_conf_str(Conf)
+        
+        return config_out
+
+
+
+    
+    def _update_par_scan_conf_str(self, Conf):
+        
+        rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2 = self.pars
+
+        conf_str = Conf.config_string_img
+        conf_str = conf_str.replace("grid", "param_scan")
+
+        par_str = f"_fung_pars={om_1},{om_2},{delt_1},{delt_2},rf1={rfs1},rf2={rfs2},rfd={rfD}"
+        par_str = par_str.replace(".", ",")
+        conf_str = conf_str.replace(".png", par_str + ".png")
         
         Conf.config_string_img = conf_str
-
-        Conf.config_string = _get_updated_conf_str(conf_str)
+        
+        saved_run_str = conf_str.replace(".png", ".pickle")
+        
+        Conf.config_string = saved_run_str.replace("figures/", "saved_runs/")
 
         return Conf
 
@@ -284,107 +295,11 @@ class ParamScan:
 
 
 
-
-class ParamScanRand(ParamScan):
+class ParamScanRand:
     def __init__(self, config) -> None:
-        
-        super().__init__()
-        
         self.config = config
     
 
-
-    def _check_yield(self, fungicide_params, pathogen_pars, d1, d2):
-        ConfigSingleRun = SingleConfig(1, None, None, d1, d1, d2, d2, primary_inoculum=self.inoc)
-        
-        ConfigSingleRun.sex_prop = pathogen_pars['sr_prop']
-
-        ConfigSingleRun.load_saved = False
-
-        this_run = RunSingleTactic(fungicide_params).run_single_tactic(ConfigSingleRun)
-        
-        yield_out = this_run['yield_vec'][0]
-
-        return yield_out
-
-
-
-
-
-    def _check_validity(self, fungicide_params, pathogen_pars):
-
-        self._get_inoc_dict(pathogen_pars['rfs1'],
-                    pathogen_pars['rfs2'],
-                    pathogen_pars['rfD'])
-        
-        for ii, jj in [[1,0], [0,1], [1,1]]:
-            this_dose_yield = self._check_yield(fungicide_params, pathogen_pars, ii, jj)
-
-            if not this_dose_yield>95:
-                print("\n")
-                print(f"invalid params; {round(this_dose_yield,2)}<=95, dose pair: {ii,jj}")
-                return False
-        
-        print("\n")
-        print(f"valid params; {round(this_dose_yield,2)}>95, dose pair: {ii,jj}")
-        print("\n")
-        return True
-
-
-
-
-
-    def _get_random_pars(self):
-        conf = self.config
-
-        valid_pars = False
-
-        while valid_pars is False:
-        
-            rfs1_power = np.random.uniform(low=conf["RFS1"][0], high=conf["RFS1"][1])
-            rfs2_power = np.random.uniform(low=conf["RFS2"][0], high=conf["RFS2"][1]) 
-            rfD_power = np.random.uniform(low=conf["RFD"][0], high=conf["RFD"][1])
-            
-            rfs1 = 10**(rfs1_power)
-            rfs2 = 10**(rfs2_power)
-            rfD = 10**(rfD_power)
-
-            om_1 = np.random.uniform(low=conf["asym1"][0], high=conf["asym1"][1])
-            om_2 = np.random.uniform(low=conf["asym2"][0], high=conf["asym2"][1])
-            
-            delt_1 = np.random.uniform(low=conf["dec_rate1"][0], high=conf["dec_rate1"][1])
-            delt_2 = np.random.uniform(low=conf["dec_rate2"][0], high=conf["dec_rate2"][1])
-            
-            sr_prop = np.random.uniform(low=conf["SR"][0], high=conf["SR"][1])
-
-            fungicide_params = dict(
-                omega_1 = om_1,
-                omega_2 = om_2,
-                theta_1 = PARAMS.theta_1,
-                theta_2 = PARAMS.theta_2,
-                delta_1 = delt_1,
-                delta_2 = delt_2,
-            )
-
-            pathogen_pars = dict(rfs1=rfs1,
-                rfs2=rfs2,
-                rfD=rfD, 
-                sr_prop=sr_prop)
-
-            valid_pars = self._check_validity(fungicide_params, pathogen_pars)
-            
-        return rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2, sr_prop
-
-
-
-
-
-
-    def _get_this_run_all_parms_dict(self, sr_prop, run_index):
-        self.this_run_params_dict = {**self.fung_parms,
-                **self.inoc,
-                "sr_prop": sr_prop,
-                "run": f"{run_index}"}
 
 
 
@@ -403,7 +318,7 @@ class ParamScanRand(ParamScan):
             
             for dose1, dose2 in zip(contour['x'], contour['y']):            
 
-                this_contour_dict = self._get_data_this_contour(*params, dose1, dose2)
+                this_contour_dict = self._get_data_this_contour(*params, dose1=dose1, dose2=dose2)
                
                 data = {"contour_level": contour['level'],
                             "max_dose_on_contour": contour['max_dose'],
@@ -415,12 +330,13 @@ class ParamScanRand(ParamScan):
         
 
 
+        n_empty_rows = df_this_run.shape[0]-1
 
-        df_this_run['maxContEL'] = [max(df_this_run['EL'])] + [""]*(df_this_run.shape[0]-1)
+        df_this_run['maxContEL'] = [max(df_this_run['EL'])] + [""]*(n_empty_rows)
 
-        df_this_run['minDeltaRFB'] = [min(df_this_run['delta_RFB'])] + [""]*(df_this_run.shape[0]-1)
+        df_this_run['minDeltaRFB'] = [min(df_this_run['delta_RFB'])] + [""]*(n_empty_rows)
 
-        df_this_run['maxDeltaRFB'] = [max(df_this_run['delta_RFB'])] + [""]*(df_this_run.shape[0]-1)
+        df_this_run['maxDeltaRFB'] = [max(df_this_run['delta_RFB'])] + [""]*(n_empty_rows)
 
         self.df_this_run = df_this_run
 
@@ -429,15 +345,19 @@ class ParamScanRand(ParamScan):
 
 
 
-    def _get_data_this_contour(self, *params):
+    def _get_data_this_contour(self, *params, dose1, dose2):
 
-        self.ThisDoseConf = self._get_single_conf(*params, n_years=None)
-                
-        self.this_run_output = RunSingleTactic(self.fung_parms).run_single_tactic(self.ThisDoseConf)
-
-        fy = self.this_run_output['failure_year']
+        CPS = ConfigsParScan(*params[:-1],
+            sr_prop=params[-1],
+            inoc=self.inoc,
+            load_saved=self.config["load_saved"],
+            n_years=self.config["n_years"])
         
-        out = self._get_this_contour_dict(fy)
+        this_dose_config = CPS._get_single_conf(dose1, dose2)
+                
+        sing_run_output = RunSingleTactic(self.fung_parms).run_single_tactic(this_dose_config)
+        
+        out = self._get_this_contour_dict(sing_run_output)
         
         return out
 
@@ -446,9 +366,11 @@ class ParamScanRand(ParamScan):
 
 
 
-    def _get_this_contour_dict(self, fy_in):
+    def _get_this_contour_dict(self, sing_run_output):
 
-        res_vecs = self.this_run_output['res_vec_dict']
+        fy_in = sing_run_output['failure_year']
+
+        res_vecs = sing_run_output['res_vec_dict']
         
         fy = int(fy_in)
 
@@ -459,47 +381,23 @@ class ParamScanRand(ParamScan):
         try:
             delt_rf = logit10_difference(rf1, rf2)
         except:
+            print(f"problem with calculating delta_RFB for: {rf1, rf2}")
             delt_rf = "NA"
 
         econ = "NA"
         
         out = dict(delta_RFB=delt_rf,
-                                    EL=fy,
-                                    econ=econ)
+                                EL=fy,
+                                econ=econ)
         
         return out
 
 
 
+
+
+
     
-    def _get_single_conf(self, rfs1, rfs2, rfD, om_1, om_2,
-                            delt_1, delt_2, sr_prop,
-                            dose1, dose2,
-                            n_years=None):
-
-        if n_years is None:
-            n_years = self.n_years
-
-        Conf = SingleConfig(n_years, None, None, 
-                                dose1, dose1, dose2, dose2,
-                                primary_inoculum=self.inoc)
-        
-        Conf.sex_prop = sr_prop
-
-        Conf.load_saved = self.config['load_saved']
-
-        Conf.add_string()
-
-        conf_str = _get_param_scan_conf_str(rfs1, rfs2, rfD, om_1, om_2,
-                                                        delt_1, delt_2, Conf)
-        
-        Conf.config_string_img = conf_str
-
-        Conf.config_string = _get_updated_conf_str(conf_str)
-
-        return Conf
-
-
 
 
 
@@ -521,14 +419,83 @@ class ParamScanRandRFB(ParamScanRand):
         super().__init__(config)
 
 
-    @staticmethod
-    def _get_first_non_zero_element(vec):
-        filtered = list(filter(lambda x: x>0, vec))
 
-        if not filtered:
-            return "NA"
+    def run(self, seed):
+        """
+        Run random scan over uniform dists
+        """
 
-        return filtered[0]
+        df = self._run_param_scan_RFB(seed)
+        
+        par_str = get_PS_rand_str(self.config)
+
+        filename = f"./param_scan_cluster/outputs/rand/par_scan/seed={seed}_{par_str}.csv"
+        
+        print(f"Random Scan, saved as:\n {filename}")
+        
+        df.to_csv(filename, index=False)
+
+
+
+
+
+
+
+
+    def _run_param_scan_RFB(self, seed):
+
+        df = pd.DataFrame()
+
+        np.random.seed(seed)
+
+        for run_index in tqdm(range(self.config["NIts"])):
+
+            new_df = self._get_this_single_PS_run(run_index)
+
+            df = pd.concat([df, new_df], axis=0)
+
+        return df
+    
+
+
+
+
+
+
+    def _get_this_single_PS_run(self, run_index):
+
+        # initialise
+        self.df_this_run = pd.DataFrame()
+
+
+        RP = RandomPars(self.config, run_index)
+
+        RP.find_pars()
+
+        self.inoc = RP.inoc
+
+        self.fung_parms = RP.fung_parms
+        
+        self.this_run_params_dict = RP.this_run_params_dict
+
+
+        self._get_grid_output_this_run(*RP.pars)
+
+        RFB_cntrs = self._find_contours_RFB()
+    
+        if self.ERFB_valid:
+            self._get_data_this_conf_and_contrs(RFB_cntrs, *RP.pars)
+        
+        grid_df = self._get_grid_output_df()
+
+        df_RFB_and_EqSel = self._get_EqSel_columns(*RP.pars)
+
+
+        out = self._combine_all_dfs(df_RFB_and_EqSel, grid_df)
+
+        return out
+
+
 
 
 
@@ -537,10 +504,14 @@ class ParamScanRandRFB(ParamScanRand):
 
 
     def _get_grid_output_this_run(self, *this_run_parms):
-        grid_config = self._get_grid_conf(*this_run_parms,
-                        self.config["load_saved"],
-                        n_years=self.n_years,
-                        n_doses=self.config["grid_number"])
+
+        CPS = ConfigsParScan(*this_run_parms[:-1],
+                        sr_prop=this_run_parms[-1],
+                        inoc=self.inoc,
+                        load_saved=self.config["load_saved"],
+                        n_years=self.config["n_years"])
+
+        grid_config = CPS._get_grid_conf(n_doses=self.config["grid_number"])
 
         self.my_grid_output = RunGrid(self.fung_parms).grid_of_tactics(grid_config)
 
@@ -553,24 +524,6 @@ class ParamScanRandRFB(ParamScanRand):
 
 
 
-
-
-
-
-    def _find_contours_EqSel(self):
-        
-        eq_sel_obj = EqualSelectionArray(self.my_grid_output)
-        
-        self.EqSel_array = eq_sel_obj.array
-
-        self.EqSelValid = eq_sel_obj.is_valid
-
-        if not self.EqSelValid:
-            cntrs_out = []
-            return cntrs_out
-        else:    
-            cntrs_out = ContourFinder(self.EqSel_array, levels=[0.5]).cont_list
-            return cntrs_out
 
 
 
@@ -639,6 +592,15 @@ class ParamScanRandRFB(ParamScanRand):
 
 
 
+    @staticmethod
+    def _get_first_non_zero_element(vec):
+        filtered = list(filter(lambda x: x>0, vec))
+
+        if not filtered:
+            return "NA"
+
+        return filtered[0]
+
 
 
 
@@ -704,6 +666,28 @@ class ParamScanRandRFB(ParamScanRand):
 
 
 
+    def _find_contours_EqSel(self):
+        
+        eq_sel_obj = EqualSelectionArray(self.my_grid_output)
+        
+        self.EqSel_array = eq_sel_obj.array
+
+        self.EqSelValid = eq_sel_obj.is_valid
+
+        if not self.EqSelValid:
+            cntrs_out = []
+            return cntrs_out
+        else:    
+            cntrs_out = ContourFinder(self.EqSel_array, levels=[0.5]).cont_list
+            return cntrs_out
+
+
+
+
+
+
+
+
 
 
 
@@ -754,83 +738,151 @@ class ParamScanRandRFB(ParamScanRand):
 
 
 
-    def run_param_scan_RFB(self, seed):
+class RandomPars:
+    def __init__(self, config, run_index) -> None:
 
-        df = pd.DataFrame()
+        self.config = config
 
-        np.random.seed(seed)
-
-        for run_index in tqdm(range(self.config["NIts"])):
-
-            new_df = self._get_this_single_run(run_index)
-            
-
-
-            df = pd.concat([df, new_df], axis=0)
-            
-            
-
-
-        return df
-    
+        self.run_index = run_index
 
 
 
+    def find_pars(self):
+        """
+        returns rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2, sr_prop
+        """
 
+        self.pars = self._get_random_pars()
 
-
-    def _get_this_single_run(self, run_index):
-
-        # initialise as empty
-        self.df_this_run = pd.DataFrame()
-
-        this_run_parms = self._get_random_pars()
-
-        rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2, sr_prop = this_run_parms
+        rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2, sr_prop = self.pars
 
         self._get_inoc_dict(rfs1, rfs2, rfD)
         
         self._get_fung_parms_dict(om_1, om_2, delt_1, delt_2)
       
-        self._get_this_run_all_parms_dict(sr_prop, run_index)
+        self._get_this_run_all_parms_dict(sr_prop)
 
-        self._get_grid_output_this_run(*this_run_parms)
+
+
+
+
+    def _get_random_pars(self):
+        conf = self.config
+
+        valid_pars = False
+
+        while valid_pars is False:
         
-        RFB_cntrs = self._find_contours_RFB()
+            rfs1_power = np.random.uniform(low=conf["RFS1"][0], high=conf["RFS1"][1])
+            rfs2_power = np.random.uniform(low=conf["RFS2"][0], high=conf["RFS2"][1]) 
+            rfD_power = np.random.uniform(low=conf["RFD"][0], high=conf["RFD"][1])
+            
+            rfs1 = 10**(rfs1_power)
+            rfs2 = 10**(rfs2_power)
+            rfD = 10**(rfD_power)
+
+            om_1 = np.random.uniform(low=conf["asym1"][0], high=conf["asym1"][1])
+            om_2 = np.random.uniform(low=conf["asym2"][0], high=conf["asym2"][1])
+            
+            delt_1 = np.random.uniform(low=conf["dec_rate1"][0], high=conf["dec_rate1"][1])
+            delt_2 = np.random.uniform(low=conf["dec_rate2"][0], high=conf["dec_rate2"][1])
+            
+            sr_prop = np.random.uniform(low=conf["SR"][0], high=conf["SR"][1])
+
+            fungicide_params = dict(
+                omega_1 = om_1,
+                omega_2 = om_2,
+                theta_1 = PARAMS.theta_1,
+                theta_2 = PARAMS.theta_2,
+                delta_1 = delt_1,
+                delta_2 = delt_2)
+
+            pathogen_pars = dict(rfs1=rfs1,
+                rfs2=rfs2,
+                rfD=rfD, 
+                sr_prop=sr_prop)
+
+            valid_pars = self._check_validity(fungicide_params, pathogen_pars)
+            
+        return rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2, sr_prop
+
+
+
+
+
+    def _check_validity(self, fungicide_params, pathogen_pars):
+
+        self._get_inoc_dict(pathogen_pars['rfs1'],
+                    pathogen_pars['rfs2'],
+                    pathogen_pars['rfD'])
+        
+        for ii, jj in [[1,0], [0,1], [1,1]]:
+            this_dose_yield = self._check_yield(fungicide_params, pathogen_pars, ii, jj)
+
+            if not this_dose_yield>95:
+                print("\n")
+                print(f"invalid params; {round(this_dose_yield,2)}<=95, dose pair: {ii,jj}")
+                return False
+        
+        print("\n")
+        print(f"valid params; {round(this_dose_yield,2)}>95, dose pair: {ii,jj}")
+        print("\n")
+        return True
+
+
+
+
+
+    def _check_yield(self, fungicide_params, pathogen_pars, d1, d2):
+
+        ConfigSingleRun = SingleConfig(1, None, None, d1, d1, d2, d2, primary_inoculum=self.inoc)
+        
+        ConfigSingleRun.sex_prop = pathogen_pars['sr_prop']
+
+        ConfigSingleRun.load_saved = False
+
+        this_run = RunSingleTactic(fungicide_params).run_single_tactic(ConfigSingleRun)
+        
+        yield_out = this_run['yield_vec'][0]
+
+        return yield_out
+
+
+
+
+
+
+
+    def _get_inoc_dict(self, rfs1, rfs2, rfD):
+        self.inoc = dict(
+                    RR = rfD,
+                    RS = rfs1,
+                    SR = rfs2,
+                    SS = 1 - rfD - rfs1 - rfs2
+                    )
+
     
-        if self.ERFB_valid:
-            self._get_data_this_conf_and_contrs(RFB_cntrs, *this_run_parms)
-        
-        grid_df = self._get_grid_output_df()
 
-        df_RFB_and_EqSel = self._get_EqSel_columns(*this_run_parms)
-
-        out = self._combine_all_dfs(df_RFB_and_EqSel, grid_df)
-
-        return out
-
-
+    def _get_fung_parms_dict(self, omega_1, omega_2, delta_1, delta_2):
+        self.fung_parms = dict(
+            omega_1 = omega_1,
+            omega_2 = omega_2,
+            theta_1 = PARAMS.theta_1,
+            theta_2 = PARAMS.theta_2,
+            delta_1 = delta_1,
+            delta_2 = delta_2,
+            )     
 
 
 
 
 
+    def _get_this_run_all_parms_dict(self, sr_prop):
+        self.this_run_params_dict = {**self.fung_parms,
+                **self.inoc,
+                "sr_prop": sr_prop,
+                "run": self.run_index}
 
-
-    def run(self, seed):
-        """
-        Run random scan over uniform dists
-        """
-
-        df = self.run_param_scan_RFB(seed)
-        
-        par_str = get_PS_rand_str(self.config)
-
-        filename = f"./param_scan_cluster/outputs/rand/par_scan/seed={seed}_{par_str}.csv"
-        
-        print(f"Random Scan, saved as:\n {filename}")
-        
-        df.to_csv(filename, index=False)
 
 
 
@@ -1125,37 +1177,48 @@ class PostProcess:
             pars = self.failed_pars.iloc[int(ii),:]
            
             print("\nRe-running run:", self.failed_pars.iloc[int(ii),:].run, "\n")
+
+            grid_config, fung_params = self._get_grid_config_and_fung_pars(pars, NDoses)
+
+            output = RunGrid(fung_params).grid_of_tactics(grid_config)
+
+            conf_str = grid_config.config_string_img
+
+
+            # plot output
+            dose_grid_heatmap(output, grid_config, "FY", conf_str)
+            
+            # first_year_yield(output, grid_config)
+
+            eq_RFB_contours(output, grid_config, title=f"Run={str(pars.run)}")
+
+
+
+
+
+
+    def _get_grid_config_and_fung_pars(self, pars, NDoses):
+
+        RP = RandomPars(None, None)
+
+        RP._get_inoc_dict(pars["RS"], pars["SR"], pars["RR"])
         
-            PS = ParamScan()
-            
-            PS.NDoses = NDoses
+        RP._get_fung_parms_dict(pars["omega_1"], pars["omega_2"], 
+            pars["delta_1"], pars["delta_2"])
+        
+        fung_params = RP.fung_parms
+    
+        CPS = ConfigsParScan(pars["RS"], pars["SR"], pars["RR"],
+            pars["omega_1"], pars["omega_2"], 
+            pars["delta_1"], pars["delta_2"],
+            sr_prop=pars["sr_prop"],
+            inoc=RP.inoc,
+            load_saved=True, 
+            n_years=35)
 
-            PS._get_inoc_dict(pars["RS"], pars["SR"], pars["RR"])
-            
-            PS._get_fung_parms_dict(pars["omega_1"], pars["omega_2"], 
-                pars["delta_1"], pars["delta_2"])
+        grid_config = CPS._get_grid_conf(NDoses)
 
-            PS.GridConf = PS._get_grid_conf(pars["RS"], pars["SR"], pars["RR"],
-                pars["omega_1"], pars["omega_2"], 
-                pars["delta_1"], pars["delta_2"],
-                pars["sr_prop"], True
-                )
-
-            output = RunGrid(PS.fung_parms).grid_of_tactics(PS.GridConf)
-
-            conf_str = PS.GridConf.config_string_img
-            
-
-
-            dose_grid_heatmap(output, PS.GridConf, "FY", conf_str)
-            
-            # first_year_yield(output, PS.GridConf)
-
-            eq_RFB_contours(output, PS.GridConf, title=f"Run={str(pars.run)}")
-
-
-
-
+        return grid_config, fung_params
 
 
 

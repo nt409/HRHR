@@ -1,11 +1,13 @@
-import itertools
-from numpy.core.defchararray import title
+
+import plotly.colors as pltly_clrs
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 import pandas as pd
 from math import log2, floor, log10, pi
-import plotly.express as px
+from scipy import stats
+
+# import plotly.express as px
 
 
 
@@ -22,6 +24,9 @@ from .plot_utils import get_text_annotation, get_arrow_annotation, standard_layo
 from .plot_consts import ATTRS_DICT, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT
 
 from .functions import EqualResFreqBreakdownArray, EqualSelectionArray
+
+from runHRHR.config_classes import SingleConfig, GridConfig
+
 
 # TOC
 # Single Tactic
@@ -1131,14 +1136,14 @@ class DiseaseProgressCurvesAll:
         
         self.array = data['sol_array']
 
-        fig = self.generate_figure()
+        fig = self._generate_figure()
 
-        self.save_and_show(fig, conf_str)
-
-
+        self._save_and_show(fig, conf_str)
 
 
-    def generate_figure(self):
+
+
+    def _generate_figure(self):
 
         self.config = self.get_config()
 
@@ -1146,7 +1151,7 @@ class DiseaseProgressCurvesAll:
 
         ugly_fig = self.add_traces_to_layout_model_output_overview(traces_dict)
 
-        fig = self.sort_layout(ugly_fig)
+        fig = self._sort_layout(ugly_fig)
 
         return fig
         
@@ -1156,28 +1161,28 @@ class DiseaseProgressCurvesAll:
     @staticmethod
     def get_config():
 
-        E_cols = [px.colors.sequential.Viridis[x] for x in range(0,7,2)]
-        I_cols = [px.colors.sequential.Plasma[x] for x in range(1,8,2)]
+        E_cols = pltly_clrs.n_colors("rgb(255,0,0)", "rgb(255,255,255)", 5, colortype="rgb")[:4]
+        
+        I_cols = pltly_clrs.n_colors("rgb(0,0,255)", "rgb(255,255,255)", 5, colortype="rgb")[:4]
 
 
         return {
-            'S': dict(color='green', dash='solid', name='Susceptible', ind=PARAMS.S_ind),
-            'R': dict(color='black', dash='solid', name='Removed', ind=PARAMS.R_ind),
+            'S': dict(color='limegreen', dash='solid', name='Susceptible', ind=PARAMS.S_ind),
+            'R': dict(color='rgb(100,100,100)', dash='solid', name='Removed', ind=PARAMS.R_ind),
 
-            'ESS': dict(color=E_cols[0], dash='solid', name='E (SS)', ind=PARAMS.ES_ind),
+            'ERR': dict(color=E_cols[0], dash='dot', name='E (RR)', ind=PARAMS.ER_ind),
             'ERS': dict(color=E_cols[1], dash='dash', name='E (RS)', ind=PARAMS.ERS_ind),
             'ESR': dict(color=E_cols[2], dash='dashdot', name='E (SR)', ind=PARAMS.ESR_ind),
-            'ERR': dict(color=E_cols[3], dash='dot', name='E (RR)', ind=PARAMS.ER_ind),
+            'ESS': dict(color=E_cols[3], dash='solid', name='E (SS)', ind=PARAMS.ES_ind),
 
-            'ISS': dict(color=I_cols[0], dash='solid', name='I (SS)', ind=PARAMS.IS_ind),
+            'IRR': dict(color=I_cols[0], dash='dot', name='I (RR)', ind=PARAMS.IR_ind),
             'IRS': dict(color=I_cols[1], dash='dash', name='I (RS)', ind=PARAMS.IRS_ind),
             'ISR': dict(color=I_cols[2], dash='dashdot', name='I (SR)', ind=PARAMS.ISR_ind),
-            'IRR': dict(color=I_cols[3], dash='dot', name='I (RR)', ind=PARAMS.IR_ind),
+            'ISS': dict(color=I_cols[3], dash='solid', name='I (SS)', ind=PARAMS.IS_ind),
 
-            'F1': dict(color='orange', dash='solid', name='Fungicide A', ind=PARAMS.Fung1_ind),
-            'F2': dict(color='red', dash='dot', name='Fungicide B', ind=PARAMS.Fung2_ind),
+            'F1': dict(color='turquoise', dash='solid', name='Fungicide A', ind=PARAMS.Fung1_ind),
+            'F2': dict(color='magenta', dash='dot', name='Fungicide B', ind=PARAMS.Fung2_ind),
         }
-
 
 
     def get_model_output_overview_traces(self):
@@ -1210,7 +1215,7 @@ class DiseaseProgressCurvesAll:
         
         out = []
 
-        for key in ['ESS', 'ERS', 'ESR', 'ERR']:
+        for key in ['ERR', 'ERS', 'ESR', 'ESS']:
             out.append(self.get_DPC_trace(key))
 
         return out
@@ -1222,7 +1227,7 @@ class DiseaseProgressCurvesAll:
         
         out = []
 
-        for key in ['ISS', 'IRS', 'ISR', 'IRR']:
+        for key in ['IRR', 'IRS', 'ISR', 'ISS']:
             out.append(self.get_DPC_trace(key))
 
         return out
@@ -1269,7 +1274,7 @@ class DiseaseProgressCurvesAll:
 
 
 
-    def sort_layout(self, fig):
+    def _sort_layout(self, fig):
         fig = self.update_axes(fig)
 
 
@@ -1333,7 +1338,7 @@ class DiseaseProgressCurvesAll:
     
 
 
-    def save_and_show(self, fig, conf_str):
+    def _save_and_show(self, fig, conf_str):
         fig.show()
         filename = conf_str.replace("/single/", "/paper_figs/model_overview_")
         
@@ -1353,24 +1358,24 @@ class DoseSpaceScenariosPlot:
 
         self.data = data
 
-        fig = self.generate_figure()
+        fig = self._generate_figure()
 
-        self.save_and_show(fig, conf_str)
+        self._save_and_show(fig, conf_str)
 
 
 
-    def generate_figure(self):
-        traces = self.get_traces()
+    def _generate_figure(self):
+        traces = self._get_traces()
 
-        ugly_fig = self.add_traces_to_figure(traces)
+        ugly_fig = self._add_traces_to_figure(traces)
 
-        fig = self.sort_layout(ugly_fig)
+        fig = self._sort_layout(ugly_fig)
 
         return fig
 
 
 
-    def get_traces(self):        
+    def _get_traces(self):        
         traces = []
 
         traces.append(self.get_ERFB_legend_entry())
@@ -1486,13 +1491,13 @@ class DoseSpaceScenariosPlot:
 
 
 
-    def add_traces_to_figure(self, traces):
+    def _add_traces_to_figure(self, traces):
         fig = go.Figure(data=traces, layout=standard_layout(True, self.width, self.height))
         return fig
 
 
 
-    def sort_layout(self, fig):
+    def _sort_layout(self, fig):
         fig = self._update_axes(fig)
         fig = self._update_legend(fig)
         return fig
@@ -1517,7 +1522,7 @@ class DoseSpaceScenariosPlot:
     
     
     
-    def save_and_show(self, fig, conf_str):
+    def _save_and_show(self, fig, conf_str):
         fig.show()
         filename = conf_str.replace("/grid/", "/paper_figs/dose_space_")
         
@@ -1538,24 +1543,24 @@ class DosesScatterPlot:
 
         self.data = data
 
-        fig = self.generate_figure()
+        fig = self._generate_figure()
 
-        self.save_and_show(fig, conf_str)
+        self._save_and_show(fig, conf_str)
 
 
 
-    def generate_figure(self):
-        traces = self.get_traces()
+    def _generate_figure(self):
+        traces = self._get_traces()
 
-        ugly_fig = self.add_traces_to_figure(traces)
+        ugly_fig = self._add_traces_to_figure(traces)
 
-        fig = self.sort_layout(ugly_fig)
+        fig = self._sort_layout(ugly_fig)
 
         return fig
 
 
 
-    def get_traces(self):        
+    def _get_traces(self):        
         traces = []
         
         line = go.Scatter(x=[0,0],
@@ -1614,13 +1619,13 @@ class DosesScatterPlot:
 
 
 
-    def add_traces_to_figure(self, traces):
+    def _add_traces_to_figure(self, traces):
         fig = go.Figure(data=traces, layout=standard_layout(False, self.width, self.height))
         return fig
 
 
 
-    def sort_layout(self, fig):
+    def _sort_layout(self, fig):
         fig = self._update_axes(fig)
         return fig
     
@@ -1636,7 +1641,7 @@ class DosesScatterPlot:
     
     
     
-    def save_and_show(self, fig, conf_str):
+    def _save_and_show(self, fig, conf_str):
         fig.show()
         filename = conf_str.replace("/grid/", "/paper_figs/doses_scatter_")
         
@@ -1644,3 +1649,611 @@ class DosesScatterPlot:
 
         fig.write_image(filename)
 
+
+
+
+
+class YieldAndRfPlot:
+    def __init__(self, data, conf_str) -> None:
+
+        self.width = 800
+
+        self.height = 620
+
+        self.data = data
+
+        fig = self._generate_figure()
+
+        self._save_and_show(fig, conf_str)
+
+
+
+    def _generate_figure(self):
+        trace_dict = self.get_trace_dict()
+
+        ugly_fig = self._add_traces_to_figure(trace_dict)
+
+        fig = self._sort_layout(ugly_fig)
+
+        return fig
+
+
+
+    def get_trace_dict(self):        
+        
+
+        yield_traces = self.get_yield_traces()
+        
+        RF_traces = self.get_RF_traces()
+        
+        traces = {"yield": yield_traces, "RF": RF_traces}
+
+        return traces
+
+
+
+
+
+    def get_yield_traces(self):
+        out = []
+
+        yy = self.data['yield_vec']
+        
+        xx = list(range(1,1+len(yy)))
+
+        line = go.Scatter(x=xx, y=yy, name="Yield")
+        
+        Y_LOW = yy[-1]-2
+
+        self.yield_lower_lim = Y_LOW
+        
+        X_END = 0.5 + xx[-1]
+                
+        shape = go.Scatter(x=[0, 0, X_END, X_END],
+                            y=[Y_LOW, 95, 95, Y_LOW],
+                            fill="toself",
+                            mode="lines",
+                            showlegend=False,
+                            line=dict(width=0, color="rgb(150,150,150)"))
+        
+        out.append(shape)
+        out.append(line)
+
+        return out
+    
+
+
+
+
+    def get_RF_traces(self):
+        out = []
+        
+        y1 = self.data['res_vec_dict']['f1']
+        y2 = self.data['res_vec_dict']['f2']
+        
+        xx = list(range(len(y1)))
+
+        for data, name, dash in zip([y1, y2], ['f1', 'f2'], ['dot', 'solid']):
+            line = go.Scatter(x=xx, 
+                y=data,
+                name=f"Resistance<br>frequency ({name})",
+                line=dict(dash=dash))
+            out.append(line)
+
+        return out
+
+
+    def _add_traces_to_figure(self, trace_dict):
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True)
+        
+        fig = self._add_yield_traces(fig, trace_dict['yield'])
+
+        fig = self._add_RF_traces(fig, trace_dict['RF'])
+        
+        return fig
+
+
+
+    @staticmethod
+    def _add_yield_traces(fig, traces):
+        for trace in traces:
+            fig.add_trace(trace, row=1, col=1)
+        return fig
+    
+
+
+    @staticmethod
+    def _add_RF_traces(fig, traces):
+        for trace in traces:
+            fig.add_trace(trace, row=2, col=1)
+        return fig
+
+
+
+
+
+
+    def _sort_layout(self, fig):
+        fig = self._update_layout(fig)
+        fig = self._update_axes(fig)
+        return fig
+    
+    
+    
+    def _update_layout(self, fig):
+        fig.update_layout(standard_layout(True, self.width, self.height))
+        
+        text = self.get_unacceptable_yield_annotation()
+        corners = self._get_corner_text_labels()
+        annotz = corners + text
+        
+        fig.update_layout(annotations=annotz)
+        return fig
+
+
+    def get_unacceptable_yield_annotation(self):
+        return [dict(
+            xref="x1",
+            yref="y1",
+            xanchor="left",
+            x= 1,
+            y= 2 + 0.5*(95+self.yield_lower_lim),
+            text="Unacceptable yield",
+            showarrow=False,
+            )]
+
+
+
+    @staticmethod
+    def _update_axes(fig):
+        fig.update_xaxes(title="Time (years)", row=2, col=1, showgrid=False)
+        
+        fig.update_yaxes(title="Yield<br>(% of disease free)", row=1, col=1)
+        
+        fig.update_yaxes(title="Resistance<br>frequency", row=2, col=1)
+
+        return fig
+
+
+
+    def _get_corner_text_labels(self):
+        top_row = 1.08
+        bottom_row = 0.52
+        
+        left = 0.02
+
+        cA = get_big_text_annotation(left, top_row, 'A')
+        cB = get_big_text_annotation(left, bottom_row, 'B')
+        
+        out = [cA, cB]
+        return out
+    
+    
+    
+    
+    def _save_and_show(self, fig, conf_str):
+        fig.show()
+        filename = conf_str.replace("/single/", "/paper_figs/yield_rf_")
+        
+        print("saving figure to: \n", filename)
+
+        fig.write_image(filename)
+
+
+
+
+
+
+
+class ParamScanPlotMeVsHobb:
+    def __init__(self, data, conf_str) -> None:
+
+        self.width = 800
+
+        self.height = 800
+
+        self.data = self._process_data(data)
+
+        fig = self._generate_figure()
+
+        self._save_and_show(fig, conf_str)
+    
+
+
+
+    @staticmethod
+    def _process_data(data):
+        req_cols = data[['run', 'maxCont%', 'maxEqSel%', "RS", "SR", "RR", "sr_prop", "delta_1", "delta_2"]]
+        
+        complete = req_cols.dropna()
+
+        complete = complete.assign(successMetric = lambda x: 100*x['maxEqSel%']/x['maxCont%'])
+
+        complete['IRFMetric'] = complete.apply(lambda x: log10(x['RS']) - log10(x['SR']), axis=1)
+        
+        complete['DecayMetric'] = complete.apply(lambda x: x['delta_1']/(x['delta_1']+x['delta_2']), axis=1)
+
+        return complete
+
+
+
+        
+
+
+    def _generate_figure(self):
+        trace_dict = self._get_traces()
+
+        ugly_fig = self._add_traces_to_figure(trace_dict)
+
+        fig = self._sort_layout(ugly_fig)
+
+        return fig
+
+
+
+    def _get_traces(self):        
+        out = {}
+
+        data = self.data
+        
+        y = data['successMetric']
+
+        x1 = data['IRFMetric']
+
+        x2 = data['DecayMetric']
+
+        x3 = [log10(x) for x in data['RR']]
+        
+        x4 = data['sr_prop']
+
+        for key, xx in zip(['IRFMetric', 'DecayMetric', 'RR', 'sr_prop'],
+                            [x1, x2, x3, x4]):
+
+            scatter = go.Scatter(x=xx,
+                y=y,
+                mode='markers',
+                marker=dict(opacity=0.2))
+
+            out[key] = scatter
+
+        return out
+
+
+    def _add_traces_to_figure(self, trace_dict):
+        fig = make_subplots(rows=2, cols=2, vertical_spacing=0.3)
+
+        fig.add_trace(trace_dict['IRFMetric'], row=1, col=1)
+        fig.add_trace(trace_dict['DecayMetric'], row=2, col=1)
+        fig.add_trace(trace_dict['RR'], row=1, col=2)
+        fig.add_trace(trace_dict['sr_prop'], row=2, col=2)
+
+        return fig
+
+
+
+    def _sort_layout(self, fig):
+        fig = self._update_axes(fig)
+        fig = self._update_layout(fig)
+        fig = self._add_corner_text_labels(fig)
+        return fig
+    
+
+
+    @staticmethod
+    def _update_axes(fig):
+        fig.update_xaxes(title="Log difference in <br>single resistance frequencies", row=1, col=1)
+        fig.update_xaxes(title="Decay rate metric", row=2, col=1)
+        fig.update_xaxes(title="Double resistant<br>frequency (log scale)", row=1, col=2)
+        fig.update_xaxes(title="Proportion of sex", row=2, col=2)
+        
+        fig.update_yaxes(title="Success metric", row=1, col=1)
+        fig.update_yaxes(title="Success metric", row=2, col=1)
+
+        return fig
+
+    
+    def _update_layout(self, fig):
+        fig.update_layout(standard_layout(False, self.width, self.height))
+        return fig
+
+
+    def _add_corner_text_labels(self, fig):
+        top_row = 1.06
+        bottom_row = 0.42
+        
+        left = -0.01
+        middle = 0.56
+
+        c1 = get_big_text_annotation(left, top_row, 'A')
+        c2 = get_big_text_annotation(middle, top_row, 'B')
+        c3 = get_big_text_annotation(left, bottom_row, 'C')
+        c4 = get_big_text_annotation(middle, bottom_row, 'D')
+        
+        annotz = [c1, c2, c3, c4]
+
+        fig.update_layout(annotations=annotz)
+        return fig
+    
+    
+    
+    
+    def _save_and_show(self, fig, conf_str):
+        fig.show()
+        filename = f"../outputs/figures/paper_figs/param_scan_hobb_me_{conf_str}"
+        
+        print("saving figure to: \n", filename)
+
+        fig.write_image(filename)
+
+
+
+
+
+
+class ParamScanPlotHighLowDose:
+    def __init__(self, data, conf_str) -> None:
+
+        self.width = 800
+
+        self.height = 800
+
+        self.data = self._process_data(data)
+
+        fig = self._generate_figure()
+
+        self._save_and_show(fig, conf_str)
+    
+
+
+
+    @staticmethod
+    def _process_data(data):
+        
+        req_cols = data[['run', 'min_opt_DS', 'max_opt_DS', 'max_dose_sums',
+                            'min_dose_sums',
+                            "RS", "SR", "RR", "sr_prop", "delta_1", "delta_2"]]
+        
+        complete = req_cols.dropna()
+
+        complete['minMixStrength'] = complete.apply(lambda x: (
+            100*(x['min_opt_DS']- x['min_dose_sums'])) / (x['max_dose_sums']
+             - x['min_dose_sums'])
+            , axis=1)
+        
+        complete['maxMixStrength'] = complete.apply(lambda x: (
+            100*(x['max_opt_DS']- x['min_dose_sums'])) / (x['max_dose_sums']
+             - x['min_dose_sums'])
+            , axis=1)
+        
+        
+        complete['meanMixStrength'] = complete.apply(lambda x: (
+            100*(x['min_opt_DS'] - x['min_dose_sums'] + 0.5*(x['max_opt_DS'] - x['min_opt_DS']))) / (x['max_dose_sums']
+             - x['min_dose_sums'])
+            , axis=1)
+        
+        print(complete['meanMixStrength'])
+
+        complete['IRFMetric'] = complete.apply(lambda x: log10(x['RS']) - log10(x['SR']), axis=1)
+        
+        complete['DecayMetric'] = complete.apply(lambda x: x['delta_1']/(x['delta_1']+x['delta_2']), axis=1)
+
+        return complete
+
+
+
+        
+
+
+    def _generate_figure(self):
+        trace_dict = self._get_traces()
+
+        ugly_fig = self._add_traces_to_figure(trace_dict)
+
+        fig = self._sort_layout(ugly_fig)
+
+        return fig
+
+
+
+    def _get_traces(self):        
+        out = {}
+
+        data = self.data
+        
+        # y = data['minMixStrength']
+        # y = data['maxMixStrength']
+        y = data['meanMixStrength']
+        
+        x1 = data['IRFMetric']
+        # x1 = [log10(x) for x in data['SR']]
+
+        x2 = data['DecayMetric']
+
+        x3 = [log10(x) for x in data['RR']]
+        
+        x4 = data['sr_prop']
+        
+        out['IRFMetric'] = [self._get_scatter(x1, y)]
+
+        out['DecayMetric'] = [self._get_scatter(x2, y)]
+        
+        out['RR'] = [self._get_scatter(x3, y)]
+
+        out['sr_prop'] = [self._get_scatter(x4, y),
+                            self.get_best_fit(x4, y, "blue")
+                            ]
+
+        return out
+
+
+
+
+    def _get_scatter(self, x, y):
+        return go.Scatter(x=x,
+            y=y,
+            mode='markers',
+            marker=dict(opacity=0.2))
+        
+
+
+    @staticmethod
+    def get_best_fit(xx, y, col):
+        slope, intercept, _, _, _ = stats.linregress(xx,y)
+
+        line = slope*np.asarray(xx) + intercept
+        
+        best_fit = go.Scatter(
+                    x=xx,
+                    y=line,
+                    mode='lines',
+                    marker=dict(color=col),
+                    name='Fit'
+                    )
+
+        return best_fit
+
+
+
+    def _add_traces_to_figure(self, trace_dict):
+        fig = make_subplots(rows=2, cols=2, vertical_spacing=0.3)
+        
+        self.add_traces_each_subplot(fig, 1, 1, trace_dict['IRFMetric'])
+        self.add_traces_each_subplot(fig, 2, 1, trace_dict['DecayMetric'])
+        self.add_traces_each_subplot(fig, 1, 2, trace_dict['RR'])
+        self.add_traces_each_subplot(fig, 2, 2, trace_dict['sr_prop'])
+        
+        return fig
+
+
+
+
+
+    @staticmethod
+    def add_traces_each_subplot(fig, row, col, traces):
+        for trace in traces:
+            fig.add_trace(trace, row=row, col=col)
+        return fig
+
+    def _sort_layout(self, fig):
+        fig = self._update_axes(fig)
+        fig = self._update_layout(fig)
+        fig = self._add_corner_text_labels(fig)
+        return fig
+    
+
+
+    @staticmethod
+    def _update_axes(fig):
+        fig.update_xaxes(title="Log difference in <br>single resistance frequencies", row=1, col=1)
+        fig.update_xaxes(title="Decay rate metric", row=2, col=1)
+        fig.update_xaxes(title="Double resistant<br>frequency (log scale)", row=1, col=2)
+        fig.update_xaxes(title="Proportion of sex", row=2, col=2)
+        
+        fig.update_yaxes(title="Optimal distance<br>along contour (%)", row=1, col=1)
+        fig.update_yaxes(title="Optimal distance<br>along contour (%)", row=2, col=1)
+
+        return fig
+
+    
+    def _update_layout(self, fig):
+        fig.update_layout(standard_layout(False, self.width, self.height))
+        return fig
+
+
+    def _add_corner_text_labels(self, fig):
+        top_row = 1.06
+        bottom_row = 0.42
+        
+        left = -0.01
+        middle = 0.56
+
+        c1 = get_big_text_annotation(left, top_row, 'A')
+        c2 = get_big_text_annotation(middle, top_row, 'B')
+        c3 = get_big_text_annotation(left, bottom_row, 'C')
+        c4 = get_big_text_annotation(middle, bottom_row, 'D')
+        
+        annotz = [c1, c2, c3, c4]
+
+        fig.update_layout(annotations=annotz)
+        return fig
+    
+    
+    
+    
+    def _save_and_show(self, fig, conf_str):
+        fig.show()
+        filename = f"../outputs/figures/paper_figs/param_scan_high_low_{conf_str}"
+        
+        print("saving figure to: \n", filename)
+
+        fig.write_image(filename)
+
+
+
+
+
+
+
+
+
+class FigTemplateClass:
+    def __init__(self, data, conf_str) -> None:
+
+        self.width = 800
+
+        self.height = 620
+
+        self.data = data
+
+        fig = self._generate_figure()
+
+        self._save_and_show(fig, conf_str)
+
+
+
+    def _generate_figure(self):
+        traces = self._get_traces()
+
+        ugly_fig = self._add_traces_to_figure(traces)
+
+        fig = self._sort_layout(ugly_fig)
+
+        return fig
+
+
+
+    def _get_traces(self):        
+        traces = []
+
+        return traces
+
+
+    def _add_traces_to_figure(self, traces):
+        fig = go.Figure(data=traces, layout=standard_layout(False, self.width, self.height))
+        return fig
+
+
+
+    def _sort_layout(self, fig):
+        fig = self._update_axes(fig)
+        return fig
+    
+
+
+    @staticmethod
+    def _update_axes(fig):
+        fig.update_xaxes(title="x")
+        fig.update_yaxes(title="y")
+        return fig
+
+    
+    
+    
+    
+    def _save_and_show(self, fig, conf_str):
+        fig.show()
+        filename = conf_str.replace("/grid/", "/paper_figs/doses_scatter_")
+        
+        print("saving figure to: \n", filename)
+
+        fig.write_image(filename)

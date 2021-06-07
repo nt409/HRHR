@@ -73,7 +73,7 @@ def get_big_text_annotation(x, y, text):
 
             font=dict(
                     size=30,
-                    color="black",
+                    color="rgb(150,150,150)",
                 ),
         )
 

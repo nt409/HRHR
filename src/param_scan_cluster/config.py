@@ -19,7 +19,7 @@ config_rand = {
     "n_years": 35,
 
     "NIts": 3,
-    "load_saved": True,
+    "load_saved": False,
     
 }
 

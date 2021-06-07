@@ -18,12 +18,15 @@ from utils.plotting import dose_grid_heatmap, eq_RFB_contours
 # TOC:
 
 # Utility fns
-# ParamScan
 # ParamScanRand
-# ParamScanRandRFB
-# post process fns
+# RandomPars
+# ContourFinder
+# ConfigsParScan
+
+# post process fns:
 # - combine_PS_rand_outputs
 # PostProcess
+# MaxAlongContourDF
 
 #----------------------------------------------------------------------
 
@@ -58,231 +61,8 @@ def get_PS_rand_str(config):
 
 
 
-class ContourFinder:
-    def __init__(self, z, levels, min_n_pts_alng_cntr=12) -> None:
-        
-        cs = self._get_contour_set(z, levels)
-        
-        cntrs_out = self._get_contours(cs, levels)
-
-        if cntrs_out and len(cntrs_out[0]['x'])<min_n_pts_alng_cntr:
-            cntrs_out = self._interpolate_contours(cntrs_out, min_n_pts_alng_cntr)
-
-        self.cont_list = cntrs_out
-
-
-
-    @staticmethod
-    def _get_contour_set(z, levels):
-
-        x, y = np.mgrid[0:1:z.shape[0]*1j, 0:1:z.shape[1]*1j]
-
-        cs = plt.contour(x, y, z, levels=levels)
-
-        return cs
-
-
-
-    def _get_contours(self, cs, levels):
-        """
-        Takes a contour set and returns a list of dictionaries containing:
-        - x values
-        - y values
-        - the contour level
-        """
-
-        output = []
-
-        for level, conts in zip(levels, cs.allsegs):
-
-            if not conts:
-                # why not?
-                # suspect too many 'nan's to create a proper contour
-                continue
-            
-            this_cont_dict = self._get_contour_dict(level, conts)
-
-            output.append(this_cont_dict)
-        
-        return output
-
-
-    @staticmethod
-    def _get_contour_dict(level, conts):
-        
-        cont = conts[0]
-        
-        # was x_list, y_list
-        x_vals = cont[:,0]
-        y_vals = cont[:,1]
-
-        # x_vals = [x_list[0]] + list(x_list[1:-2]) + [x_list[-1]]
-        # y_vals = [y_list[0]] + list(y_list[1:-2]) + [y_list[-1]]
-
-        x_max = max(x_vals)
-        y_max = max(y_vals)
-
-        print(f"max dose along contour: (x,y) = {round(x_max,2), round(y_max,2)}")
-
-        out = dict(
-                x = x_vals,
-                y = y_vals,
-                max_dose = max(x_max, y_max),
-                level = level
-                )
-
-        return out
-
-    
-
-
-    def _interpolate_contours(self, cntrs, num=15):
-        """
-        Takes old contours and adds in some interpolated values
-        
-        Result is more densely populated list of values (approximately) 
-        along the contour
-        """
-
-        xx = copy.copy(cntrs[0]['x'])
-        yy = copy.copy(cntrs[0]['y'])
-
-        cntrs[0]['x'] = self._interp_vector(xx, num)
-        cntrs[0]['y'] = self._interp_vector(yy, num)
-        
-        return cntrs
-    
-
-
-
-    @staticmethod
-    def _interp_vector(old, num):
-        
-        nn = len(old)
-        
-        fp = list(range(nn))
-        
-        start = float(fp[0])
-        stop = float(fp[-1])
-
-        to_find = np.linspace(start, stop, num)
-        
-        interp = np.interp(to_find, fp, old)
-
-        # include the old ones as well as interpolated ones
-        out = list(old) + list(interp)[1:-1]
-
-        return out
-
 
 # End of Utility fns
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-class ConfigsParScan:
-    def __init__(self, *params, sr_prop, inoc, load_saved, n_years):
-
-        # params = rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2
-        self.pars = params
-
-        self.sr_prop = sr_prop
-
-        self.inoc = inoc
-
-        self.load_saved = load_saved
-
-        self.n_years = n_years
-  
-
-
-    def _get_grid_conf(self, n_doses):
-
-        conf = GridConfig(self.n_years, None, None, n_doses, 
-                                    primary_inoculum=self.inoc)
-
-        config_out = self._process_conf(conf)
-
-        return config_out
-
-
-
-    def _get_single_conf(self, dose1, dose2):
-
-        conf = SingleConfig(self.n_years, None, None, 
-                                dose1, dose1, dose2, dose2,
-                                primary_inoculum=self.inoc)
-        
-        config_out = self._process_conf(conf)
-
-        return config_out
-
-
-
-
-
-    def _process_conf(self, Conf):
-
-        Conf.sex_prop = self.sr_prop
-
-        Conf.load_saved = self.load_saved
-
-        Conf.add_string()
-
-        config_out = self._update_par_scan_conf_str(Conf)
-        
-        return config_out
-
-
-
-    
-    def _update_par_scan_conf_str(self, Conf):
-        
-        rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2 = self.pars
-
-        conf_str = Conf.config_string_img
-        conf_str = conf_str.replace("grid", "param_scan")
-
-        par_str = f"_fung_pars={om_1},{om_2},{delt_1},{delt_2},rf1={rfs1},rf2={rfs2},rfd={rfD}"
-        par_str = par_str.replace(".", ",")
-        conf_str = conf_str.replace(".png", par_str + ".png")
-        
-        Conf.config_string_img = conf_str
-        
-        saved_run_str = conf_str.replace(".png", ".pickle")
-        
-        Conf.config_string = saved_run_str.replace("figures/", "saved_runs/")
-
-        return Conf
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -304,8 +84,145 @@ class ParamScanRand:
 
 
 
+    def run(self, seed):
+        """
+        Run random scan over uniform dists
+        """
 
-    def _get_data_this_conf_and_contrs(self, cntrs, *params):
+        df = self._run_param_scan_RFB(seed)
+
+        self.save_output(df, seed)
+        
+
+    
+    
+    
+    def save_output(self, df, seed):
+        
+        par_str = get_PS_rand_str(self.config)
+
+        filename = f"./param_scan_cluster/outputs/rand/par_scan/seed={seed}_{par_str}.csv"
+        
+        print(f"Random Scan, saved as:\n {filename}")
+        
+        df.to_csv(filename, index=False)
+
+
+
+
+
+
+
+    def _run_param_scan_RFB(self, seed):
+
+        df = pd.DataFrame()
+
+        np.random.seed(seed)
+
+        for run_index in tqdm(range(self.config["NIts"])):
+
+            new_df = self._get_this_single_PS_run(run_index)
+
+            df = pd.concat([df, new_df], axis=0)
+
+        return df
+    
+
+
+
+
+
+
+    def _get_this_single_PS_run(self, run_index):
+
+        # initialise
+        self.df_this_run = pd.DataFrame()
+
+        self._get_params_and_confs(run_index)
+        
+        self._get_grid_output_this_run()
+
+        RFB_cntrs = self._find_contours_RFB()
+    
+        if self.rfb_obj.is_valid:
+            self._get_data_this_conf_and_contrs(RFB_cntrs)
+        
+        grid_df = self._get_grid_output_df()
+
+        df_RFB_and_EqSel = self._get_EqSel_columns()
+
+        out = self._combine_all_dfs(df_RFB_and_EqSel, grid_df)
+
+        return out
+
+
+
+
+
+
+    def _get_params_and_confs(self, run_index):
+    
+        RP = RandomPars(self.config, run_index)
+
+        RP.find_pars()
+
+        self.rand_pars = RP
+        
+        self.ps_confs = ConfigsParScan(*self.rand_pars.pars[:-1],
+                            sr_prop=self.rand_pars.pars[-1],
+                            inoc=self.rand_pars.inoc,
+                            load_saved=self.config["load_saved"],
+                            n_years=self.config["n_years"])
+
+
+
+
+
+
+
+
+
+
+
+
+
+    def _get_grid_output_this_run(self):
+        
+        grid_config = self.ps_confs._get_grid_conf(self.config["grid_number"])
+
+        self.my_grid_output = RunGrid(self.rand_pars.fung_parms).grid_of_tactics(grid_config)
+
+
+
+
+
+
+
+
+
+
+    def _find_contours_RFB(self):
+        """
+        Find doses along the contours of constant first year yield.
+        """
+
+        self.rfb_obj = EqualResFreqBreakdownArray(self.my_grid_output)
+        
+        if not self.rfb_obj.is_valid:            
+            cntrs_out = []
+            return cntrs_out
+        else:
+            cntrs_out = ContourFinder(self.rfb_obj.array, levels=[0]).cont_list
+            return cntrs_out
+
+
+
+
+
+
+
+
+    def _get_data_this_conf_and_contrs(self, cntrs):
         
         df_this_run = pd.DataFrame()
 
@@ -318,7 +235,7 @@ class ParamScanRand:
             
             for dose1, dose2 in zip(contour['x'], contour['y']):            
 
-                this_contour_dict = self._get_data_this_contour(*params, dose1=dose1, dose2=dose2)
+                this_contour_dict = self._get_data_these_doses_on_contour(dose1, dose2)
                
                 data = {"contour_level": contour['level'],
                             "max_dose_on_contour": contour['max_dose'],
@@ -328,38 +245,23 @@ class ParamScanRand:
 
                 df_this_run = df_this_run.append(data, ignore_index=True)
         
-
-
-        n_empty_rows = df_this_run.shape[0]-1
-
-        df_this_run['maxContEL'] = [max(df_this_run['EL'])] + [""]*(n_empty_rows)
-
-        df_this_run['minDeltaRFB'] = [min(df_this_run['delta_RFB'])] + [""]*(n_empty_rows)
-
-        df_this_run['maxDeltaRFB'] = [max(df_this_run['delta_RFB'])] + [""]*(n_empty_rows)
-
-        self.df_this_run = df_this_run
+        self.df_this_run = self._add_extra_RFB_EL_cols_for_this_cont(df_this_run)
 
 
 
 
 
+    def _get_data_these_doses_on_contour(self, dose1, dose2):
 
-    def _get_data_this_contour(self, *params, dose1, dose2):
-
-        CPS = ConfigsParScan(*params[:-1],
-            sr_prop=params[-1],
-            inoc=self.inoc,
-            load_saved=self.config["load_saved"],
-            n_years=self.config["n_years"])
-        
-        this_dose_config = CPS._get_single_conf(dose1, dose2)
+        this_dose_conf = self.ps_confs._get_single_conf(dose1, dose2)
                 
-        sing_run_output = RunSingleTactic(self.fung_parms).run_single_tactic(this_dose_config)
+        single_run = RunSingleTactic(self.rand_pars.fung_parms).run_single_tactic(this_dose_conf)
         
-        out = self._get_this_contour_dict(sing_run_output)
+        out = self._get_this_contour_dict(single_run)
         
         return out
+
+
 
 
 
@@ -397,171 +299,19 @@ class ParamScanRand:
 
 
 
-    
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-class ParamScanRandRFB(ParamScanRand):
-    def __init__(self, config) -> None:
-        super().__init__(config)
-
-
-
-    def run(self, seed):
-        """
-        Run random scan over uniform dists
-        """
-
-        df = self._run_param_scan_RFB(seed)
+    @staticmethod
+    def _add_extra_RFB_EL_cols_for_this_cont(df):
         
-        par_str = get_PS_rand_str(self.config)
+        n_empty_rows = df.shape[0]-1
 
-        filename = f"./param_scan_cluster/outputs/rand/par_scan/seed={seed}_{par_str}.csv"
-        
-        print(f"Random Scan, saved as:\n {filename}")
-        
-        df.to_csv(filename, index=False)
+        df['maxContEL'] = [max(df['EL'])] + [""]*(n_empty_rows)
 
+        df['minDeltaRFB'] = [min(df['delta_RFB'])] + [""]*(n_empty_rows)
 
-
-
-
-
-
-
-    def _run_param_scan_RFB(self, seed):
-
-        df = pd.DataFrame()
-
-        np.random.seed(seed)
-
-        for run_index in tqdm(range(self.config["NIts"])):
-
-            new_df = self._get_this_single_PS_run(run_index)
-
-            df = pd.concat([df, new_df], axis=0)
+        df['maxDeltaRFB'] = [max(df['delta_RFB'])] + [""]*(n_empty_rows)
 
         return df
-    
-
-
-
-
-
-
-    def _get_this_single_PS_run(self, run_index):
-
-        # initialise
-        self.df_this_run = pd.DataFrame()
-
-
-        RP = RandomPars(self.config, run_index)
-
-        RP.find_pars()
-
-        self.inoc = RP.inoc
-
-        self.fung_parms = RP.fung_parms
-        
-        self.this_run_params_dict = RP.this_run_params_dict
-
-
-        self._get_grid_output_this_run(*RP.pars)
-
-        RFB_cntrs = self._find_contours_RFB()
-    
-        if self.ERFB_valid:
-            self._get_data_this_conf_and_contrs(RFB_cntrs, *RP.pars)
-        
-        grid_df = self._get_grid_output_df()
-
-        df_RFB_and_EqSel = self._get_EqSel_columns(*RP.pars)
-
-
-        out = self._combine_all_dfs(df_RFB_and_EqSel, grid_df)
-
-        return out
-
-
-
-
-
-
-
-
-
-    def _get_grid_output_this_run(self, *this_run_parms):
-
-        CPS = ConfigsParScan(*this_run_parms[:-1],
-                        sr_prop=this_run_parms[-1],
-                        inoc=self.inoc,
-                        load_saved=self.config["load_saved"],
-                        n_years=self.config["n_years"])
-
-        grid_config = CPS._get_grid_conf(n_doses=self.config["grid_number"])
-
-        self.my_grid_output = RunGrid(self.fung_parms).grid_of_tactics(grid_config)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-
-
-
-
-
-
-
-    def _find_contours_RFB(self):
-        """
-        Find doses along the contours of constant first year yield.
-        """
-
-        rfb_obj = EqualResFreqBreakdownArray(self.my_grid_output)
-        
-        self.RFB_array = rfb_obj.array
-        
-        self.ERFB_valid = rfb_obj.is_valid
-
-        if not self.ERFB_valid:            
-            cntrs_out = []
-            return cntrs_out
-        else:
-            cntrs_out = ContourFinder(self.RFB_array, levels=[0]).cont_list
-            return cntrs_out
-
-
-
-
-
-
-
 
 
 
@@ -576,9 +326,9 @@ class ParamScanRandRFB(ParamScanRand):
         minEqDoseELVec = [float(FYs[i, i]) for i in range(FYs.shape[0])]
 
         data = dict(maxGridEL = np.amax(FYs),
-                ERFB_Valid = self.ERFB_valid,
-                GridMinRFB = np.nanmin(self.RFB_array),
-                GridMaxRFB = np.nanmax(self.RFB_array),
+                ERFB_Valid = self.rfb_obj.is_valid,
+                GridMinRFB = np.nanmin(self.rfb_obj.array),
+                GridMaxRFB = np.nanmax(self.rfb_obj.array),
                 minEqDoseEL = self._get_first_non_zero_element(minEqDoseELVec),
                 fullDoseEL = FYs[-1, -1],
                 corner_00 = FYs[0, 0],
@@ -592,6 +342,61 @@ class ParamScanRandRFB(ParamScanRand):
 
 
 
+
+
+
+
+
+    def _get_EqSel_columns(self):
+        """
+        adds on two columns to existing dataframe:
+        - maxEqSelEL
+        - EqSelValid
+        """
+        
+        df_ERFB_data = copy.copy(self.df_this_run)
+
+        EqSel_cntrs = self._find_contours_EqSel()
+
+        self._get_data_this_conf_and_contrs(EqSel_cntrs)
+
+        maxEqSelEL = self._get_maxEL_EqSel()
+
+        max_D = self._get_maxD(EqSel_cntrs)
+
+        df_use = pd.DataFrame([dict(
+                maxEqSelEL = maxEqSelEL,
+                EqSelValid = self.eq_sel_obj.is_valid,
+                max_dose_EL_cont = max_D
+                )])
+        
+        out = pd.concat([df_ERFB_data, df_use], axis=1)
+
+        return out
+        
+
+
+
+
+
+
+    def _find_contours_EqSel(self):
+        
+        self.eq_sel_obj = EqualSelectionArray(self.my_grid_output)
+        
+        if not self.eq_sel_obj.is_valid:
+            cntrs_out = []
+            return cntrs_out
+        else:    
+            cntrs_out = ContourFinder(self.eq_sel_obj.array, levels=[0.5]).cont_list
+            return cntrs_out
+
+
+
+
+
+
+
     @staticmethod
     def _get_first_non_zero_element(vec):
         filtered = list(filter(lambda x: x>0, vec))
@@ -600,8 +405,6 @@ class ParamScanRandRFB(ParamScanRand):
             return "NA"
 
         return filtered[0]
-
-
 
 
 
@@ -633,61 +436,6 @@ class ParamScanRandRFB(ParamScanRand):
 
 
 
-    def _get_EqSel_columns(self, *this_run_parms):
-        """
-        adds on two columns to existing dataframe:
-        - maxEqSelEL
-        - EqSelValid
-        """
-        
-        df_ERFB_data = copy.copy(self.df_this_run)
-
-        EqSel_cntrs = self._find_contours_EqSel()
-
-        self._get_data_this_conf_and_contrs(EqSel_cntrs, *this_run_parms)
-
-        maxEqSelEL = self._get_maxEL_EqSel()
-
-        max_D = self._get_maxD(EqSel_cntrs)
-
-        df_use = pd.DataFrame([dict(
-                maxEqSelEL = maxEqSelEL,
-                EqSelValid = self.EqSelValid,
-                max_dose_EL_cont = max_D
-                )])
-        
-        out = pd.concat([df_ERFB_data, df_use], axis=1)
-
-        return out
-        
-
-
-
-
-
-
-    def _find_contours_EqSel(self):
-        
-        eq_sel_obj = EqualSelectionArray(self.my_grid_output)
-        
-        self.EqSel_array = eq_sel_obj.array
-
-        self.EqSelValid = eq_sel_obj.is_valid
-
-        if not self.EqSelValid:
-            cntrs_out = []
-            return cntrs_out
-        else:    
-            cntrs_out = ContourFinder(self.EqSel_array, levels=[0.5]).cont_list
-            return cntrs_out
-
-
-
-
-
-
-
-
 
 
 
@@ -712,7 +460,7 @@ class ParamScanRandRFB(ParamScanRand):
 
     def _get_params_and_run_index_df(self, n_rows):
 
-        parms_df = pd.DataFrame([{**self.this_run_params_dict}])
+        parms_df = pd.DataFrame([{**self.rand_pars.this_run_params_dict}])
 
         run_index = int(parms_df.loc[0, 'run'])
 
@@ -882,6 +630,212 @@ class RandomPars:
                 **self.inoc,
                 "sr_prop": sr_prop,
                 "run": self.run_index}
+
+
+
+
+
+
+
+
+class ContourFinder:
+    def __init__(self, z, levels, min_n_pts_alng_cntr=12) -> None:
+        
+        cs = self._get_contour_set(z, levels)
+        
+        cntrs_out = self._get_contours(cs, levels)
+
+        if cntrs_out and len(cntrs_out[0]['x'])<min_n_pts_alng_cntr:
+            cntrs_out = self._interpolate_contours(cntrs_out, min_n_pts_alng_cntr)
+
+        self.cont_list = cntrs_out
+
+
+
+    @staticmethod
+    def _get_contour_set(z, levels):
+
+        x, y = np.mgrid[0:1:z.shape[0]*1j, 0:1:z.shape[1]*1j]
+
+        cs = plt.contour(x, y, z, levels=levels)
+
+        return cs
+
+
+
+    def _get_contours(self, cs, levels):
+        """
+        Takes a contour set and returns a list of dictionaries containing:
+        - x values
+        - y values
+        - the contour level
+        """
+
+        output = []
+
+        for level, conts in zip(levels, cs.allsegs):
+
+            if not conts:
+                # why not?
+                # suspect too many 'nan's to create a proper contour
+                continue
+            
+            this_cont_dict = self._get_contour_dict(level, conts)
+
+            output.append(this_cont_dict)
+        
+        return output
+
+
+    @staticmethod
+    def _get_contour_dict(level, conts):
+        
+        cont = conts[0]
+        
+        # was x_list, y_list
+        x_vals = cont[:,0]
+        y_vals = cont[:,1]
+
+        # x_vals = [x_list[0]] + list(x_list[1:-2]) + [x_list[-1]]
+        # y_vals = [y_list[0]] + list(y_list[1:-2]) + [y_list[-1]]
+
+        x_max = max(x_vals)
+        y_max = max(y_vals)
+
+        print(f"max dose along contour: (x,y) = {round(x_max,2), round(y_max,2)}")
+
+        out = dict(
+                x = x_vals,
+                y = y_vals,
+                max_dose = max(x_max, y_max),
+                level = level
+                )
+
+        return out
+
+    
+
+
+    def _interpolate_contours(self, cntrs, num=15):
+        """
+        Takes old contours and adds in some interpolated values
+        
+        Result is more densely populated list of values (approximately) 
+        along the contour
+        """
+
+        xx = copy.copy(cntrs[0]['x'])
+        yy = copy.copy(cntrs[0]['y'])
+
+        cntrs[0]['x'] = self._interp_vector(xx, num)
+        cntrs[0]['y'] = self._interp_vector(yy, num)
+        
+        return cntrs
+    
+
+
+
+    @staticmethod
+    def _interp_vector(old, num):
+        
+        nn = len(old)
+        
+        fp = list(range(nn))
+        
+        start = float(fp[0])
+        stop = float(fp[-1])
+
+        to_find = np.linspace(start, stop, num)
+        
+        interp = np.interp(to_find, fp, old)
+
+        # include the old ones as well as interpolated ones
+        out = list(old) + list(interp)[1:-1]
+
+        return out
+
+
+
+
+
+
+
+
+
+class ConfigsParScan:
+    def __init__(self, *params, sr_prop, inoc, load_saved, n_years):
+
+        # params = rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2
+        self.pars = params
+
+        self.sr_prop = sr_prop
+
+        self.inoc = inoc
+
+        self.load_saved = load_saved
+
+        self.n_years = n_years
+  
+
+
+    def _get_grid_conf(self, n_doses):
+
+        conf = GridConfig(self.n_years, None, None, n_doses, 
+                                    primary_inoculum=self.inoc)
+
+        config_out = self._process_conf(conf)
+
+        return config_out
+
+
+
+    def _get_single_conf(self, dose1, dose2):
+
+        conf = SingleConfig(self.n_years, None, None, 
+                                dose1, dose1, dose2, dose2,
+                                primary_inoculum=self.inoc)
+        
+        config_out = self._process_conf(conf)
+
+        return config_out
+
+
+
+
+
+    def _process_conf(self, Conf):
+
+        Conf.sex_prop = self.sr_prop
+
+        Conf.load_saved = self.load_saved
+
+        Conf.add_string()
+
+        config_out = self._update_par_scan_conf_str(Conf)
+        
+        return config_out
+
+
+
+    
+    def _update_par_scan_conf_str(self, Conf):
+        
+        rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2 = self.pars
+
+        conf_str = Conf.config_string_img
+        conf_str = conf_str.replace("grid", "param_scan")
+
+        par_str = f"_fung_pars={om_1},{om_2},{delt_1},{delt_2},rf1={rfs1},rf2={rfs2},rfd={rfD}"
+        par_str = par_str.replace(".", ",")
+        conf_str = conf_str.replace(".png", par_str + ".png")
+        
+        Conf.config_string_img = conf_str
+        
+        saved_run_str = conf_str.replace(".png", ".pickle")
+        
+        Conf.config_string = saved_run_str.replace("figures/", "saved_runs/")
+
+        return Conf
 
 
 

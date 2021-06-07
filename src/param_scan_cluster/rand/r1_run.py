@@ -13,12 +13,12 @@ then compile into one df using post_process.py
 
 import sys
 
-from ..functions import ParamScanRandRFB
+from ..functions import ParamScanRand
 from ..config import config_rand
 
 
 def main(config, seed):
-    ParamScanRandRFB(config).run(seed)
+    ParamScanRand(config).run(seed)
 
 
 if __name__=="__main__":

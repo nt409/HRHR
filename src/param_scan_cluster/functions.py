@@ -1,10 +1,7 @@
-import itertools
-from numpy import random
 import pandas as pd
 from tqdm import tqdm
 import copy
 import numpy as np
-from math import log10, ceil
 import matplotlib.pyplot as plt
 
 
@@ -20,7 +17,7 @@ from utils.plotting import dose_grid_heatmap, eq_RFB_contours
 # Utility fns
 # ParamScanRand
 # RandomPars
-# ContourFinder
+# ContourList
 
 # post process fns:
 # - combine_PS_rand_outputs
@@ -141,10 +138,9 @@ class ParamScanRand:
         
         self.my_grid_output = self._get_grid_output_this_run()
 
-        RFB_cntrs = self._find_contours_RFB()
+        RFB_cntr = self._find_contours_RFB()
         
-        # if self.rfb_obj.is_valid:
-        self._get_data_this_conf_and_contrs(RFB_cntrs)    
+        self._get_data_this_conf_and_contrs(RFB_cntr)
 
         grid_df = self._get_grid_output_and_RFB_df()
 
@@ -203,11 +199,11 @@ class ParamScanRand:
         self.rfb_obj = EqualResFreqBreakdownArray(self.my_grid_output)
         
         if not self.rfb_obj.is_valid:            
-            cntrs_out = []
-            return cntrs_out
+            cntr_out = {}
+            return cntr_out
         else:
-            cntrs_out = ContourFinder(self.rfb_obj.array, levels=[0]).cont_list
-            return cntrs_out
+            cntr_out = ContourList(self.rfb_obj.array, levels=[0]).cont_dict
+            return cntr_out
 
 
 
@@ -216,9 +212,9 @@ class ParamScanRand:
 
 
 
-    def _get_data_this_conf_and_contrs(self, cntrs):
+    def _get_data_this_conf_and_contrs(self, contour):
         """
-        Takes cntrs which is a list of doses along the contour
+        Takes cntr which is a dictionary with doses along the contour
         
         Creates self.df_this_run which has columns:
         
@@ -237,25 +233,24 @@ class ParamScanRand:
         
         df_this_run = pd.DataFrame()
 
-        if not cntrs:
+        if not contour:
             self.df_this_run = df_this_run
             return None
 
 
-        for contour in cntrs:
+        for dose1, dose2 in zip(contour['x'], contour['y']):            
+
+            this_contour_dict = self._get_data_these_doses_on_contour(dose1, dose2)
             
-            for dose1, dose2 in zip(contour['x'], contour['y']):            
+            data = {"contour_level": contour['level'],
+                        "max_dose_on_contour": contour['max_dose'],
+                        "dose1": dose1,
+                        "dose2": dose2,
+                        **this_contour_dict}
 
-                this_contour_dict = self._get_data_these_doses_on_contour(dose1, dose2)
-               
-                data = {"contour_level": contour['level'],
-                            "max_dose_on_contour": contour['max_dose'],
-                            "dose1": dose1,
-                            "dose2": dose2,
-                            **this_contour_dict}
-
-                df_this_run = df_this_run.append(data, ignore_index=True)
+            df_this_run = df_this_run.append(data, ignore_index=True)
         
+
         self.df_this_run = self._add_extra_RFB_EL_cols_for_this_cont(df_this_run)
 
 
@@ -385,13 +380,13 @@ class ParamScanRand:
         
         df_ERFB_data = copy.copy(self.df_this_run)
 
-        EqSel_cntrs = self._find_contours_EqSel()
+        EqSel_cntr = self._find_contours_EqSel()
 
-        self._get_data_this_conf_and_contrs(EqSel_cntrs)
+        self._get_data_this_conf_and_contrs(EqSel_cntr)
 
         maxEqSelEL = self._get_maxEL_EqSel()
 
-        max_D = self._get_maxD(EqSel_cntrs)
+        max_D = self._get_maxD(EqSel_cntr)
 
         df_use = pd.DataFrame([dict(
                 maxEqSelEL = maxEqSelEL,
@@ -414,11 +409,11 @@ class ParamScanRand:
         self.eq_sel_obj = EqualSelectionArray(self.my_grid_output)
         
         if not self.eq_sel_obj.is_valid:
-            cntrs_out = []
-            return cntrs_out
+            cntr_out = {}
+            return cntr_out
         else:    
-            cntrs_out = ContourFinder(self.eq_sel_obj.array, levels=[0.5]).cont_list
-            return cntrs_out
+            cntr_out = ContourList(self.eq_sel_obj.array, levels=[0.5]).cont_dict
+            return cntr_out
 
 
 
@@ -454,11 +449,11 @@ class ParamScanRand:
 
 
     @staticmethod
-    def _get_maxD(cntrs):
-        if not cntrs:
+    def _get_maxD(cntr):
+        if not cntr:
             return "NA"
         else:
-            return cntrs[0]["max_dose"]
+            return cntr["max_dose"]
 
 
 
@@ -733,87 +728,91 @@ class RandomPars:
 
 
 
-class ContourFinder:
-    def __init__(self, z, levels, min_n_pts_alng_cntr=12) -> None:
+class ContourList:
+    """
+    Takes an array and a contour level (i.e. value to aim for) and generates 
+    a dictionary with x, y values, the contour level and the max dose
+    """
+
+    def __init__(self, z, levels, min_n_pts_alng_cntr=12, plt_conts=True) -> None:
         
-        cs = self._get_contour_set(z, levels)
+        self.cont_dict = self.find_contours(z, levels, min_n_pts_alng_cntr)
+
+        if plt_conts:
+            self.plot_it()
+
+    
+    
+    
+    def find_contours(self, z, level, min_n_pts_alng_cntr):
+
+        cs = self._get_contour_set(z, level)
         
-        cntrs_out = self._get_contours(cs, levels)
+        cntr_out = self._get_contours(cs, level)
 
-        if cntrs_out and len(cntrs_out[0]['x'])<min_n_pts_alng_cntr:
-            cntrs_out = self._interpolate_contours(cntrs_out, min_n_pts_alng_cntr)
+        if cntr_out and len(cntr_out['x'])<min_n_pts_alng_cntr:
+            cntr_out = self._interpolate_contours(cntr_out, min_n_pts_alng_cntr)
+        return cntr_out
 
-        self.cont_list = cntrs_out
-
+      
 
 
     @staticmethod
-    def _get_contour_set(z, levels):
+    def _get_contour_set(z, level):
 
         x, y = np.mgrid[0:1:z.shape[0]*1j, 0:1:z.shape[1]*1j]
 
-        cs = plt.contour(x, y, z, levels=levels)
-
-        plt.show()
-
+        cs = plt.contour(x, y, z, levels=level)
+        
         return cs
 
 
 
-    def _get_contours(self, cs, levels):
+    def _get_contours(self, cs, level):
         """
         Takes a contour set and returns a list of dictionaries containing:
         - x values
         - y values
         - the contour level
+        - max dose along the contour
         """
 
-        output = []
+        if not cs.allsegs:
+            print("Warning: conts was False!")
+            # why not?
+            # suspect too many 'nan's to create a proper contour
+            return {}
 
-        for level, conts in zip(levels, cs.allsegs):
+        else:
+            cont = cs.allsegs[0][0]
+            this_cont_dict = self._get_contour_dict(level, cont)
+            return this_cont_dict
 
-            if not conts:
-                # why not?
-                # suspect too many 'nan's to create a proper contour
-                continue
-            
-            this_cont_dict = self._get_contour_dict(level, conts)
 
-            output.append(this_cont_dict)
-        
-        return output
 
 
     @staticmethod
-    def _get_contour_dict(level, conts):
+    def _get_contour_dict(level, cont):
         
-        cont = conts[0]
-        
-        # was x_list, y_list
         x_vals = cont[:,0]
         y_vals = cont[:,1]
-
-        # x_vals = [x_list[0]] + list(x_list[1:-2]) + [x_list[-1]]
-        # y_vals = [y_list[0]] + list(y_list[1:-2]) + [y_list[-1]]
 
         x_max = max(x_vals)
         y_max = max(y_vals)
 
         print(f"max dose along contour: (x,y) = {round(x_max,2), round(y_max,2)}")
 
-        out = dict(
-                x = x_vals,
-                y = y_vals,
-                max_dose = max(x_max, y_max),
-                level = level
-                )
+        out = dict(x = x_vals,
+                   y = y_vals,
+                   max_dose = max(x_max, y_max),
+                   level = level)
 
         return out
 
     
 
 
-    def _interpolate_contours(self, cntrs, num=15):
+    def _interpolate_contours(self, cntr, num=15):
         """
         Takes old contours and adds in some interpolated values
         
@@ -821,13 +820,13 @@ class ContourFinder:
         along the contour
         """
 
-        xx = copy.copy(cntrs[0]['x'])
-        yy = copy.copy(cntrs[0]['y'])
+        xx = copy.copy(cntr['x'])
+        yy = copy.copy(cntr['y'])
 
-        cntrs[0]['x'] = self._interp_vector(xx, num)
-        cntrs[0]['y'] = self._interp_vector(yy, num)
+        cntr['x'] = self._interp_vector(xx, num)
+        cntr['y'] = self._interp_vector(yy, num)
         
-        return cntrs
+        return cntr
     
 
 
@@ -852,7 +851,10 @@ class ContourFinder:
         return out
 
 
-
+    def plot_it(self):
+        cont = self.cont_dict
+        plt.scatter(cont['x'], cont['y'])
+        plt.show()
 
 
 

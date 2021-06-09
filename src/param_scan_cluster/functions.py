@@ -17,6 +17,18 @@ from utils.plotting import dose_grid_heatmap, eq_RFB_contours
 
 # Utility fns
 # ParamScanRand
+# SinglePSRun
+
+# ContourStratDFGetter
+# FYSelFinder
+# RFBFinder
+
+# OtherStratDFGetter
+
+# ContourPassesThroughChecker
+
+# CheckStrategyUsingIVT
+
 # RandomPars
 # ContourList
 
@@ -75,7 +87,11 @@ def get_PS_rand_str(config):
 
 class ParamScanRand:
     def __init__(self, config) -> None:
-        self._config = config
+        self.config = config
+        
+        self.key_list = ["summary",
+                            "RFB_df",
+                            "EqSel_df"]
     
 
 
@@ -87,72 +103,60 @@ class ParamScanRand:
         Run random scan over uniform dists
         """
 
-        df = self._run_RFB_par_scan(seed)
+        dict_of_dfs = self._get_scan_output(seed)
 
-        self.save_output(df, seed)
+        self.save_output(dict_of_dfs, seed)
         
 
     
     
     
-    def save_output(self, df, seed):
+    def save_output(self, df_dict, seed):
         
-        par_str = get_PS_rand_str(self._config)
+        par_str = get_PS_rand_str(self.config)
 
-        filename = f"./param_scan_cluster/outputs/rand/par_scan/seed={seed}_{par_str}.csv"
-        
-        print(f"Random Scan, saved as:\n {filename}")
-        
-        df.to_csv(filename, index=False)
+        for key in self.key_list:
 
+            filename = f"./param_scan_cluster/outputs/rand/par_scan/{key}_seed={seed}_{par_str}.csv"
+            
+            print(f"Random Scan {key}, saved as:\n {filename}")
 
-
-
+            df_dict[key].to_csv(filename, index=False)
 
 
 
-    def _run_RFB_par_scan(self, seed):
 
-        df = pd.DataFrame()
+
+
+
+    def _get_scan_output(self, seed):
 
         np.random.seed(seed)
+        
+        out = self.initialise_output_dict()
 
-        for run_index in tqdm(range(self._config["NIts"])):
+        N_ITS = self.config["NIts"]
 
-            new_df = self._get_single_PS_run_df(run_index)
+        for run_index in tqdm(range(N_ITS)):
 
-            df = pd.concat([df, new_df], axis=0)
+            new_run_ind = seed*N_ITS + run_index
 
-        return df
+            dict_of_dfs = SinglePSRun(self.config, new_run_ind).output
+
+            out = self.update_dfs(out, dict_of_dfs)
+
+        return out
     
 
 
 
 
-
-
-    def _get_single_PS_run_df(self, run_index):
-
-        # initialise
-        self.df_this_run = pd.DataFrame()
-
-        self.rand_pars = self._get_rand_pars_obj(run_index)
+    def initialise_output_dict(self):
         
-        self.my_grid_output = self._get_grid_output_this_run()
-
-        RFB_cntr = self._find_contours_RFB()
+        out = {}
         
-        self._get_data_this_conf_and_contrs(RFB_cntr)
-
-        grid_df = self._get_grid_output_and_RFB_df()
-
-        df_RFB_and_EqSel = self._get_EqSel_columns()
-
-        simple_method_RFB = self.opt_region_contains_RFB()
-
-        simple_method_EqSel = self.opt_region_contains_EqSel()
-
-        out = self._combine_all_dfs(grid_df, df_RFB_and_EqSel, simple_method_RFB, simple_method_EqSel, run_index)
+        for key in self.key_list:
+            out[key] = pd.DataFrame()
         
         return out
 
@@ -160,10 +164,91 @@ class ParamScanRand:
 
 
 
+    @staticmethod
+    def update_dfs(out, dict_of_dfs):
 
-    def _get_rand_pars_obj(self, run_index):
+        for key in dict_of_dfs:
+            new_df = dict_of_dfs[key]
+            out[key] = pd.concat([out[key], new_df], axis=0)
+
+        return out
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class SinglePSRun:
+    def __init__(self, config, run_index) -> None:
+        
+        self.config = config
+        
+        self.run_index = run_index
+
+        rand_pars = self._get_rand_pars_obj()
+        
+        grid_output = self._get_grid_output_this_run(rand_pars)
+        
+        without_RI = self._get_single_PS_run_dfs(rand_pars, grid_output)
+
+        self.output = self._add_run_index_to_dfs(without_RI)
+
+
+
+
+
+
+    def _get_single_PS_run_dfs(self, rand_pars, grid_output):
+
+        par_df = self._get_par_df(rand_pars)
+        
+        RFB_dfs = ContourStratDFGetter(rand_pars, grid_output,
+                            EqualResFreqBreakdownArray, 0,
+                            RFBFinder, "RFB")
+
+        
+
+        EqSel_dfs = ContourStratDFGetter(rand_pars, grid_output,
+                            EqualSelectionArray, 0.5,
+                            FYSelFinder, "EqSel")
+
+        other_strats_df = OtherStratDFGetter(grid_output).df
+
+        IVT_RFB_df = CheckStrategyUsingIVT(grid_output, 
+                    EqualResFreqBreakdownArray, 0, "RFB").df
+
+        IVT_EqSel_df = CheckStrategyUsingIVT(grid_output,
+                    EqualSelectionArray, 0.5, "EqSel").df
+
+        summary = pd.concat([par_df, RFB_dfs.summary, 
+                    EqSel_dfs.summary, other_strats_df,
+                    IVT_RFB_df, IVT_EqSel_df],
+                    axis=1)
+
+        return dict(
+            summary = summary,
+            RFB_df = RFB_dfs.df,
+            EqSel_df = EqSel_dfs.df,
+            )
+        
+
+
+
+
+    def _get_rand_pars_obj(self):
     
-        RP = RandomPars(self._config, run_index)
+        RP = RandomPars(self.config, self.run_index)
 
         RP.find_pars()
 
@@ -172,43 +257,93 @@ class ParamScanRand:
 
 
 
-
-
-
-
-
-
-
-
-    def _get_grid_output_this_run(self):
+    def _get_grid_output_this_run(self, rand_pars):
         
-        grid_config = self.rand_pars._get_grid_conf(self._config["grid_number"])
+        gridconfig = rand_pars._get_grid_conf(self.config["grid_number"])
 
-        out= RunGrid(self.rand_pars.fung_parms).grid_of_tactics(grid_config)
+        out= RunGrid(rand_pars.fung_parms).grid_of_tactics(gridconfig)
 
         return out 
 
 
 
 
-
-
-
-
-
-
-    def _find_contours_RFB(self):
-        """
-        Find doses along the contours of constant first year yield.
-        """
-
-        self.rfb_obj = EqualResFreqBreakdownArray(self.my_grid_output)
+    @staticmethod
+    def _get_par_df(rand_pars):
+        data = rand_pars._get_this_run_all_parms_dict()
         
-        if not self.rfb_obj.is_valid:            
+        return pd.DataFrame([data])
+
+
+
+
+    def _add_run_index_to_dfs(self, dict_dfs):
+
+        for key in dict_dfs:
+            dict_dfs[key]['run'] = [self.run_index]*dict_dfs[key].shape[0]
+        
+        return dict_dfs
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class ContourStratDFGetter:
+    def __init__(self, rand_pars, grid_output, Strategy,
+                    contour_level, ContQuantFinder, strat_name) -> None:
+
+        self.rand_pars = rand_pars
+
+        self.strat_name = strat_name
+
+        self.strat_obj = Strategy(grid_output)
+
+        self.max_grid_EL = np.amax(grid_output['FY'])
+
+        self.ContQuantFinder = ContQuantFinder
+
+        self.level = contour_level
+
+        self.df = self._get_data()
+        
+        self.summary = SummaryDF(self.df, self.strat_name, self.level, 
+                                self.max_grid_EL).df
+
+
+
+
+
+    def _get_data(self):
+        cntr = self._find_contours()
+        
+        return self._get_dict_this_cntr(cntr)
+
+
+
+
+    
+    def _find_contours(self):
+        
+        if not self.strat_obj.is_valid:
             cntr_out = {}
             return cntr_out
-        else:
-            cntr_out = ContourList(self.rfb_obj.array, levels=[0]).cont_dict
+        else:    
+            cntr_out = ContourList(self.strat_obj.array, level=self.level).cont_dict
             return cntr_out
 
 
@@ -216,32 +351,12 @@ class ParamScanRand:
 
 
 
-
-
-    def _get_data_this_conf_and_contrs(self, contour):
-        """
-        Takes cntr which is a dictionary with doses along the contour
-        
-        Creates self.df_this_run which has columns:
-        
-        - delta_RFB
-        - EL
-        - (econ)
-        - contour_level
-        - max_dose_on_contour
-        - dose1
-        - dose2
-        - maxContEL
-        - minDeltaRFB
-        - maxDeltaRFB
-
-        """
+    def _get_dict_this_cntr(self, contour):
         
         df_this_run = pd.DataFrame()
 
         if not contour:
-            self.df_this_run = df_this_run
-            return None
+            return df_this_run
 
 
         for dose1, dose2 in zip(contour['x'], contour['y']):            
@@ -249,15 +364,16 @@ class ParamScanRand:
             this_contour_dict = self._get_data_these_doses_on_contour(dose1, dose2)
             
             data = {"contour_level": contour['level'],
-                        "max_dose_on_contour": contour['max_dose'],
-                        "dose1": dose1,
-                        "dose2": dose2,
-                        **this_contour_dict}
+                     "dose1": dose1,
+                     "dose2": dose2,
+                     "DS": dose1 + dose2,
+                     **this_contour_dict}
 
             df_this_run = df_this_run.append(data, ignore_index=True)
         
-
-        self.df_this_run = self._add_extra_RFB_EL_cols_for_this_cont(df_this_run)
+        
+        
+        return df_this_run
 
 
 
@@ -266,16 +382,15 @@ class ParamScanRand:
     def _get_data_these_doses_on_contour(self, dose1, dose2):
         """
         Returns dict with
-        - delta_RFB
+        - contQuant
         - EL
-        - econ
         """
 
         this_dose_conf = self.rand_pars._get_single_conf(dose1, dose2)
                 
-        single_run = RunSingleTactic(self.rand_pars.fung_parms).run_single_tactic(this_dose_conf)
+        self.single_run = RunSingleTactic(self.rand_pars.fung_parms).run_single_tactic(this_dose_conf)
         
-        out = self._get_this_contour_dict(single_run)
+        out = self._get_these_doses_dict()
         
         return out
 
@@ -286,147 +401,237 @@ class ParamScanRand:
 
 
 
-    def _get_this_contour_dict(self, sing_run_output):
+    def _get_these_doses_dict(self):
         """
         Returns dict with
-        - delta_RFB
+        - contQuant
         - EL
-        - econ
+        # - econ
         """
+        sing_run = self.single_run
 
-        fy_in = sing_run_output['failure_year']
+        strat_name = self.strat_name
 
-        res_vecs = sing_run_output['res_vec_dict']
+        # econ="NA",
+
+        out = {
+                f"{strat_name}_contQuant": self.ContQuantFinder(sing_run).cont_quant,
+                f"{strat_name}_EL": sing_run['failure_year'],
+                }
         
+        return out
+
+
+
+
+
+
+
+class SummaryDF:
+
+    def __init__(self, df, strat_name, level, max_grid_EL) -> None:
+        self.df = df        
+        self.strat_name = strat_name
+        self.level = level
+        self.max_grid_EL = max_grid_EL
+
+        self.df = self._get_summary_df(df, strat_name)
+
+
+
+
+
+    def _get_summary_df(self, df, strat_name):
+        df = self.df
+
+        lowDS_val = self._get_low_dose_max_EL()
+        medDS_val = self._get_med_dose_max_EL()
+        highDS_val = self._get_high_dose_max_EL()
+
+        
+        min_opt_dist_from_cntr = self._get_min_opt_dist_from_contour()
+        
+
+        data= {
+            f"{strat_name}_minContEL": min(df[f"{strat_name}_EL"]),
+            f"{strat_name}_maxContEL": max(df[f"{strat_name}_EL"]),
+
+            f"{strat_name}_minContQuant": min(df[f"{strat_name}_contQuant"]),
+            f"{strat_name}_maxContQuant": max(df[f"{strat_name}_contQuant"]),
+            f"{strat_name}_min_opt_dist_from_contour": min_opt_dist_from_cntr,
+
+            f"{strat_name}_minDS": min(df['DS']),
+            f"{strat_name}_maxDS": max(df['DS']),
+            
+            f"{strat_name}_worked": self.max_grid_EL==max(df[f"{strat_name}_EL"]),
+            
+            f"{strat_name}_valid": ((min(df[f"{strat_name}_contQuant"])<self.level) and
+                                        (max(df[f"{strat_name}_contQuant"])>self.level)),
+
+            f"{strat_name}_lowDoseMaxEL": lowDS_val,
+            f"{strat_name}_medDoseMaxEL": medDS_val,
+            f"{strat_name}_highDoseMaxEL": highDS_val,
+            }
+
+        return pd.DataFrame([data])
+
+
+    
+
+
+    
+    
+    def _get_low_dose_max_EL(self):
+        df = self.df
+
+        DS_thres_low = min(df['DS']) + 0.2*(max(df['DS']) - min(df['DS']))
+        
+        filt = df[df['DS'] < DS_thres_low]
+
+        return max(filt[f"{self.strat_name}_EL"])
+    
+
+
+
+
+
+    def _get_med_dose_max_EL(self):
+        df = self.df
+
+        DS_thres_low = min(df['DS']) + 0.2*(max(df['DS']) - min(df['DS']))
+        DS_thres_high = min(df['DS']) + 0.8*(max(df['DS']) - min(df['DS']))
+
+        filt = df[((df['DS'] >= DS_thres_low) & (df['DS'] <= DS_thres_high))]
+
+        return max(filt[f"{self.strat_name}_EL"])
+
+    
+
+
+
+
+    def _get_high_dose_max_EL(self):
+        df = self.df
+
+        DS_thres_high = min(df['DS']) + 0.8*(max(df['DS']) - min(df['DS']))
+
+        filt = df[df['DS'] > DS_thres_high]
+
+        return max(filt[f"{self.strat_name}_EL"])
+
+
+
+
+
+    def _get_min_opt_dist_from_contour(self):
+        df = self.df
+
+        opt_df = df[df[f"{self.strat_name}_EL"]==self.max_grid_EL]
+
+        vec = abs(opt_df[f"{self.strat_name}_contQuant"] - self.level)
+        if len(vec):
+            out = min(vec)
+            return out
+        else:
+            return "NA"
+        
+
+
+
+
+
+
+
+
+
+
+class FYSelFinder:
+    def __init__(self, single_run) -> None:
+        self.single_run = single_run
+        self.cont_quant = self._get_FY_selection()
+
+    
+    
+    def _get_FY_selection(self):
+        
+        start_freqs = self.single_run['start_of_season']
+        
+        sr1 = start_freqs['RS'][1]/start_freqs['RS'][0]
+        sr2 = start_freqs['SR'][1]/start_freqs['SR'][0]
+        
+        try:
+            return sr1/(sr1+sr2)
+        except:
+            return None
+
+
+
+
+
+
+
+class RFBFinder:
+
+    def __init__(self, single_run) -> None:
+        self.single_run = single_run
+        self.cont_quant = self._get_delta_RFB()
+
+
+    def _get_delta_RFB(self):
+        sing_run = self.single_run
+        
+        fy_in = sing_run['failure_year']
+
         fy = int(fy_in)
 
+        res_vecs = sing_run['res_vec_dict']
+        
         rf1 = res_vecs['f1'][fy]
         
         rf2 = res_vecs['f2'][fy]
 
         try:
-            delt_rf = logit10_difference(rf1, rf2)
+            return logit10_difference(rf1, rf2)
         except:
             print(f"problem with calculating delta_RFB for: {rf1, rf2}")
-            delt_rf = "NA"
+            return "NA"
 
-        econ = "NA"
+
+
+
+
+
+
+
+
+
+
+class OtherStratDFGetter:
+    def __init__(self, grid_output) -> None:
+        FYs = grid_output['FY']
         
-        out = dict(delta_RFB=delt_rf,
-                                EL=fy,
-                                econ=econ)
+        self.df = self._get_strategy_outcomes(FYs)
+    
+
+
+    def _get_strategy_outcomes(self, FYs):
         
-        return out
-
-
-
-
-
-
-
-    @staticmethod
-    def _add_extra_RFB_EL_cols_for_this_cont(df):
-        """
-        Returns df with
-        - maxContEL
-        - minDeltaRFB
-        - maxDeltaRFB
-        """
-        
-        n_empty_rows = df.shape[0]-1
-
-        df['maxContEL'] = [max(df['EL'])] + [""]*(n_empty_rows)
-
-        df['minDeltaRFB'] = [min(df['delta_RFB'])] + [""]*(n_empty_rows)
-
-        df['maxDeltaRFB'] = [max(df['delta_RFB'])] + [""]*(n_empty_rows)
-
-        return df
-
-
-
-
-
-
-
-    def _get_grid_output_and_RFB_df(self):
-
-        FYs = self.my_grid_output['FY']
-
         minEqDoseELVec = [float(FYs[i, i]) for i in range(FYs.shape[0])]
-
-        data = dict(maxGridEL = np.amax(FYs),
-                ERFB_Valid = self.rfb_obj.is_valid,
-                GridMinRFB = np.nanmin(self.rfb_obj.array),
-                GridMaxRFB = np.nanmax(self.rfb_obj.array),
+        
+        data = dict(
+                max_grid_EL = np.amax(FYs),
                 minEqDoseEL = self._get_first_non_zero_element(minEqDoseELVec),
-                fullDoseEL = FYs[-1, -1],
                 corner_00 = FYs[0, 0],
                 corner_10 = FYs[-1, 0],
                 corner_01 = FYs[0, -1],
-                corner_11 = FYs[-1, -1])
+                fullDoseEL = FYs[-1, -1])
 
         out = pd.DataFrame([data])
 
         return out
-
-
-
-
-
-
-
-
-    def _get_EqSel_columns(self):
-        """
-        adds on two columns to existing dataframe:
-        - maxEqSelEL
-        - EqSelValid
-        """
-        
-        df_ERFB_data = copy.copy(self.df_this_run)
-
-        EqSel_cntr = self._find_contours_EqSel()
-
-        self._get_data_this_conf_and_contrs(EqSel_cntr)
-
-        maxEqSelEL = self._get_maxEL_EqSel()
-
-        max_D = self._get_maxD(EqSel_cntr)
-
-        df_use = pd.DataFrame([dict(
-                maxEqSelEL = maxEqSelEL,
-                EqSelValid = self.eq_sel_obj.is_valid,
-                max_dose_EL_cont = max_D
-                )])
-        
-        out = pd.concat([df_ERFB_data, df_use], axis=1)
-
-        return out
-        
-
-
-
-
-
-
-    def _find_contours_EqSel(self):
-        
-        self.eq_sel_obj = EqualSelectionArray(self.my_grid_output)
-        
-        if not self.eq_sel_obj.is_valid:
-            cntr_out = {}
-            return cntr_out
-        else:    
-            cntr_out = ContourList(self.eq_sel_obj.array, levels=[0.5]).cont_dict
-            return cntr_out
-
-
-
-
-
-
-
+    
+    
+    
     @staticmethod
     def _get_first_non_zero_element(vec):
         filtered = list(filter(lambda x: x>0, vec))
@@ -441,62 +646,6 @@ class ParamScanRand:
 
 
 
-    def _get_maxEL_EqSel(self):
-        
-        data = self.df_this_run
-
-        if data.shape[0]>0:
-            return max(data['EL'])
-        else:
-            return "NA"
-
-
-
-
-
-    @staticmethod
-    def _get_maxD(cntr):
-        if not cntr:
-            return "NA"
-        else:
-            return cntr["max_dose"]
-
-
-
-
-
-
-    def opt_region_contains_RFB(self):
-
-        RFB_checker =  StrategySimpleChecker(self.my_grid_output, 
-                                            EqualResFreqBreakdownArray,
-                                            0,
-                                            "RFB")
-
-        
-        data = dict(best_region_RFB = RFB_checker.strat_works,
-                    best_value_RFB = RFB_checker.best_value)
-
-        out = pd.DataFrame([data])
-        return out
-
-
-
-
-
-
-    def opt_region_contains_EqSel(self):
-
-        eq_sel_checker =  StrategySimpleChecker(self.my_grid_output, 
-                                            EqualSelectionArray,
-                                            0.5,
-                                            "EqSel")
-        
-        data = dict(best_region_eq_sel = eq_sel_checker.strat_works,
-                     best_value_eq_sel = eq_sel_checker.best_value)
-        
-        out = pd.DataFrame([data])
-        return  out
 
 
 
@@ -505,38 +654,11 @@ class ParamScanRand:
 
 
 
-    def _combine_all_dfs(self, grid_df, df_RFB_and_EqSel, simple_method_RFB, simple_method_EqSel, run_index):
-        n_rows = df_RFB_and_EqSel.shape[0]
-        
-        par_df = self._get_params_and_run_index_df(n_rows, run_index)
-
-        out = pd.concat([par_df,
-                            df_RFB_and_EqSel,
-                            simple_method_RFB,
-                            simple_method_EqSel,
-                            grid_df],
-                            axis=1)
-        
-        return out
 
 
 
 
 
-
-    def _get_params_and_run_index_df(self, n_rows, run_index):
-
-        this_run_all_parms_dict = self.rand_pars._get_this_run_all_parms_dict()
-
-        parms_df = pd.DataFrame([{**this_run_all_parms_dict}])
-
-        parms_df = parms_df.drop(["run"], axis=1)
-
-        run_df = pd.DataFrame([{"run": run_index}]*n_rows)
-
-        out = pd.concat([parms_df, run_df], axis=1)
-
-        return out
 
 
 
@@ -652,7 +774,14 @@ class ContourPassesThroughChecker:
 
 
 
-class StrategySimpleChecker:
+class CheckStrategyUsingIVT:
+    """
+    Use "intermediate value theorem" method:
+    
+    - find optimal region and see if contains points above and below contour
+    - if so, then contour passes through (provided connected)
+
+    """
     def __init__(self, grid_output, strategy_class, level, name) -> None:
 
         self.FYs = grid_output['FY']
@@ -667,6 +796,7 @@ class StrategySimpleChecker:
 
         self.find_best_value_this_strat()
 
+        self.df = self.get_df(name)
 
 
     def check_if_gives_optimum(self):
@@ -710,6 +840,12 @@ class StrategySimpleChecker:
 
         self.best_value = EL
 
+
+    def get_df(self, name):
+        data = {f"best_region_{name}": self.strat_works,
+                f"best_value_{name}": self.best_value}
+
+        return pd.DataFrame([data])
 
 
 
@@ -962,9 +1098,9 @@ class ContourList:
     a dictionary with x, y values, the contour level and the max dose
     """
 
-    def __init__(self, z, levels, min_n_pts_alng_cntr=12, plt_conts=False) -> None:
+    def __init__(self, z, level, min_n_pts_alng_cntr=12, plt_conts=False) -> None:
         
-        self.cont_dict = self.find_contours(z, levels, min_n_pts_alng_cntr)
+        self.cont_dict = self.find_contours(z, level, min_n_pts_alng_cntr)
 
         if plt_conts:
             self.plot_it()
@@ -990,7 +1126,7 @@ class ContourList:
 
         x, y = np.mgrid[0:1:z.shape[0]*1j, 0:1:z.shape[1]*1j]
 
-        cs = plt.contour(x, y, z, levels=level)
+        cs = plt.contour(x, y, z, levels=[level])
         
         return cs
 
@@ -1027,14 +1163,14 @@ class ContourList:
         x_vals = cont[:,0]
         y_vals = cont[:,1]
 
-        x_max = max(x_vals)
-        y_max = max(y_vals)
+        # x_max = max(x_vals)
+        # y_max = max(y_vals)
 
         # print(f"max dose along contour: (x,y) = {round(x_max,2), round(y_max,2)}")
 
         out = dict(x = x_vals,
                    y = y_vals,
-                   max_dose = max(x_max, y_max),
+                #    max_dose = max(x_max, y_max),
                    level = level)
 
         return out
@@ -1208,7 +1344,7 @@ class PostProcess:
         if strategy=='maxEqSel%':
             print(df[strategy].isnull().sum())
             exit()
-            
+
         conditional_mean = df[df[strategy]<100][strategy].mean()
 
         worked = df[df[strategy]>=100].shape[0]

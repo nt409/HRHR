@@ -1343,6 +1343,8 @@ class RunDoseSpace(RunMultipleTactics):
                 
         self.t_vec = one_tact_output['t_vec']
 
+
+
     def _save_dose_space(self):
         ds_output = {'LTY': self.LTY,
                     'TY': self.TY,

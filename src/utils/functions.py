@@ -1762,6 +1762,8 @@ class EqualResFreqBreakdownArray:
         self.res_arrays = grid_output['res_arrays']
         self.array = self._generate_RFB_array()
         self.is_valid = self._check_valid()
+
+    
         
     def _generate_RFB_array(self):
         FYs = self.FYs

@@ -17,11 +17,11 @@ def main(config):
     
     PP.analyse_max_contour_df()
 
-    PP.analyse_failed()
+    # PP.analyse_failed()
     
-    PP.which_runs_worked_max_cont()
+    # PP.which_runs_worked_max_cont()
 
-    PP.re_run_failures(NDoses=51, failed_run_indices=list(range(5)))
+    # PP.re_run_failures(NDoses=21, failed_run_indices=list(range(5)))
         
     # PP.check_high_or_low_dose()
 

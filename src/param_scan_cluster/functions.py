@@ -3,6 +3,7 @@ from tqdm import tqdm
 import copy
 import numpy as np
 import matplotlib.pyplot as plt
+import itertools
 
 
 from runHRHR.config_classes import GridConfig, SingleConfig
@@ -21,6 +22,7 @@ from utils.plotting import dose_grid_heatmap, eq_RFB_contours
 
 # post process fns:
 # - combine_PS_rand_outputs
+
 # PostProcess
 # MaxAlongContourDF
 
@@ -145,8 +147,12 @@ class ParamScanRand:
         grid_df = self._get_grid_output_and_RFB_df()
 
         df_RFB_and_EqSel = self._get_EqSel_columns()
-        
-        out = self._combine_all_dfs(grid_df, df_RFB_and_EqSel, run_index)
+
+        simple_method_RFB = self.opt_region_contains_RFB()
+
+        simple_method_EqSel = self.opt_region_contains_EqSel()
+
+        out = self._combine_all_dfs(grid_df, df_RFB_and_EqSel, simple_method_RFB, simple_method_EqSel, run_index)
         
         return out
 
@@ -460,18 +466,54 @@ class ParamScanRand:
 
 
 
+    def opt_region_contains_RFB(self):
+
+        RFB_checker =  StrategySimpleChecker(self.my_grid_output, 
+                                            EqualResFreqBreakdownArray,
+                                            0,
+                                            "RFB")
+
+        
+        data = dict(best_region_RFB = RFB_checker.strat_works,
+                    best_value_RFB = RFB_checker.best_value)
+
+        out = pd.DataFrame([data])
+        return out
 
 
 
 
 
-    def _combine_all_dfs(self, grid_df, df_RFB_and_EqSel, run_index):
+
+    def opt_region_contains_EqSel(self):
+
+        eq_sel_checker =  StrategySimpleChecker(self.my_grid_output, 
+                                            EqualSelectionArray,
+                                            0.5,
+                                            "EqSel")
+        
+        data = dict(best_region_eq_sel = eq_sel_checker.strat_works,
+                     best_value_eq_sel = eq_sel_checker.best_value)
+        
+        out = pd.DataFrame([data])
+        return  out
+
+
+
+
+
+
+
+
+    def _combine_all_dfs(self, grid_df, df_RFB_and_EqSel, simple_method_RFB, simple_method_EqSel, run_index):
         n_rows = df_RFB_and_EqSel.shape[0]
         
         par_df = self._get_params_and_run_index_df(n_rows, run_index)
 
         out = pd.concat([par_df,
                             df_RFB_and_EqSel,
+                            simple_method_RFB,
+                            simple_method_EqSel,
                             grid_df],
                             axis=1)
         
@@ -495,6 +537,197 @@ class ParamScanRand:
         out = pd.concat([parms_df, run_df], axis=1)
 
         return out
+
+
+
+
+
+
+
+
+class ContourPassesThroughChecker:
+    def __init__(self, array, level) -> None:
+        
+        self.passes_through = self.check_if_passes_through_region(array, level)
+
+
+
+
+    def check_if_passes_through_region(self, array, level) -> bool:
+        """
+        Check if contour passes through optimal region.
+        
+        If False, might be because:
+        - optimal region is not connected, or
+        - all contour values are positive/negative in the region
+        - grid sufficiently dense
+
+        If True, contour passes through optimal region :)
+
+        """
+        
+        includes_level = (np.amin(array)<level and np.amax(array)>level)
+
+        if not includes_level:
+            return False
+        
+        return self.check_is_connected(array, level)
+
+
+
+    
+    def check_is_connected(self, array, level) -> bool:
+
+        for i, j in itertools.product(*(range(array.shape[ii]) for ii in [0,1])):
+
+            if not array[i,j]:
+                continue
+
+            elif array[i,j]==level:
+                return True
+
+            else:
+                valid = self.check_neighbours(array, i, j, level)
+            
+            if valid:
+                return True
+
+        return False
+    
+
+
+    def check_neighbours(self, array, i, j, level) -> bool:
+        """
+        For array only including optimal region:
+
+        Check if a cell has any neighbours which have a differing sign for contour.
+
+        If True, there is some intermediate value for doses between the two cells
+        which is optimal and along the contour.
+
+        If False, t
+        """
+        
+        self_is_positive = array[i,j]>level
+
+        cell_iterator = self.neighbours((i,j), array.shape[0])
+
+        for ii, jj in cell_iterator:
+                
+            if not array[ii,jj]:
+                continue
+
+            neighbour_is_positive = array[ii,jj]>level
+
+            if neighbour_is_positive!=self_is_positive:
+                return True
+
+        return False
+
+    
+    @staticmethod
+    def neighbours(cell, shape):
+        """
+        Find neighbouring cells, excluding self and excluding any cells with:
+        -: index < 0, or
+        -: index > shape.
+
+        Returns a generator
+
+        """
+        for new_cell in itertools.product(*(range(n-1, n+2) for n in cell)):
+            if new_cell != cell and all(0 <= n < shape for n in new_cell):
+                yield new_cell
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class StrategySimpleChecker:
+    def __init__(self, grid_output, strategy_class, level, name) -> None:
+
+        self.FYs = grid_output['FY']
+        
+        self.strategy_obj = strategy_class(grid_output)
+
+        self.level = level
+
+        self.name = name
+        
+        self.check_if_gives_optimum()
+
+        self.find_best_value_this_strat()
+
+
+
+    def check_if_gives_optimum(self):
+        FYs = self.FYs
+        
+        opt_region = FYs!=np.amax(FYs)
+        
+        if not self.strategy_obj.is_valid:
+            self.strat_works = f"Strategy {self.name} is invalid"
+            return None
+        
+        strat_array = self.strategy_obj.array
+
+        opt_strat = np.ma.masked_array(strat_array, mask=opt_region)
+        
+        self.strat_works = ContourPassesThroughChecker(opt_strat, self.level).passes_through
+
+
+
+    def find_best_value_this_strat(self):
+        FYs = self.FYs
+
+        if not self.strategy_obj.is_valid:
+            self.best_value = f"Strategy {self.name} is invalid"
+            return None
+
+        strat_array = self.strategy_obj.array
+
+        for k in range(int(np.amax(FYs))):
+            EL = np.amax(FYs)-k
+            
+            opt_region = FYs<EL
+
+            opt_strat = np.ma.masked_array(strat_array, mask=opt_region)
+
+            worked = ContourPassesThroughChecker(opt_strat, self.level).passes_through
+        
+            if worked:
+                self.best_value = EL
+                return None
+
+        self.best_value = EL
+
+
+
+
+
+
+
+
+        
+        
+
+
+
+
+
+
+
+
+
 
 
 
@@ -591,13 +824,8 @@ class RandomPars:
             this_dose_yield = self._check_yield(fungicide_params, pathogen_pars, ii, jj)
 
             if not this_dose_yield>95:
-                print("\n")
-                print(f"invalid params; {round(this_dose_yield,2)}<=95, dose pair: {ii,jj}")
                 return False
         
-        print("\n")
-        print(f"valid params; {round(this_dose_yield,2)}>95, dose pair: {ii,jj}")
-        print("\n")
         return True
 
 
@@ -734,7 +962,7 @@ class ContourList:
     a dictionary with x, y values, the contour level and the max dose
     """
 
-    def __init__(self, z, levels, min_n_pts_alng_cntr=12, plt_conts=True) -> None:
+    def __init__(self, z, levels, min_n_pts_alng_cntr=12, plt_conts=False) -> None:
         
         self.cont_dict = self.find_contours(z, levels, min_n_pts_alng_cntr)
 
@@ -768,6 +996,8 @@ class ContourList:
 
 
 
+
+
     def _get_contours(self, cs, level):
         """
         Takes a contour set and returns a list of dictionaries containing:
@@ -785,8 +1015,8 @@ class ContourList:
 
         else:
             cont = cs.allsegs[0][0]
-            this_cont_dict = self._get_contour_dict(level, cont)
-            return this_cont_dict
+            cont_dict = self._get_contour_dict(level, cont)
+            return cont_dict
 
 
 
@@ -800,7 +1030,7 @@ class ContourList:
         x_max = max(x_vals)
         y_max = max(y_vals)
 
-        print(f"max dose along contour: (x,y) = {round(x_max,2), round(y_max,2)}")
+        # print(f"max dose along contour: (x,y) = {round(x_max,2), round(y_max,2)}")
 
         out = dict(x = x_vals,
                    y = y_vals,
@@ -849,6 +1079,8 @@ class ContourList:
         out = list(old) + list(interp)[1:-1]
 
         return out
+
+
 
 
     def plot_it(self):
@@ -913,6 +1145,7 @@ class PostProcess:
     def __init__(self, par_str):
         self.df = pd.read_csv(f"param_scan_cluster/outputs/rand/combined/output_{par_str}.csv")
         self.par_str = par_str
+        
 
 
 
@@ -970,9 +1203,12 @@ class PostProcess:
             df = df_in
         else:
             df = df_in[df_in[strategy_valid]]
-
         mean = df[strategy].mean()
 
+        if strategy=='maxEqSel%':
+            print(df[strategy].isnull().sum())
+            exit()
+            
         conditional_mean = df[df[strategy]<100][strategy].mean()
 
         worked = df[df[strategy]>=100].shape[0]
@@ -1153,17 +1389,15 @@ class PostProcess:
 
             grid_config, fung_params = self._get_grid_config_and_fung_pars(pars, NDoses)
 
-            output = RunGrid(fung_params).grid_of_tactics(grid_config)
+            grid_output = RunGrid(fung_params).grid_of_tactics(grid_config)
 
             conf_str = grid_config.config_string_img
 
 
             # plot output
-            dose_grid_heatmap(output, grid_config, "FY", conf_str)
+            dose_grid_heatmap(grid_output, grid_config, "FY", conf_str)
             
-            # first_year_yield(output, grid_config)
-
-            eq_RFB_contours(output, grid_config, title=f"Run={str(pars.run)}")
+            eq_RFB_contours(grid_output, grid_config, title=f"Run={str(pars.run)}")
 
 
 
@@ -1182,6 +1416,9 @@ class PostProcess:
                                 pars["delta_1"], pars["delta_2"])
         
         RP.sr_prop = pars["sr_prop"]
+
+        RP.path_and_fung_pars = (pars["RS"], pars["SR"], pars["RR"], pars["omega_1"],
+                    pars["omega_2"], pars["delta_1"], pars["delta_2"])
 
         grid_config = RP._get_grid_conf(NDoses)
 
@@ -1205,11 +1442,11 @@ class MaxAlongContourDF:
         df_inter = self._get_intermediate_df(df_input)
 
         calc_cols_df = self._calculated_cols_df(df_inter)
-        
-        pars_count_df = self._params_and_count_df(df_inter)
 
-        untidy = pd.concat([pars_count_df, calc_cols_df], axis=1)
+        pars_count_df = self._params_and_count_df(df_inter)
         
+        untidy = pd.concat([pars_count_df, calc_cols_df], axis=1)
+
         out = self._tidy_df(untidy)
 
         return out
@@ -1221,12 +1458,14 @@ class MaxAlongContourDF:
 
         data.fillna(0)
 
+        data = pd.DataFrame(data)
+        
         data['maxAlongContour'] = data['maxContEL'] >= data['maxGridEL']
 
         strats = ["maxCont", "minEqDose", "fullDose", "maxEqSel"]
         
         for string in strats:
-            data[string + "%"] = 100*data[string + "EL"]/data["maxGridEL"]
+            data.loc[:, string + "%"] = 100*data[string + "EL"]/data["maxGridEL"]
         
         out = data.drop(['Unnamed: 0', 'econ'], axis=1)
 
@@ -1313,9 +1552,13 @@ class MaxAlongContourDF:
     def _tidy_df(self, df):
 
         df['min_corner'] = df[["corner_01", "corner_10"]].min(axis=1)
-        
-        df = df[df["fullDoseEL"]>0]
 
+        # avoid the "-1" case where has never failed:
+        if df[df["fullDoseEL"]<=0].shape[0]:
+            n_never_fail = df[df["fullDoseEL"]<=0].shape[0]
+            print(f"{n_never_fail} runs never failed - need longer n_years. Filtering them out for now.")
+            df = df[df["fullDoseEL"]>0]
+        
         out = df.sort_values(['ERFB_Valid', 'min_corner', 'EqSelValid', 'maxCont%', 'maxEqSel%'])
 
         return out

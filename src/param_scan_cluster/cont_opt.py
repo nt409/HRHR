@@ -210,6 +210,9 @@ class ContourDoseFinder:
 
             k = self._get_doses_on_contour_single_DS(ds)
 
+            if k is None:
+                continue
+
             
             try:
 
@@ -262,9 +265,13 @@ class ContourDoseFinder:
         
         bnds = ((lower, upper), )
 
-        thisFit = minimize(self.objective_fn, x0, bounds=bnds)
+        try:
+            thisFit = minimize(self.objective_fn, x0, bounds=bnds)
+            return thisFit.x[0]
+        except Exception as e:
+            print(e)
+            return None
         
-        return thisFit.x[0]
 
 
 

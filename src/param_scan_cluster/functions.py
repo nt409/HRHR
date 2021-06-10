@@ -1,3 +1,4 @@
+from os import stat
 import pandas as pd
 from tqdm import tqdm
 import copy
@@ -131,6 +132,7 @@ class ParamScanRand:
 
             filename = f"./param_scan_cluster/outputs/rand/par_scan/{key}_seed={seed}_{par_str}.csv"
             
+            print("\n")
             print(f"Random Scan {key}, saved as:\n {filename}")
 
             df_dict[key].to_csv(filename, index=False)
@@ -226,10 +228,10 @@ class SinglePSRun:
         par_df = self._get_par_df(rand_pars)
         
         RFB_dfs = ContourStratDFGetter(rand_pars, EqualResFreqBreakdownArray,
-                                RFBFinder, grid_output, 0, "RFB")
+                                RFBFinder, grid_output, 0, self.config['n_cont_points'], "RFB")
 
         EqSel_dfs = ContourStratDFGetter(rand_pars, EqualSelectionArray, 
-                                FYSelFinder, grid_output, 0.5, "EqSel")
+                                FYSelFinder, grid_output, 0.5, self.config['n_cont_points'], "EqSel")
 
         other_strats_df = OtherStratDFGetter(grid_output).df
 
@@ -896,13 +898,11 @@ def combine_PS_rand_outputs(config, seeds):
 
     for seed in seeds:
 
-        temporary = pd.read_csv(f"./param_scan_cluster/outputs/rand/par_scan/seed={seed}_{par_str}.csv")
+        temporary = pd.read_csv(f"./param_scan_cluster/outputs/rand/par_scan/summary_seed={seed}_{par_str}.csv")
 
-        temporary["run"] = [seed*config["NIts"] + e for e in temporary["run"]]
-        
         df = df.append(temporary, ignore_index=True)
 
-    df.to_csv(f"./param_scan_cluster/outputs/rand/combined/output_{par_str}.csv")
+    df.to_csv(f"./param_scan_cluster/outputs/rand/combined/output_summary_{par_str}.csv")
 
 
 # End of post process fns
@@ -921,7 +921,9 @@ def combine_PS_rand_outputs(config, seeds):
 class PostProcess:
 
     def __init__(self, par_str):
-        self.df = pd.read_csv(f"param_scan_cluster/outputs/rand/combined/output_{par_str}.csv")
+        df_in = pd.read_csv(f"param_scan_cluster/outputs/rand/combined/output_summary_{par_str}.csv")
+        self.df = df_in.drop(["Unnamed: 0"], axis=1)
+
         self.par_str = par_str
         
 
@@ -962,12 +964,11 @@ class PostProcess:
 
         df = copy.copy(self.max_along_contour_df)
 
-        df['min_corner'] = df[["corner_01", "corner_10"]].min(axis=1)
-
         df = df[df['min_corner']>0]
 
-        self.filtered_dataframe_outcome(df, "ERFB_Valid", "maxCont%")
-        self.filtered_dataframe_outcome(df, "EqSelValid", "maxEqSel%")
+        self.filtered_dataframe_outcome(df, None, "RFB_maxCont%")
+        self.filtered_dataframe_outcome(df, "EqSel_worked", "EqSel_maxCont%")
+        self.filtered_dataframe_outcome(df, "EqSel_worked", "EqSel_lowDoseMax%")
         self.filtered_dataframe_outcome(df, None, "fullDose%")
         self.filtered_dataframe_outcome(df, None, "minEqDose%")
 
@@ -975,17 +976,15 @@ class PostProcess:
 
 
     @staticmethod
-    def filtered_dataframe_outcome(df_in, strategy_valid, strategy):
+    def filtered_dataframe_outcome(df_in, col_to_check_if_null, strategy):
     
-        if strategy_valid is None:
+        if col_to_check_if_null is None:
             df = df_in
         else:
-            df = df_in[df_in[strategy_valid]]
-        mean = df[strategy].mean()
+            invalid_runs = df_in[col_to_check_if_null].isnull()
+            df = df_in[~invalid_runs]
 
-        if strategy=='maxEqSel%':
-            print(df[strategy].isnull().sum())
-            exit()
+        mean = df[strategy].mean()
 
         conditional_mean = df[df[strategy]<100][strategy].mean()
 
@@ -1028,40 +1027,23 @@ class PostProcess:
 
         fail = self._get_failed_runs(df)
 
+        fail = fail.assign(RFB_diff_from_opt=lambda d: d['max_grid_EL'] - d['RFB_maxContEL'])
+
+
         print("\n")
         print("These runs failed:\n")
 
-        print(fail[['diff_from_opt',
+        print(fail[['RFB_diff_from_opt',
                     'run',
-                    'count',
-                    # "corner_01",
-                    # "corner_10",
                     "min_corner",
-                    'maxGridEL',
-                    'maxContEL',
-                    'delta_RFB',
-                    # 'max_cont_d1',
-                    # 'max_cont_d2',
-                    'max_cont_dose_either_fung',
-                    'max_sing_res']].to_string())
+                    'max_grid_EL',
+                    'RFB_maxContEL',
+                    ]].to_string())
 
         
     @staticmethod
     def _get_failed_runs(df):
-
-        fail = df[df['maxCont%']<100]
-
-        fail = fail.assign(diff_from_opt=lambda d: d['maxGridEL'] - d['maxContEL'])
-        
-        fail['max_sing_res'] = fail[["SR", "RS"]].max(axis=1)
-        
-        fail['min_corner'] = fail[["corner_01", "corner_10"]].min(axis=1)
-
-        # fail = fail.sort_values(by=['diff_from_opt', 'max_cont_dose_either_fung'])
-
-        # fail = fail[(fail['min_corner']>0) & (fail['max_cont_dose_either_fung']<1)]
-
-        return fail
+        return df[df['RFB_maxCont%']<100]
 
     
 
@@ -1070,17 +1052,15 @@ class PostProcess:
     def which_runs_worked_max_cont(self):
         df = copy.copy(self.max_along_contour_df)
 
-        failed = df[df['maxCont%']<100]
-
-        failed = failed[failed['min_corner']>0]
+        failed = df[df['RFB_maxCont%']<100]
 
         runs_that_failed = failed["run"].unique()
 
-        self.failed_pars = self.get_params_for_specific_runs(runs_that_failed)
+        failed_pars = self.get_params_for_specific_runs(runs_that_failed)
 
-        n_fail = self.failed_pars.shape[0]
+        n_fail = failed_pars.shape[0]
 
-        self.failed_pars.to_csv(f"./param_scan_cluster/outputs/failed_pars/failed_maxCont_{n_fail}.csv")
+        failed_pars.to_csv(f"./param_scan_cluster/outputs/failed_pars/failed_{n_fail}.csv")
 
     
 
@@ -1090,10 +1070,7 @@ class PostProcess:
 
     def get_params_for_specific_runs(self, which_runs):
 
-        par_df = self.df
-
-        par_df = par_df.drop(["Unnamed: 0", "EL",
-            "contour_level", "delta_RFB"], axis=1)
+        par_df = copy.copy(self.df)
 
         out = pd.DataFrame()
         for rr in which_runs:
@@ -1109,10 +1086,6 @@ class PostProcess:
 
 
 
-    @staticmethod
-    def _analyse_hi_lo_df(df_in):
-        df = df_in[df_in['ERFB_Valid']]
-
         
 
 
@@ -1127,10 +1100,8 @@ class PostProcess:
         strats = ["minEqDose", "fullDose"]
         
         for string in strats:
-            my_df[string + "%"] = 100*my_df[string + "EL"]/my_df["maxGridEL"]
+            my_df[string + "%"] = 100*my_df[string + "EL"]/my_df["max_grid_EL"]
         
-        my_df = my_df.drop(['Unnamed: 0', 'EL', 'econ'], axis=1)
-                
         grouped = my_df.groupby(["run"]).first()
 
         df_out = pd.DataFrame(grouped)
@@ -1145,25 +1116,22 @@ class PostProcess:
         
         df_out.to_csv(filename)
 
-        self._analyse_hi_lo_df(df_out)
-
 
 
 
   
     
     
-    def re_run_failures(self, NDoses, failed_run_indices=None):
+    def re_run(self, NDoses, run_indices):
 
-        if failed_run_indices is None:
-            failed_run_indices = list(range(self.failed_pars.shape[0]))
+        df_test = self.get_params_for_specific_runs(run_indices)
 
 
-        for ii in failed_run_indices:
+        for ii in range(df_test.shape[0]):
 
-            pars = self.failed_pars.iloc[int(ii),:]
+            pars = df_test.iloc[int(ii),:]
            
-            print("\nRe-running run:", self.failed_pars.iloc[int(ii),:].run, "\n")
+            print("\nRe-running run:", df_test.iloc[int(ii),:].run, "\n")
 
             grid_config, fung_params = self._get_grid_config_and_fung_pars(pars, NDoses)
 
@@ -1182,7 +1150,8 @@ class PostProcess:
 
 
 
-    def _get_grid_config_and_fung_pars(self, pars, NDoses):
+    @staticmethod
+    def _get_grid_config_and_fung_pars(pars, NDoses):
 
         config = {'load_saved': True, 'n_years': 35}
 
@@ -1208,6 +1177,13 @@ class PostProcess:
 
 
 
+
+
+
+
+
+
+
 class MaxAlongContourDF:
 
     def __init__(self, df_input):
@@ -1216,16 +1192,10 @@ class MaxAlongContourDF:
     
 
     def _generate_max_along_contour_df(self, df_input):
-        
+
         df_inter = self._get_intermediate_df(df_input)
 
-        calc_cols_df = self._calculated_cols_df(df_inter)
-
-        pars_count_df = self._params_and_count_df(df_inter)
-        
-        untidy = pd.concat([pars_count_df, calc_cols_df], axis=1)
-
-        out = self._tidy_df(untidy)
+        out = self._tidy_df(df_inter)
 
         return out
 
@@ -1238,92 +1208,16 @@ class MaxAlongContourDF:
 
         data = pd.DataFrame(data)
         
-        data['maxAlongContour'] = data['maxContEL'] >= data['maxGridEL']
+        data['maxAlongContour'] = data['RFB_maxContEL'] >= data['max_grid_EL']
 
-        strats = ["maxCont", "minEqDose", "fullDose", "maxEqSel"]
+        strats = ["RFB_maxCont", "EqSel_maxCont", "minEqDose", "fullDose", "EqSel_lowDoseMax"]
         
         for string in strats:
-            data.loc[:, string + "%"] = 100*data[string + "EL"]/data["maxGridEL"]
+            data.loc[:, string + "%"] = 100*data[string + "EL"]/data["max_grid_EL"]
         
-        out = data.drop(['Unnamed: 0', 'econ'], axis=1)
-
-        return out
-
-
-
-    def _calculated_cols_df(self, df_in):
-        DS_df = pd.DataFrame()
-
-        DS_df['min_dose_sums'] = df_in.groupby(["run"]).apply(lambda data: min(data['dose1'] + data['dose2']))
-        DS_df['max_dose_sums'] = df_in.groupby(["run"]).apply(lambda data: max(data['dose1'] + data['dose2']))
-        
-        DS_df['min_opt_DS'] = df_in.groupby(["run"]).apply(self._min_opt_DS)
-        DS_df['max_opt_DS'] = df_in.groupby(["run"]).apply(self._max_opt_DS)
-        
-        DS_df['max_cont_d1'] = df_in.groupby(["run"]).apply(lambda data: max(data['dose1']))
-        DS_df['max_cont_d2'] = df_in.groupby(["run"]).apply(lambda data: max(data['dose2']))
-        DS_df['max_cont_dose_either_fung'] = DS_df[['max_cont_d1', 'max_cont_d2']].max(axis=1)
-
-        DS_df['min_DS_best'] = np.where(DS_df['min_dose_sums']==DS_df['min_opt_DS'], True, DS_df['min_dose_sums']-DS_df['min_opt_DS'])
-        DS_df['max_DS_best'] = np.where(DS_df['max_dose_sums']==DS_df['max_opt_DS'], True, DS_df['max_dose_sums']-DS_df['max_opt_DS'])
-        DS_df['max_or_min_DS_best'] = np.where((DS_df['min_dose_sums']==DS_df['min_opt_DS'])
-                                        | (DS_df['max_dose_sums']==DS_df['max_opt_DS']),
-                                            True, False)
-        return DS_df
+        return data
 
     
-   
-    def _min_opt_DS(self, data):
-        
-        df = self._get_opt_df(data)
-
-        if df is None or not df.shape[0]:
-            return "NA"
-
-        return min(df['dose1']+df['dose2'])
-
-
-
-
-    def _max_opt_DS(self, data):
-        
-        df = self._get_opt_df(data)
-
-        if df is None or not df.shape[0]:
-            return "NA"
-        
-        return max(df['dose1']+df['dose2'])
-
-
-
-
-    @staticmethod
-    def _get_opt_df(data):
-        if not data['maxContEL'].shape[0]:
-            return None
-        
-        maxEL_this_run = float(list(data['maxContEL'])[0])
-
-        df = data[data['EL']==maxEL_this_run]
-        
-        return df
-
-
-
-
-
-    def _params_and_count_df(self, df_in):
-        counting = df_in.groupby(["run"]).size()
-
-        grouped = df_in.groupby(["run"]).first()
-
-        grouped['count'] = counting
-        
-        out = grouped.reset_index()
-
-        return out
-
-
 
 
 
@@ -1337,6 +1231,6 @@ class MaxAlongContourDF:
             print(f"{n_never_fail} runs never failed - need longer n_years. Filtering them out for now.")
             df = df[df["fullDoseEL"]>0]
         
-        out = df.sort_values(['ERFB_Valid', 'min_corner', 'EqSelValid', 'maxCont%', 'maxEqSel%'])
+        out = df.sort_values(['min_corner', 'RFB_maxCont%', 'EqSel_maxCont%'])
 
         return out

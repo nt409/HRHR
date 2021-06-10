@@ -1,70 +1,81 @@
 
-# proper run
-config_rand = {
-    "RFS1": [-8,-2],
-    "RFS2": [-8,-2],
-    "RFD": [-15,-3],
 
-    "asym1": [0.4, 1],
-    "asym2": [0.4, 1],
-
-    "dec_rate1": [0.5*1.11*10**(-2), 2*1.11*10**(-2)],
-    "dec_rate2": [0.5*1.11*10**(-2), 2*1.11*10**(-2)],
-
-    "SR": [0,1],
-    
-    "grid_number": 41,
-
-    "n_years": 50,
-
-    "NIts": 25,
-    "load_saved": True,   
-}
+# proper/fast/prev_run
+run_type = "proper"
 
 
+if run_type == "proper":
+    config_rand = {
+        "RFS1": [-8,-2],
+        "RFS2": [-8,-2],
+        "RFD": [-15,-3],
 
-# fast run
-# config_rand = {
-#     "RFS1": [-8,-2],
-#     "RFS2": [-8,-2],
-#     "RFD": [-15,-3],
+        "asym1": [0.4, 1],
+        "asym2": [0.4, 1],
 
-#     "asym1": [0.4, 1],
-#     "asym2": [0.4, 1],
+        "dec_rate1": [0.5*1.11*10**(-2), 2*1.11*10**(-2)],
+        "dec_rate2": [0.5*1.11*10**(-2), 2*1.11*10**(-2)],
 
-#     "dec_rate1": [0.5*1.11*10**(-2), 2*1.11*10**(-2)],
-#     "dec_rate2": [0.5*1.11*10**(-2), 2*1.11*10**(-2)],
+        "SR": [0,1],
+        
+        "grid_number": 41,
 
-#     "SR": [0,1],
-    
-#     "grid_number": 11,
+        "n_cont_points": 41,
 
-#     "n_years": 35,
+        "n_years": 50,
 
-#     "NIts": 3,
-#     "load_saved": True,   
-# }
+        "NIts": 25,
+        "load_saved": True,   
+    }
 
 
-# previously have run
-# config_rand = {
-#     "RFS1": [-8,-2],
-#     "RFS2": [-8,-2],
-#     "RFD": [-15,-3],
+elif run_type == "fast":
+    config_rand = {
+        "RFS1": [-8,-2],
+        "RFS2": [-8,-2],
+        "RFD": [-15,-3],
 
-#     "asym1": [0.4, 1],
-#     "asym2": [0.4, 1],
+        "asym1": [0.4, 1],
+        "asym2": [0.4, 1],
 
-#     "dec_rate1": [0.5*1.11*10**(-2), 2*1.11*10**(-2)],
-#     "dec_rate2": [0.5*1.11*10**(-2), 2*1.11*10**(-2)],
+        "dec_rate1": [0.5*1.11*10**(-2), 2*1.11*10**(-2)],
+        "dec_rate2": [0.5*1.11*10**(-2), 2*1.11*10**(-2)],
 
-#     "SR": [0,1],
-    
-#     "grid_number": 51,
+        "SR": [0,1],
+        
+        "grid_number": 11,
 
-#     # "n_years": 35,
+        "n_cont_points": 5,
 
-#     "NIts": 32,
-#     "load_saved": True,
-    
-# }
+        "n_years": 35,
+
+        "NIts": 5,
+        
+        "load_saved": True,
+    }
+
+
+elif run_type == "prev_run":
+    config_rand = {
+        "RFS1": [-8,-2],
+        "RFS2": [-8,-2],
+        "RFD": [-15,-3],
+
+        "asym1": [0.4, 1],
+        "asym2": [0.4, 1],
+
+        "dec_rate1": [0.5*1.11*10**(-2), 2*1.11*10**(-2)],
+        "dec_rate2": [0.5*1.11*10**(-2), 2*1.11*10**(-2)],
+
+        "SR": [0,1],
+        
+        "grid_number": 51,
+
+        # "n_cont_points": 41,
+
+        # "n_years": 35,
+
+        "NIts": 32,
+        "load_saved": True,
+        
+    }

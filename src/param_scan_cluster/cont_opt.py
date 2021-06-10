@@ -20,7 +20,7 @@ from utils.functions import RunSingleTactic
 
 class ContourStratDFGetter:
     def __init__(self, RandPars, Strategy, ContQuantFinder,
-                    grid_output, contour_level,  strat_name) -> None:
+                    grid_output, contour_level, n_points, strat_name) -> None:
 
         self.rand_pars = RandPars
 
@@ -32,11 +32,14 @@ class ContourStratDFGetter:
 
         self.level = contour_level
         
+        self.n_points = n_points
+        
         self.strat_name = strat_name
+
 
         self.df = self.get_cntr_outcome_df()
         
-        self.summary = SummaryDF(self.df, self.strat_name, self.level, 
+        self.summary = ThisStratSummaryDF(self.df, self.strat_name, self.level, 
                                 self.max_grid_EL).df
 
 
@@ -62,7 +65,7 @@ class ContourStratDFGetter:
             DS_min_max = DoseSumExtremesGetter(self.strat_obj.array, self.level).min_max_DS
             
             cntr_out = ContourDoseFinder(self.rand_pars, self.cont_quant_finder,
-                            DS_min_max, self.level).doses_out
+                            DS_min_max, self.n_points, self.level).doses_out
             return cntr_out
 
 
@@ -154,7 +157,7 @@ class DoseSumExtremesGetter:
     def _get_min_max_dose_sums(self, cs):
 
         if not cs.allsegs:
-            print("Warning: conts was False!")
+            print("Warning: cs.allsegs was empty!")
             # why not?
             # suspect too many 'nan's to create a proper contour
             return {}
@@ -180,14 +183,14 @@ class DoseSumExtremesGetter:
 
 
 class ContourDoseFinder:
-    def __init__(self, RandPars, ContQuantFinder, DS_min_max, level) -> None:
+    def __init__(self, RandPars, ContQuantFinder, DS_min_max, n_points, level, tol=0.001) -> None:
         self.rand_pars = RandPars
         self.cont_quant_finder = ContQuantFinder
         self.DS_min_max = DS_min_max
+        self.n_points = n_points
         self.level = level
 
-        self.n_doses = 50
-        self.min_dist_from_contour = 0.001
+        self.min_dist_from_contour = tol
 
         self.doses_out = self.get_doses_on_contour()
     
@@ -196,22 +199,29 @@ class ContourDoseFinder:
         
         DS_bds = self.DS_min_max
 
-        doses = np.linspace(DS_bds['min'], DS_bds['max'], self.n_doses)
+        dose_sums = np.linspace(DS_bds['min'], DS_bds['max'], self.n_points)
 
         x_list = []
         y_list = []
         contVal = []
 
-        for ds in doses:
+        for ds in dose_sums:
             self.dose_sum = ds
 
             k = self._get_doses_on_contour_single_DS(ds)
 
-            # only add if have got close to the contour
-            if abs(self.model-self.level)<self.min_dist_from_contour:
+            # only add if have got close to the contour (but why doesn't it get close otherwise?)
+            if abs(self.model-self.level) < self.min_dist_from_contour:
                 x_list.append(0.5*ds - k)
                 y_list.append(0.5*ds + k)
                 contVal.append(self.model)
+            else:
+                print("\n")
+                print("this run didn't get close to the contour?? ...")
+                print("contour level:", self.model)
+                print("dose sum:", self.dose_sum)
+                print(self.DS_min_max)
+                
 
         return dict(x=x_list, y=y_list, contVal=contVal)
 
@@ -240,7 +250,7 @@ class ContourDoseFinder:
         bnds = ((lower, upper), )
 
         thisFit = minimize(self.objective_fn, x0, bounds=bnds)
-
+        
         return thisFit.x[0]
 
 
@@ -305,7 +315,7 @@ class ContourDoseFinder:
 
 
 
-class SummaryDF:
+class ThisStratSummaryDF:
 
     def __init__(self, df, strat_name, level, max_grid_EL) -> None:
         self.df = df        
@@ -322,6 +332,9 @@ class SummaryDF:
     def get_summary_df(self, df, strat_name):
         df = self.df
 
+        if not df.shape[0]:
+            return pd.DataFrame()
+
         lowDS_val = self._get_low_dose_max_EL()
         medDS_val = self._get_med_dose_max_EL()
         highDS_val = self._get_high_dose_max_EL()
@@ -334,8 +347,6 @@ class SummaryDF:
             f"{strat_name}_minContEL": min(df[f"{strat_name}_EL"]),
             f"{strat_name}_maxContEL": max(df[f"{strat_name}_EL"]),
 
-            f"{strat_name}_minContQuant": min(df[f"{strat_name}_contQuant"]),
-            f"{strat_name}_maxContQuant": max(df[f"{strat_name}_contQuant"]),
             f"{strat_name}_min_opt_dist_from_contour": min_opt_dist_from_cntr,
 
             f"{strat_name}_minDS": min(df['DS']),
@@ -343,9 +354,6 @@ class SummaryDF:
             
             f"{strat_name}_worked": self.max_grid_EL==max(df[f"{strat_name}_EL"]),
             
-            f"{strat_name}_valid": ((min(df[f"{strat_name}_contQuant"])<self.level) and
-                                        (max(df[f"{strat_name}_contQuant"])>self.level)),
-
             f"{strat_name}_lowDoseMaxEL": lowDS_val,
             f"{strat_name}_medDoseMaxEL": medDS_val,
             f"{strat_name}_highDoseMaxEL": highDS_val,
@@ -366,7 +374,7 @@ class SummaryDF:
         
         filt = df[df['DS'] < DS_thres_low]
 
-        return max(filt[f"{self.strat_name}_EL"])
+        return self._get_max_if_df_non_empty(filt)
     
 
 
@@ -381,7 +389,7 @@ class SummaryDF:
 
         filt = df[((df['DS'] >= DS_thres_low) & (df['DS'] <= DS_thres_high))]
 
-        return max(filt[f"{self.strat_name}_EL"])
+        return self._get_max_if_df_non_empty(filt)
 
     
 
@@ -394,9 +402,17 @@ class SummaryDF:
         DS_thres_high = min(df['DS']) + 0.8*(max(df['DS']) - min(df['DS']))
 
         filt = df[df['DS'] > DS_thres_high]
+        
+        return self._get_max_if_df_non_empty(filt)
+        
 
-        return max(filt[f"{self.strat_name}_EL"])
 
+
+    def _get_max_if_df_non_empty(self, df):
+        if df.shape[0]:
+            return max(df[f"{self.strat_name}_EL"])
+        else:
+            return "NA"
 
 
 

@@ -74,3 +74,9 @@ To check progress:
 squeue -u nt409
 ```
 
+Est start time:
+
+```bash
+squeue -u nt409 --start
+```
+

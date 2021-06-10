@@ -13,28 +13,40 @@ from utils.functions import RunGrid, RunSingleTactic, \
     EqualSelectionArray
 from utils.plotting import dose_grid_heatmap, eq_RFB_contours
 
+from .cont_opt import ContourStratDFGetter
+
 # TOC:
 
 # Utility fns
+# - get_PS_rand_str
+
+
+
+# CLASSES:
 # ParamScanRand
+
 # SinglePSRun
 
+# in cont_opt:
 # ContourStratDFGetter
+# ContourList
+# SummaryDF
+
 # FYSelFinder
 # RFBFinder
 
 # OtherStratDFGetter
 
+# CheckStrategyUsingIVT
 # ContourPassesThroughChecker
 
-# CheckStrategyUsingIVT
-
 # RandomPars
-# ContourList
+
 
 # post process fns:
 # - combine_PS_rand_outputs
 
+# CLASSES:
 # PostProcess
 # MaxAlongContourDF
 
@@ -213,15 +225,11 @@ class SinglePSRun:
 
         par_df = self._get_par_df(rand_pars)
         
-        RFB_dfs = ContourStratDFGetter(rand_pars, grid_output,
-                            EqualResFreqBreakdownArray, 0,
-                            RFBFinder, "RFB")
+        RFB_dfs = ContourStratDFGetter(rand_pars, EqualResFreqBreakdownArray,
+                                RFBFinder, grid_output, 0, "RFB")
 
-        
-
-        EqSel_dfs = ContourStratDFGetter(rand_pars, grid_output,
-                            EqualSelectionArray, 0.5,
-                            FYSelFinder, "EqSel")
+        EqSel_dfs = ContourStratDFGetter(rand_pars, EqualSelectionArray, 
+                                FYSelFinder, grid_output, 0.5, "EqSel")
 
         other_strats_df = OtherStratDFGetter(grid_output).df
 
@@ -303,239 +311,6 @@ class SinglePSRun:
 
 
 
-class ContourStratDFGetter:
-    def __init__(self, rand_pars, grid_output, Strategy,
-                    contour_level, ContQuantFinder, strat_name) -> None:
-
-        self.rand_pars = rand_pars
-
-        self.strat_name = strat_name
-
-        self.strat_obj = Strategy(grid_output)
-
-        self.max_grid_EL = np.amax(grid_output['FY'])
-
-        self.ContQuantFinder = ContQuantFinder
-
-        self.level = contour_level
-
-        self.df = self._get_data()
-        
-        self.summary = SummaryDF(self.df, self.strat_name, self.level, 
-                                self.max_grid_EL).df
-
-
-
-
-
-    def _get_data(self):
-        cntr = self._find_contours()
-        
-        return self._get_dict_this_cntr(cntr)
-
-
-
-
-    
-    def _find_contours(self):
-        
-        if not self.strat_obj.is_valid:
-            cntr_out = {}
-            return cntr_out
-        else:    
-            cntr_out = ContourList(self.strat_obj.array, level=self.level).cont_dict
-            return cntr_out
-
-
-
-
-
-
-    def _get_dict_this_cntr(self, contour):
-        
-        df_this_run = pd.DataFrame()
-
-        if not contour:
-            return df_this_run
-
-
-        for dose1, dose2 in zip(contour['x'], contour['y']):            
-
-            this_contour_dict = self._get_data_these_doses_on_contour(dose1, dose2)
-            
-            data = {"contour_level": contour['level'],
-                     "dose1": dose1,
-                     "dose2": dose2,
-                     "DS": dose1 + dose2,
-                     **this_contour_dict}
-
-            df_this_run = df_this_run.append(data, ignore_index=True)
-        
-        
-        
-        return df_this_run
-
-
-
-
-
-    def _get_data_these_doses_on_contour(self, dose1, dose2):
-        """
-        Returns dict with
-        - contQuant
-        - EL
-        """
-
-        this_dose_conf = self.rand_pars._get_single_conf(dose1, dose2)
-                
-        self.single_run = RunSingleTactic(self.rand_pars.fung_parms).run_single_tactic(this_dose_conf)
-        
-        out = self._get_these_doses_dict()
-        
-        return out
-
-
-
-
-
-
-
-
-    def _get_these_doses_dict(self):
-        """
-        Returns dict with
-        - contQuant
-        - EL
-        # - econ
-        """
-        sing_run = self.single_run
-
-        strat_name = self.strat_name
-
-        # econ="NA",
-
-        out = {
-                f"{strat_name}_contQuant": self.ContQuantFinder(sing_run).cont_quant,
-                f"{strat_name}_EL": sing_run['failure_year'],
-                }
-        
-        return out
-
-
-
-
-
-
-
-class SummaryDF:
-
-    def __init__(self, df, strat_name, level, max_grid_EL) -> None:
-        self.df = df        
-        self.strat_name = strat_name
-        self.level = level
-        self.max_grid_EL = max_grid_EL
-
-        self.df = self._get_summary_df(df, strat_name)
-
-
-
-
-
-    def _get_summary_df(self, df, strat_name):
-        df = self.df
-
-        lowDS_val = self._get_low_dose_max_EL()
-        medDS_val = self._get_med_dose_max_EL()
-        highDS_val = self._get_high_dose_max_EL()
-
-        
-        min_opt_dist_from_cntr = self._get_min_opt_dist_from_contour()
-        
-
-        data= {
-            f"{strat_name}_minContEL": min(df[f"{strat_name}_EL"]),
-            f"{strat_name}_maxContEL": max(df[f"{strat_name}_EL"]),
-
-            f"{strat_name}_minContQuant": min(df[f"{strat_name}_contQuant"]),
-            f"{strat_name}_maxContQuant": max(df[f"{strat_name}_contQuant"]),
-            f"{strat_name}_min_opt_dist_from_contour": min_opt_dist_from_cntr,
-
-            f"{strat_name}_minDS": min(df['DS']),
-            f"{strat_name}_maxDS": max(df['DS']),
-            
-            f"{strat_name}_worked": self.max_grid_EL==max(df[f"{strat_name}_EL"]),
-            
-            f"{strat_name}_valid": ((min(df[f"{strat_name}_contQuant"])<self.level) and
-                                        (max(df[f"{strat_name}_contQuant"])>self.level)),
-
-            f"{strat_name}_lowDoseMaxEL": lowDS_val,
-            f"{strat_name}_medDoseMaxEL": medDS_val,
-            f"{strat_name}_highDoseMaxEL": highDS_val,
-            }
-
-        return pd.DataFrame([data])
-
-
-    
-
-
-    
-    
-    def _get_low_dose_max_EL(self):
-        df = self.df
-
-        DS_thres_low = min(df['DS']) + 0.2*(max(df['DS']) - min(df['DS']))
-        
-        filt = df[df['DS'] < DS_thres_low]
-
-        return max(filt[f"{self.strat_name}_EL"])
-    
-
-
-
-
-
-    def _get_med_dose_max_EL(self):
-        df = self.df
-
-        DS_thres_low = min(df['DS']) + 0.2*(max(df['DS']) - min(df['DS']))
-        DS_thres_high = min(df['DS']) + 0.8*(max(df['DS']) - min(df['DS']))
-
-        filt = df[((df['DS'] >= DS_thres_low) & (df['DS'] <= DS_thres_high))]
-
-        return max(filt[f"{self.strat_name}_EL"])
-
-    
-
-
-
-
-    def _get_high_dose_max_EL(self):
-        df = self.df
-
-        DS_thres_high = min(df['DS']) + 0.8*(max(df['DS']) - min(df['DS']))
-
-        filt = df[df['DS'] > DS_thres_high]
-
-        return max(filt[f"{self.strat_name}_EL"])
-
-
-
-
-
-    def _get_min_opt_dist_from_contour(self):
-        df = self.df
-
-        opt_df = df[df[f"{self.strat_name}_EL"]==self.max_grid_EL]
-
-        vec = abs(opt_df[f"{self.strat_name}_contQuant"] - self.level)
-        if len(vec):
-            out = min(vec)
-            return out
-        else:
-            return "NA"
-        
-
 
 
 
@@ -547,14 +322,13 @@ class SummaryDF:
 
 class FYSelFinder:
     def __init__(self, single_run) -> None:
-        self.single_run = single_run
-        self.cont_quant = self._get_FY_selection()
+        self.cont_quant = self._get_FY_selection(single_run)
 
     
     
-    def _get_FY_selection(self):
+    def _get_FY_selection(self, single_run):
         
-        start_freqs = self.single_run['start_of_season']
+        start_freqs = single_run['start_of_season']
         
         sr1 = start_freqs['RS'][1]/start_freqs['RS'][0]
         sr2 = start_freqs['SR'][1]/start_freqs['SR'][0]
@@ -573,12 +347,10 @@ class FYSelFinder:
 class RFBFinder:
 
     def __init__(self, single_run) -> None:
-        self.single_run = single_run
-        self.cont_quant = self._get_delta_RFB()
+        self.cont_quant = self._get_delta_RFB(single_run)
 
 
-    def _get_delta_RFB(self):
-        sing_run = self.single_run
+    def _get_delta_RFB(self, sing_run):
         
         fy_in = sing_run['failure_year']
 
@@ -655,6 +427,96 @@ class OtherStratDFGetter:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class CheckStrategyUsingIVT:
+    """
+    Use "intermediate value theorem" method:
+    
+    - find optimal region and see if contains points above and below contour
+    - if so, then contour passes through (provided connected)
+
+    """
+    def __init__(self, grid_output, strategy_class, level, name) -> None:
+
+        self.FYs = grid_output['FY']
+        
+        self.strategy_obj = strategy_class(grid_output)
+
+        self.level = level
+
+        self.name = name
+        
+        self.check_if_gives_optimum()
+
+        self.find_best_value_this_strat()
+
+        self.df = self.get_df(name)
+
+
+    def check_if_gives_optimum(self):
+        FYs = self.FYs
+        
+        opt_region = FYs!=np.amax(FYs)
+        
+        if not self.strategy_obj.is_valid:
+            self.strat_works = f"Strategy {self.name} is invalid"
+            return None
+        
+        strat_array = self.strategy_obj.array
+
+        opt_strat = np.ma.masked_array(strat_array, mask=opt_region)
+        
+        self.strat_works = ContourPassesThroughChecker(opt_strat, self.level).passes_through
+
+
+
+    def find_best_value_this_strat(self):
+        FYs = self.FYs
+
+        if not self.strategy_obj.is_valid:
+            self.best_value = f"Strategy {self.name} is invalid"
+            return None
+
+        strat_array = self.strategy_obj.array
+
+        for k in range(int(np.amax(FYs))):
+            EL = np.amax(FYs)-k
+            
+            opt_region = FYs<EL
+
+            opt_strat = np.ma.masked_array(strat_array, mask=opt_region)
+
+            worked = ContourPassesThroughChecker(opt_strat, self.level).passes_through
+        
+            if worked:
+                self.best_value = EL
+                return None
+
+        self.best_value = EL
+
+
+    def get_df(self, name):
+        data = {f"best_region_{name}": self.strat_works,
+                f"best_value_{name}": self.best_value}
+
+        return pd.DataFrame([data])
 
 
 
@@ -760,92 +622,6 @@ class ContourPassesThroughChecker:
         for new_cell in itertools.product(*(range(n-1, n+2) for n in cell)):
             if new_cell != cell and all(0 <= n < shape for n in new_cell):
                 yield new_cell
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-class CheckStrategyUsingIVT:
-    """
-    Use "intermediate value theorem" method:
-    
-    - find optimal region and see if contains points above and below contour
-    - if so, then contour passes through (provided connected)
-
-    """
-    def __init__(self, grid_output, strategy_class, level, name) -> None:
-
-        self.FYs = grid_output['FY']
-        
-        self.strategy_obj = strategy_class(grid_output)
-
-        self.level = level
-
-        self.name = name
-        
-        self.check_if_gives_optimum()
-
-        self.find_best_value_this_strat()
-
-        self.df = self.get_df(name)
-
-
-    def check_if_gives_optimum(self):
-        FYs = self.FYs
-        
-        opt_region = FYs!=np.amax(FYs)
-        
-        if not self.strategy_obj.is_valid:
-            self.strat_works = f"Strategy {self.name} is invalid"
-            return None
-        
-        strat_array = self.strategy_obj.array
-
-        opt_strat = np.ma.masked_array(strat_array, mask=opt_region)
-        
-        self.strat_works = ContourPassesThroughChecker(opt_strat, self.level).passes_through
-
-
-
-    def find_best_value_this_strat(self):
-        FYs = self.FYs
-
-        if not self.strategy_obj.is_valid:
-            self.best_value = f"Strategy {self.name} is invalid"
-            return None
-
-        strat_array = self.strategy_obj.array
-
-        for k in range(int(np.amax(FYs))):
-            EL = np.amax(FYs)-k
-            
-            opt_region = FYs<EL
-
-            opt_strat = np.ma.masked_array(strat_array, mask=opt_region)
-
-            worked = ContourPassesThroughChecker(opt_strat, self.level).passes_through
-        
-            if worked:
-                self.best_value = EL
-                return None
-
-        self.best_value = EL
-
-
-    def get_df(self, name):
-        data = {f"best_region_{name}": self.strat_works,
-                f"best_value_{name}": self.best_value}
-
-        return pd.DataFrame([data])
 
 
 
@@ -1066,7 +842,10 @@ class RandomPars:
         conf_str = Conf.config_string_img
         conf_str = conf_str.replace("grid", "param_scan")
 
-        par_str = f"_fung_pars={om_1},{om_2},{delt_1},{delt_2},rf1={rfs1},rf2={rfs2},rfd={rfD}"
+        par_str = (f"_fung_pars={round(om_1,6)},{round(om_2,6)}," + 
+                    f"{round(delt_1,6)},{round(delt_2,6)}," +
+                    f"rf1={round(rfs1,10)},rf2={round(rfs2,10)},rfd={round(rfD,15)}")
+        
         par_str = par_str.replace(".", ",")
         conf_str = conf_str.replace(".png", par_str + ".png")
         
@@ -1086,143 +865,6 @@ class RandomPars:
 
 
 
-
-
-
-
-
-
-class ContourList:
-    """
-    Takes an array and a contour level (i.e. value to aim for) and generates 
-    a dictionary with x, y values, the contour level and the max dose
-    """
-
-    def __init__(self, z, level, min_n_pts_alng_cntr=12, plt_conts=False) -> None:
-        
-        self.cont_dict = self.find_contours(z, level, min_n_pts_alng_cntr)
-
-        if plt_conts:
-            self.plot_it()
-
-    
-    
-    
-    def find_contours(self, z, level, min_n_pts_alng_cntr):
-
-        cs = self._get_contour_set(z, level)
-        
-        cntr_out = self._get_contours(cs, level)
-
-        if cntr_out and len(cntr_out['x'])<min_n_pts_alng_cntr:
-            cntr_out = self._interpolate_contours(cntr_out, min_n_pts_alng_cntr)
-        return cntr_out
-
-      
-
-
-    @staticmethod
-    def _get_contour_set(z, level):
-
-        x, y = np.mgrid[0:1:z.shape[0]*1j, 0:1:z.shape[1]*1j]
-
-        cs = plt.contour(x, y, z, levels=[level])
-        
-        return cs
-
-
-
-
-
-    def _get_contours(self, cs, level):
-        """
-        Takes a contour set and returns a list of dictionaries containing:
-        - x values
-        - y values
-        - the contour level
-        - max dose along the contour
-        """
-
-        if not cs.allsegs:
-            print("Warning: conts was False!")
-            # why not?
-            # suspect too many 'nan's to create a proper contour
-            return {}
-
-        else:
-            cont = cs.allsegs[0][0]
-            cont_dict = self._get_contour_dict(level, cont)
-            return cont_dict
-
-
-
-
-    @staticmethod
-    def _get_contour_dict(level, cont):
-        
-        x_vals = cont[:,0]
-        y_vals = cont[:,1]
-
-        # x_max = max(x_vals)
-        # y_max = max(y_vals)
-
-        # print(f"max dose along contour: (x,y) = {round(x_max,2), round(y_max,2)}")
-
-        out = dict(x = x_vals,
-                   y = y_vals,
-                #    max_dose = max(x_max, y_max),
-                   level = level)
-
-        return out
-
-    
-
-
-    def _interpolate_contours(self, cntr, num=15):
-        """
-        Takes old contours and adds in some interpolated values
-        
-        Result is more densely populated list of values (approximately) 
-        along the contour
-        """
-
-        xx = copy.copy(cntr['x'])
-        yy = copy.copy(cntr['y'])
-
-        cntr['x'] = self._interp_vector(xx, num)
-        cntr['y'] = self._interp_vector(yy, num)
-        
-        return cntr
-    
-
-
-
-    @staticmethod
-    def _interp_vector(old, num):
-        
-        nn = len(old)
-        
-        fp = list(range(nn))
-        
-        start = float(fp[0])
-        stop = float(fp[-1])
-
-        to_find = np.linspace(start, stop, num)
-        
-        interp = np.interp(to_find, fp, old)
-
-        # include the old ones as well as interpolated ones
-        out = list(old) + list(interp)[1:-1]
-
-        return out
-
-
-
-
-    def plot_it(self):
-        cont = self.cont_dict
-        plt.scatter(cont['x'], cont['y'])
-        plt.show()
 
 
 

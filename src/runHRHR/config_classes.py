@@ -73,10 +73,12 @@ class SingleConfig(BaselineConfig):
         
         self.add_string()
 
+
+
     def add_string(self, extra_detail=None):
-        d11 = round(self.fung1_doses['spray_1'][0],2)
+        d11 = round(self.fung1_doses['spray_1'][0],6)
         d12 = round(self.fung1_doses['spray_2'][0],2)
-        d21 = round(self.fung2_doses['spray_1'][0],2)
+        d21 = round(self.fung2_doses['spray_1'][0],6)
         d22 = round(self.fung2_doses['spray_2'][0],2)
 
         self.add_baseline_str()

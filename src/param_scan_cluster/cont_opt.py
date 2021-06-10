@@ -210,17 +210,30 @@ class ContourDoseFinder:
 
             k = self._get_doses_on_contour_single_DS(ds)
 
-            # only add if have got close to the contour (but why doesn't it get close otherwise?)
-            if abs(self.model-self.level) < self.min_dist_from_contour:
-                x_list.append(0.5*ds - k)
-                y_list.append(0.5*ds + k)
-                contVal.append(self.model)
-            else:
-                print("\n")
-                print("this run didn't get close to the contour?? ...")
-                print("contour level:", self.model)
-                print("dose sum:", self.dose_sum)
-                print(self.DS_min_max)
+            
+            try:
+
+                # only add if have got close to the contour (but why doesn't it get close otherwise?)
+                
+                # if self.model is NA then this doesn't work
+
+                dist_from_contour = abs(self.model-self.level)
+            
+                if dist_from_contour < self.min_dist_from_contour:
+                    x_list.append(0.5*ds - k)
+                    y_list.append(0.5*ds + k)
+                    contVal.append(self.model)
+                else:
+                    print("\n")
+                    print("this run didn't get close to the contour?? ...")
+                    print("contour level:", self.model)
+                    print("dose sum:", self.dose_sum)
+                    print(self.DS_min_max)
+
+            except Exception as e:
+                print(e)
+                continue
+
                 
 
         return dict(x=x_list, y=y_list, contVal=contVal)

@@ -18,13 +18,14 @@ if run_type == "proper":
 
         "SR": [0,1],
         
-        "grid_number": 41,
+        "grid_number": 50,
 
-        "n_cont_points": 41,
+        "n_cont_points": 50,
 
         "n_years": 50,
 
         "NIts": 25,
+        
         "load_saved": True,   
     }
 

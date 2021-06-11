@@ -1,9 +1,8 @@
-from os import stat
 import pandas as pd
 from tqdm import tqdm
 import copy
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import itertools
 
 
@@ -12,7 +11,8 @@ from utils.params import PARAMS
 from utils.functions import RunGrid, RunSingleTactic, \
     logit10_difference, EqualResFreqBreakdownArray, \
     EqualSelectionArray
-from utils.plotting import dose_grid_heatmap, eq_RFB_contours
+from utils.plotting import dose_grid_heatmap, eq_RFB_contours, \
+    DoseSpaceScenariosPlot
 
 from .cont_opt import ContourStratDFGetter
 
@@ -934,18 +934,7 @@ class PostProcess:
 
 
     def get_maximum_along_contour_df(self):
-        
-        MDF = MaxAlongContourDF(self.df)
-
-        df_out = MDF.df
-
-        filename = f"./param_scan_cluster/outputs/rand/analysis/max_along_contour/df_{len(df_out)}.csv"
-
-        print(f"Saving maximum along contour csv to: \n{filename}")
-
-        df_out.to_csv(filename)
-
-        self.max_along_contour_df = df_out
+        self.max_along_contour_df = MaxAlongContourDF(self.df).df
 
 
     
@@ -966,23 +955,24 @@ class PostProcess:
 
         df = df[df['min_corner']>0]
 
-        self.filtered_dataframe_outcome(df, None, "RFB_maxCont%")
-        self.filtered_dataframe_outcome(df, "EqSel_worked", "EqSel_maxCont%")
-        self.filtered_dataframe_outcome(df, "EqSel_worked", "EqSel_lowDoseMax%")
-        self.filtered_dataframe_outcome(df, None, "fullDose%")
-        self.filtered_dataframe_outcome(df, None, "minEqDose%")
+        eq_sel_df = self._get_non_null_df(df, "EqSel_worked")
+
+        self.filtered_dataframe_outcome(df, "RFB_maxCont%")
+        self.filtered_dataframe_outcome(df, "fullDose%")
+        self.filtered_dataframe_outcome(df, "minEqDose%")
+        self.filtered_dataframe_outcome(eq_sel_df, "EqSel_maxCont%")
+        self.filtered_dataframe_outcome(eq_sel_df, "EqSel_lowDoseMax%")
 
 
 
 
-    @staticmethod
-    def filtered_dataframe_outcome(df_in, col_to_check_if_null, strategy):
-    
-        if col_to_check_if_null is None:
-            df = df_in
-        else:
-            invalid_runs = df_in[col_to_check_if_null].isnull()
-            df = df_in[~invalid_runs]
+    def _get_non_null_df(self, df_in, col_to_check_if_null):
+        invalid_runs = df_in[col_to_check_if_null].isnull()
+        return df_in[~invalid_runs]
+
+
+
+    def filtered_dataframe_outcome(self, df, strategy):
 
         mean = df[strategy].mean()
 
@@ -1009,12 +999,62 @@ class PostProcess:
                     strategy=strategy
                     )
         
+        if strategy=="RFB_maxCont%":
+            self.check_IVT_method(df, "RFB")
+        elif strategy=="EqSel_maxCont%":
+            self.check_IVT_method(df, "EqSel")
+
         print(out)
 
         return out
 
 
 
+    def check_IVT_method(self, df, method):
+
+        if method=="EqSel":
+            IVT_true = df[f'best_region_{method}']=="True"
+            IVT_false = df[f'best_region_{method}']=="False"
+            IVT_NA = df[f'best_region_{method}'].isin(["True", "False"])
+        else:
+            IVT_true = df[f'best_region_{method}']==True
+            IVT_false = df[f'best_region_{method}']==False
+            IVT_NA = df[f'best_region_{method}'].isin([True, False])
+
+        opt_true = (df[f'{method}_worked']==True)
+        opt_false = (df[f'{method}_worked']==False)
+        opt_NA = (df[f'{method}_worked'].isnull())
+
+        out = dict(
+            IVT_method_T = df[IVT_true].shape[0],
+            IVT_method_F = df[IVT_false].shape[0],
+            IVT_method_NA = df[~IVT_NA].shape[0],
+            
+            opt_method_T = df[opt_true].shape[0],
+            opt_method_F = df[opt_false].shape[0],
+            opt_method_NA = df[opt_NA].shape[0],
+
+
+            both_succeeded = df[(opt_true & IVT_true)].shape[0],
+            both_failed = df[(~opt_true & ~IVT_true)].shape[0],
+            
+            either_succeeded = df[(opt_true | IVT_true)].shape[0],
+            opt_but_not_IVT = df[(opt_true & ~IVT_true)].shape[0],
+            IVT_but_not_opt = df[(~opt_true & IVT_true)].shape[0],
+            )
+
+        failed = df[(~opt_true & ~IVT_true)]
+        
+
+        print("\n")
+
+        print(out)
+
+        print("\n")
+        
+        print("These runs failed on both methods:")
+        
+        print(failed[[f'max_grid_EL', f'{method}_maxContEL', f'best_value_{method}']])
 
 
 
@@ -1135,15 +1175,24 @@ class PostProcess:
 
             grid_config, fung_params = self._get_grid_config_and_fung_pars(pars, NDoses)
 
+            # grid_config.load_saved = False
+
             grid_output = RunGrid(fung_params).grid_of_tactics(grid_config)
 
             conf_str = grid_config.config_string_img
 
+            FY = grid_output['FY']
+            opt_region = FY == np.amax(FY)
+                
+            n_opt_doses = opt_region.sum()
+
+            print(f"Number of optimal dose combos: {n_opt_doses}")
 
             # plot output
-            dose_grid_heatmap(grid_output, grid_config, "FY", conf_str)
+            # dose_grid_heatmap(grid_output, grid_config, "FY", conf_str)
             
-            eq_RFB_contours(grid_output, grid_config, title=f"Run={str(pars.run)}")
+            # eq_RFB_contours(grid_output, grid_config, title=f"Run={str(pars.run)}")
+            DoseSpaceScenariosPlot(grid_output, conf_str)
 
 
 
@@ -1187,17 +1236,17 @@ class PostProcess:
 class MaxAlongContourDF:
 
     def __init__(self, df_input):
-        self.df = self._generate_max_along_contour_df(df_input)
-        
+        self.get_and_save(df_input)
     
 
-    def _generate_max_along_contour_df(self, df_input):
 
+    def get_and_save(self, df_input):
         df_inter = self._get_intermediate_df(df_input)
 
-        out = self._tidy_df(df_inter)
+        self.df = self._tidy_df(df_inter)
+        
+        self._save_df()
 
-        return out
 
 
 
@@ -1234,3 +1283,15 @@ class MaxAlongContourDF:
         out = df.sort_values(['min_corner', 'RFB_maxCont%', 'EqSel_maxCont%'])
 
         return out
+
+
+
+
+    def _save_df(self):
+        df_out = self.df
+        
+        filename = f"./param_scan_cluster/outputs/rand/analysis/max_along_contour/df_{len(df_out)}.csv"
+
+        print(f"Saving maximum along contour csv to: \n{filename}")
+
+        df_out.to_csv(filename)

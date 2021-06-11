@@ -372,7 +372,8 @@ class ThisStratSummaryDF:
             f"{strat_name}_minDS": min(df['DS']),
             f"{strat_name}_maxDS": max(df['DS']),
             
-            f"{strat_name}_worked": self.max_grid_EL==max(df[f"{strat_name}_EL"]),
+            f"{strat_name}_worked_geq": self.max_grid_EL>=max(df[f"{strat_name}_EL"]),
+            f"{strat_name}_worked_equal": self.max_grid_EL==max(df[f"{strat_name}_EL"]),
             
             f"{strat_name}_lowDoseMaxEL": lowDS_val,
             f"{strat_name}_medDoseMaxEL": medDS_val,

@@ -1160,6 +1160,7 @@ class RunMultipleTactics:
 
         strain_keys = ['RR', 'RS', 'SR', 'SS']
         self.start_freqs = self._get_dict_of_zero_arrays(strain_keys, (n_doses, n_doses, n_years+1))
+        self.end_freqs = self._get_dict_of_zero_arrays(strain_keys, (n_doses, n_doses, n_years+1))
         
 
     
@@ -1170,11 +1171,8 @@ class RunMultipleTactics:
 
     def _update_dict_array_this_dose(self, to_update, data, f1_ind, f2_ind, key1):
 
-
         for key_ in to_update.keys():
             to_update[key_][f1_ind,f2_ind,:] = data[key1][key_]
-        
-        # print(to_update[key_][f1_ind, f2_ind, :])
         
         return to_update
     
@@ -1208,6 +1206,7 @@ class RunMultipleTactics:
 
         self.res_arrays = self._update_dict_array_this_dose(copy.copy(self.res_arrays), data_this_dose, f1_ind, f2_ind, "res_vec_dict")
         self.start_freqs = self._update_dict_array_this_dose(copy.copy(self.start_freqs), data_this_dose, f1_ind, f2_ind, "start_of_season")
+        self.end_freqs = self._update_dict_array_this_dose(copy.copy(self.end_freqs), data_this_dose, f1_ind, f2_ind, "end_of_season")
         self.selection_arrays = self._update_dict_array_this_dose(copy.copy(self.selection_arrays), data_this_dose, f1_ind, f2_ind, "selection_vec_dict")
 
 
@@ -1221,43 +1220,6 @@ class RunMultipleTactics:
 class RunGrid(RunMultipleTactics):
     def __init__(self, fcide_parms=None):
         super().__init__(fcide_parms)
-
-    def _run_the_grid(self, Conf):
-        
-        for f1_ind in tqdm(range(Conf.n_doses)):
-            for f2_ind in range(Conf.n_doses):
-
-                Conf.fung1_doses, Conf.fung2_doses = self.fung_strat.get_doses(
-                                                    f1_ind, f2_ind, Conf.n_doses)
-
-                one_tact_output =  self.sing_tact.run_single_tactic(Conf)
-                
-                self._post_process_multi(one_tact_output, f1_ind, f2_ind, Conf)
-
-        self.t_vec = one_tact_output['t_vec']
-
-
-
-
-    def _save_grid(self):
-        grid_output = {'LTY': self.LTY,
-                    'TY': self.TY,
-                    'FY': self.FY,
-                    'yield_array': self.yield_array,
-                    'res_arrays': self.res_arrays,
-                    'start_freqs': self.start_freqs,
-                    'selection_arrays': self.selection_arrays,
-                    'inoc_array': self.inoc_array,
-                    't_vec': self.t_vec,
-                    'econ': self.econ,
-                    }
-        
-        object_dump(self.filename, grid_output)
-        
-        return grid_output
-
-
-
 
 
     def grid_of_tactics(self, ConfigG):
@@ -1284,7 +1246,42 @@ class RunGrid(RunMultipleTactics):
 
         return grid_output
 
-    
+
+
+    def _run_the_grid(self, Conf):
+        
+        for f1_ind in tqdm(range(Conf.n_doses)):
+            for f2_ind in range(Conf.n_doses):
+
+                Conf.fung1_doses, Conf.fung2_doses = self.fung_strat.get_doses(
+                                                    f1_ind, f2_ind, Conf.n_doses)
+
+                one_tact_output =  self.sing_tact.run_single_tactic(Conf)
+                
+                self._post_process_multi(one_tact_output, f1_ind, f2_ind, Conf)
+
+        self.t_vec = one_tact_output['t_vec']
+
+
+
+
+    def _save_grid(self):
+        grid_output = {'LTY': self.LTY,
+                    'TY': self.TY,
+                    'FY': self.FY,
+                    'yield_array': self.yield_array,
+                    'res_arrays': self.res_arrays,
+                    'start_freqs': self.start_freqs,
+                    'end_freqs': self.end_freqs,
+                    'selection_arrays': self.selection_arrays,
+                    'inoc_array': self.inoc_array,
+                    't_vec': self.t_vec,
+                    'econ': self.econ,
+                    }
+        
+        object_dump(self.filename, grid_output)
+        
+        return grid_output
 
 
 
@@ -1510,6 +1507,9 @@ class RunRfRatio(RunSingleTactic):
     
 
     def _get_eq_sel_df(self, f2):
+        
+        print("warning now using end freqs!!!")
+
         eq_sel_list = []
         f1_list = []
         f2_list = []
@@ -1805,10 +1805,23 @@ class EqualResFreqBreakdownArray:
 
 class EqualSelectionArray:
     def __init__(self, grid_output) -> None:
+
+        """
+        NB have changed so it compares end of season and start of season,
+        not start of consecutive seasons. 
+        
+        This is because sexual reproduction can cause a change that wasn't due 
+        to the tactic but was just down to ratios starting away from those expected
+        in a perfectly mixed population.
+        """
+
+
         
         self.FYs = grid_output['FY']
 
         self.start_freqs = grid_output['start_freqs']
+        
+        self.end_freqs = grid_output['end_freqs']
 
         self.array = self._generate_EqSel_array()
 
@@ -1821,6 +1834,7 @@ class EqualSelectionArray:
     def _generate_EqSel_array(self):
 
         start_freqs = self.start_freqs
+        end_freqs = self.end_freqs
         
         out = np.ones(start_freqs['SR'][:,:,0].shape)
         
@@ -1834,8 +1848,8 @@ class EqualSelectionArray:
             
             else:
                 
-                sr1 = start_freqs['RS'][i,j,1]/start_freqs['RS'][i,j,0]
-                sr2 = start_freqs['SR'][i,j,1]/start_freqs['SR'][i,j,0]
+                sr1 = end_freqs['RS'][i,j,0]/start_freqs['RS'][i,j,0]
+                sr2 = end_freqs['SR'][i,j,0]/start_freqs['SR'][i,j,0]
 
                 try:
                     out[i,j] = sr1/(sr1+sr2)

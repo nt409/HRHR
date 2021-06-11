@@ -25,8 +25,6 @@ from .plot_consts import ATTRS_DICT, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT
 
 from .functions import EqualResFreqBreakdownArray, EqualSelectionArray
 
-from runHRHR.config_classes import SingleConfig, GridConfig
-
 
 # TOC
 # Single Tactic
@@ -1410,6 +1408,8 @@ class DoseSpaceScenariosPlot:
                     name="ERFB contour"
                     )
 
+
+
     def get_FY_heatmap(self):
         FY = self.data['FY']
 
@@ -1421,7 +1421,7 @@ class DoseSpaceScenariosPlot:
         heatmap = go.Heatmap(
             x = xheat,
             y = yheat,
-            z = FY,
+            z = np.transpose(FY),
             colorscale=grey_colorscale(FY),
             colorbar=clrbar
         )
@@ -1435,7 +1435,9 @@ class DoseSpaceScenariosPlot:
         x = np.linspace(0, 1, z.shape[0])
         y = np.linspace(0, 1, z.shape[1])
 
-        out = contour_at_0(x, y, z, 'black', 'solid')
+        z_transpose = np.transpose(z)
+
+        out = contour_at_0(x, y, z_transpose, 'black', 'solid')
         out['name'] = "Delta RFB"
 
         return out
@@ -1448,10 +1450,14 @@ class DoseSpaceScenariosPlot:
         x = np.linspace(0, 1, z.shape[0])
         y = np.linspace(0, 1, z.shape[1])
 
-        out = contour_at_single_level(x, y, z, 0.5, 'blue', 'dot')
+        z_transpose = np.transpose(z)
+
+        out = contour_at_single_level(x, y, z_transpose, 0.5, 'blue', 'dot')
         out['name'] = "Equal Selection"
 
         return out
+
+
 
     @staticmethod
     def get_full_dose_point():
@@ -1468,7 +1474,7 @@ class DoseSpaceScenariosPlot:
 
 
     def get_min_dose_point(self):
-        FYs = self.data['FY']
+        FYs = np.transpose(self.data['FY'])
 
         x = np.linspace(0, 1, FYs.shape[0])
         

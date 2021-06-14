@@ -955,13 +955,18 @@ class PostProcess:
 
         df = df[df['min_corner']>0]
 
-        eq_sel_df = self._get_non_null_df(df, "EqSel_worked")
+        eq_sel_df = self._get_non_null_df(df, "EqSel_worked_geq")
 
         self.filtered_dataframe_outcome(df, "RFB_maxCont%")
         self.filtered_dataframe_outcome(df, "fullDose%")
         self.filtered_dataframe_outcome(df, "minEqDose%")
+
         self.filtered_dataframe_outcome(eq_sel_df, "EqSel_maxCont%")
         self.filtered_dataframe_outcome(eq_sel_df, "EqSel_lowDoseMax%")
+
+        self.check_IVT_method(df, "RFB")
+        self.check_IVT_method(eq_sel_df, "EqSel")
+
 
 
 
@@ -999,11 +1004,6 @@ class PostProcess:
                     strategy=strategy
                     )
         
-        if strategy=="RFB_maxCont%":
-            self.check_IVT_method(df, "RFB")
-        elif strategy=="EqSel_maxCont%":
-            self.check_IVT_method(df, "EqSel")
-
         print(out)
 
         return out
@@ -1012,18 +1012,19 @@ class PostProcess:
 
     def check_IVT_method(self, df, method):
 
-        if method=="EqSel":
-            IVT_true = df[f'best_region_{method}']=="True"
-            IVT_false = df[f'best_region_{method}']=="False"
-            IVT_NA = df[f'best_region_{method}'].isin(["True", "False"])
-        else:
-            IVT_true = df[f'best_region_{method}']==True
-            IVT_false = df[f'best_region_{method}']==False
-            IVT_NA = df[f'best_region_{method}'].isin([True, False])
+        # if False: # method=="EqSel":
+        #     IVT_true = df[f'best_region_{method}']=="True"
+        #     IVT_false = df[f'best_region_{method}']=="False"
+        #     IVT_NA = df[f'best_region_{method}'].isin(["True", "False"])
+        # else:
+        
+        IVT_true = df[f'best_region_{method}']==True
+        IVT_false = df[f'best_region_{method}']==False
+        IVT_NA = df[f'best_region_{method}'].isin([True, False])
 
-        opt_true = (df[f'{method}_worked']==True)
-        opt_false = (df[f'{method}_worked']==False)
-        opt_NA = (df[f'{method}_worked'].isnull())
+        opt_true = (df[f'{method}_worked_equal']==True)
+        opt_false = (df[f'{method}_worked_equal']==False)
+        opt_NA = (df[f'{method}_worked_equal'].isnull())
 
         out = dict(
             IVT_method_T = df[IVT_true].shape[0],
@@ -1041,9 +1042,10 @@ class PostProcess:
             either_succeeded = df[(opt_true | IVT_true)].shape[0],
             opt_but_not_IVT = df[(opt_true & ~IVT_true)].shape[0],
             IVT_but_not_opt = df[(~opt_true & IVT_true)].shape[0],
+            method = method,
             )
 
-        failed = df[(~opt_true & ~IVT_true)]
+        failed = df[((~opt_true) & (~IVT_true))]
         
 
         print("\n")
@@ -1052,9 +1054,9 @@ class PostProcess:
 
         print("\n")
         
-        print("These runs failed on both methods:")
+        print(f"Testing {method}; these runs failed on both methods:")
         
-        print(failed[[f'max_grid_EL', f'{method}_maxContEL', f'best_value_{method}']])
+        print(failed[[f'max_grid_EL', f'{method}_maxContEL', f'best_value_{method}', f'{method}_diff_from_opt']])
 
 
 
@@ -1067,15 +1069,11 @@ class PostProcess:
 
         fail = self._get_failed_runs(df)
 
-        fail = fail.assign(RFB_diff_from_opt=lambda d: d['max_grid_EL'] - d['RFB_maxContEL'])
-
-
         print("\n")
         print("These runs failed:\n")
 
         print(fail[['RFB_diff_from_opt',
                     'run',
-                    "min_corner",
                     'max_grid_EL',
                     'RFB_maxContEL',
                     ]].to_string())
@@ -1263,6 +1261,12 @@ class MaxAlongContourDF:
         
         for string in strats:
             data.loc[:, string + "%"] = 100*data[string + "EL"]/data["max_grid_EL"]
+            
+        data['min_corner'] = data[["corner_01", "corner_10"]].min(axis=1)
+
+        data = data.assign(RFB_diff_from_opt=lambda d: d['max_grid_EL'] - d['RFB_maxContEL'])
+        
+        data = data.assign(EqSel_diff_from_opt=lambda d: d['max_grid_EL'] - d['EqSel_maxContEL'])
         
         return data
 
@@ -1272,17 +1276,17 @@ class MaxAlongContourDF:
 
     def _tidy_df(self, df):
 
-        df['min_corner'] = df[["corner_01", "corner_10"]].min(axis=1)
-
         # avoid the "-1" case where has never failed:
         if df[df["fullDoseEL"]<=0].shape[0]:
             n_never_fail = df[df["fullDoseEL"]<=0].shape[0]
             print(f"{n_never_fail} runs never failed - need longer n_years. Filtering them out for now.")
             df = df[df["fullDoseEL"]>0]
         
-        out = df.sort_values(['min_corner', 'RFB_maxCont%', 'EqSel_maxCont%'])
+        # out = df.sort_values(['min_corner', 'RFB_maxCont%', 'EqSel_maxCont%'])
+        # out = df.sort_values(['run'])
+        # return out
+        return df
 
-        return out
 
 
 

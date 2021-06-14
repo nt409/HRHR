@@ -1,5 +1,3 @@
-
-
 # proper/fast/prev_run
 run_type = "proper"
 
@@ -20,12 +18,12 @@ if run_type == "proper":
         
         "grid_number": 50,
 
-        "n_cont_points": 50,
+        "n_cont_points": 70,
 
         "n_years": 50,
 
         "NIts": 25,
-        
+
         "load_saved": True,   
     }
 

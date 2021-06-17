@@ -1159,24 +1159,24 @@ class DiseaseProgressCurvesAll:
     @staticmethod
     def get_config():
 
-        E_cols = pltly_clrs.n_colors("rgb(255,0,0)", "rgb(255,255,255)", 5, colortype="rgb")[:4]
+        E_cols = pltly_clrs.n_colors("rgb(0,0,255)", "rgb(255,255,255)", 5, colortype="rgb")[:4]
         
-        I_cols = pltly_clrs.n_colors("rgb(0,0,255)", "rgb(255,255,255)", 5, colortype="rgb")[:4]
+        I_cols = pltly_clrs.n_colors("rgb(255,0,0)", "rgb(255,255,255)", 5, colortype="rgb")[:4]
 
 
         return {
             'S': dict(color='limegreen', dash='solid', name='Susceptible', ind=PARAMS.S_ind),
             'R': dict(color='rgb(100,100,100)', dash='solid', name='Removed', ind=PARAMS.R_ind),
 
-            'ERR': dict(color=E_cols[0], dash='dot', name='E (RR)', ind=PARAMS.ER_ind),
-            'ERS': dict(color=E_cols[1], dash='dash', name='E (RS)', ind=PARAMS.ERS_ind),
-            'ESR': dict(color=E_cols[2], dash='dashdot', name='E (SR)', ind=PARAMS.ESR_ind),
-            'ESS': dict(color=E_cols[3], dash='solid', name='E (SS)', ind=PARAMS.ES_ind),
+            'ERR': dict(color=E_cols[0], dash='dot', name='E (rr)', ind=PARAMS.ER_ind),
+            'ERS': dict(color=E_cols[1], dash='dash', name='E (rs)', ind=PARAMS.ERS_ind),
+            'ESR': dict(color=E_cols[2], dash='dashdot', name='E (sr)', ind=PARAMS.ESR_ind),
+            'ESS': dict(color=E_cols[3], dash='solid', name='E (ss)', ind=PARAMS.ES_ind),
 
-            'IRR': dict(color=I_cols[0], dash='dot', name='I (RR)', ind=PARAMS.IR_ind),
-            'IRS': dict(color=I_cols[1], dash='dash', name='I (RS)', ind=PARAMS.IRS_ind),
-            'ISR': dict(color=I_cols[2], dash='dashdot', name='I (SR)', ind=PARAMS.ISR_ind),
-            'ISS': dict(color=I_cols[3], dash='solid', name='I (SS)', ind=PARAMS.IS_ind),
+            'IRR': dict(color=I_cols[0], dash='dot', name='I (rr)', ind=PARAMS.IR_ind),
+            'IRS': dict(color=I_cols[1], dash='dash', name='I (rs)', ind=PARAMS.IRS_ind),
+            'ISR': dict(color=I_cols[2], dash='dashdot', name='I (sr)', ind=PARAMS.ISR_ind),
+            'ISS': dict(color=I_cols[3], dash='solid', name='I (ss)', ind=PARAMS.IS_ind),
 
             'F1': dict(color='turquoise', dash='solid', name='Fungicide A', ind=PARAMS.Fung1_ind),
             'F2': dict(color='magenta', dash='dot', name='Fungicide B', ind=PARAMS.Fung2_ind),
@@ -1416,15 +1416,13 @@ class DoseSpaceScenariosPlot:
         xheat = np.linspace(0, 1, FY.shape[0])
         yheat = np.linspace(0, 1, FY.shape[1])
 
-        clrbar = my_colorbar(TITLE_MAP["FY"])
-
         heatmap = go.Heatmap(
             x = xheat,
             y = yheat,
             z = np.transpose(FY),
-            colorscale=grey_colorscale(FY),
-            colorbar=clrbar
-        )
+            colorscale = grey_colorscale(FY),
+            colorbar = my_colorbar(TITLE_MAP["FY"])
+            )
 
         return heatmap
 
@@ -1513,8 +1511,8 @@ class DoseSpaceScenariosPlot:
     @staticmethod
     def _update_axes(fig):
         eps = 0.04
-        fig.update_xaxes(title="Dose (fungicide A)", range=[0-eps,1+eps])
-        fig.update_yaxes(title="Dose (fungicide B)", range=[0-eps,1+eps])
+        fig.update_xaxes(title="Dose (fungicide A)", range=[0-eps,1+eps], showgrid=False)
+        fig.update_yaxes(title="Dose (fungicide B)", range=[0-eps,1+eps], showgrid=False)
         return fig
     
 
@@ -1739,10 +1737,10 @@ class YieldAndRfPlot:
         
         xx = list(range(len(y1)))
 
-        for data, name, dash in zip([y1, y2], ['f1', 'f2'], ['dot', 'solid']):
+        for data, name, dash in zip([y1, y2], ['A', 'B'], ['dot', 'solid']):
             line = go.Scatter(x=xx, 
                 y=data,
-                name=f"Resistance<br>frequency ({name})",
+                name=f"<br>Resistance<br>frequency<br>(fungicide {name})",
                 line=dict(dash=dash))
             out.append(line)
 
@@ -1867,19 +1865,39 @@ class ParamScanPlotMeVsHobb:
 
 
 
-    @staticmethod
-    def _process_data(data):
-        req_cols = data[['run', 'maxCont%', 'maxEqSel%', "RS", "SR", "RR", "sr_prop", "delta_1", "delta_2"]]
+    def _process_data(self, data):
+
+        req_cols = data[['run', 'RFB_maxContEL', 'EqSel_maxContEL',
+                                 "best_value_RFB", "best_value_EqSel",
+                                 "RS", "SR",
+                                 "RR", "sr_prop",
+                                #  "delta_1", "delta_2",
+                                 "omega_1", "omega_2",
+                                 ]]
         
         complete = req_cols.dropna()
 
-        complete = complete.assign(successMetric = lambda x: 100*x['maxEqSel%']/x['maxCont%'])
+        complete['successMetric'] = self._get_success_metric(complete)
 
         complete['IRFMetric'] = complete.apply(lambda x: log10(x['RS']) - log10(x['SR']), axis=1)
         
-        complete['DecayMetric'] = complete.apply(lambda x: x['delta_1']/(x['delta_1']+x['delta_2']), axis=1)
+        complete['AsympMetric'] = complete.apply(lambda x: x['omega_1']/(x['omega_1']+x['omega_2']), axis=1)
 
         return complete
+
+
+
+    @staticmethod
+    def _get_success_metric(x):
+
+        bv_ES = np.asarray(x['best_value_EqSel'])
+        ES_EL = np.asarray(x['EqSel_maxContEL'])
+        bv_RFB = np.asarray(x['best_value_RFB'])
+        RBF_EL = np.asarray(x['RFB_maxContEL'])
+
+        out = [100*max(bv_ES[i], ES_EL[i]) / max(bv_RFB[i], RBF_EL[i]) for i in range(len(bv_ES))]
+
+        return out
 
 
 
@@ -1902,21 +1920,12 @@ class ParamScanPlotMeVsHobb:
 
         data = self.data
         
-        y = data['successMetric']
+        data['logRR'] = [log10(x) for x in data['RR']]        
 
-        x1 = data['IRFMetric']
-
-        x2 = data['DecayMetric']
-
-        x3 = [log10(x) for x in data['RR']]
-        
-        x4 = data['sr_prop']
-
-        for key, xx in zip(['IRFMetric', 'DecayMetric', 'RR', 'sr_prop'],
-                            [x1, x2, x3, x4]):
-
-            scatter = go.Scatter(x=xx,
-                y=y,
+        for key in ['IRFMetric', 'AsympMetric', 'logRR', 'sr_prop']:
+            
+            scatter = go.Scatter(x=data[key],
+                y=data['successMetric'],
                 mode='markers',
                 marker=dict(opacity=0.2))
 
@@ -1925,12 +1934,14 @@ class ParamScanPlotMeVsHobb:
         return out
 
 
+
+
     def _add_traces_to_figure(self, trace_dict):
         fig = make_subplots(rows=2, cols=2, vertical_spacing=0.3)
 
         fig.add_trace(trace_dict['IRFMetric'], row=1, col=1)
-        fig.add_trace(trace_dict['DecayMetric'], row=2, col=1)
-        fig.add_trace(trace_dict['RR'], row=1, col=2)
+        fig.add_trace(trace_dict['AsympMetric'], row=2, col=1)
+        fig.add_trace(trace_dict['logRR'], row=1, col=2)
         fig.add_trace(trace_dict['sr_prop'], row=2, col=2)
 
         return fig
@@ -1942,13 +1953,12 @@ class ParamScanPlotMeVsHobb:
         fig = self._update_layout(fig)
         fig = self._add_corner_text_labels(fig)
         return fig
-    
 
 
     @staticmethod
     def _update_axes(fig):
         fig.update_xaxes(title="Log difference in <br>single resistance frequencies", row=1, col=1)
-        fig.update_xaxes(title="Decay rate metric", row=2, col=1)
+        fig.update_xaxes(title="Asymptote metric", row=2, col=1)
         fig.update_xaxes(title="Double resistant<br>frequency (log scale)", row=1, col=2)
         fig.update_xaxes(title="Proportion of sex", row=2, col=2)
         
@@ -2014,26 +2024,27 @@ class ParamScanPlotHighLowDose:
 
     @staticmethod
     def _process_data(data):
-        
-        req_cols = data[['run', 'min_opt_DS', 'max_opt_DS', 'max_dose_sums',
+
+        req_cols = data[['run', 'RFB_minDS', 'RFB_maxDS', 
+                            'max_dose_sums',
                             'min_dose_sums',
                             "RS", "SR", "RR", "sr_prop", "delta_1", "delta_2"]]
         
         complete = req_cols.dropna()
 
         complete['minMixStrength'] = complete.apply(lambda x: (
-            100*(x['min_opt_DS']- x['min_dose_sums'])) / (x['max_dose_sums']
+            100*(x['RFB_minDS']- x['min_dose_sums'])) / (x['max_dose_sums']
              - x['min_dose_sums'])
             , axis=1)
         
         complete['maxMixStrength'] = complete.apply(lambda x: (
-            100*(x['max_opt_DS']- x['min_dose_sums'])) / (x['max_dose_sums']
+            100*(x['RFB_maxDS']- x['min_dose_sums'])) / (x['max_dose_sums']
              - x['min_dose_sums'])
             , axis=1)
         
         
         complete['meanMixStrength'] = complete.apply(lambda x: (
-            100*(x['min_opt_DS'] - x['min_dose_sums'] + 0.5*(x['max_opt_DS'] - x['min_opt_DS']))) / (x['max_dose_sums']
+            100*(x['RFB_minDS'] - x['min_dose_sums'] + 0.5*(x['RFB_maxDS'] - x['RFB_minDS']))) / (x['max_dose_sums']
              - x['min_dose_sums'])
             , axis=1)
         

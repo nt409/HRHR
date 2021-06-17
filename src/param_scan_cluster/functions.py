@@ -953,7 +953,7 @@ class PostProcess:
 
         df = copy.copy(self.max_along_contour_df)
 
-        df = df[df['min_corner']>0]
+        # df = df[df['min_corner']>0]
 
         eq_sel_df = self._get_non_null_df(df, "EqSel_worked_geq")
 
@@ -1022,9 +1022,9 @@ class PostProcess:
         IVT_false = df[f'best_region_{method}']==False
         IVT_NA = df[f'best_region_{method}'].isin([True, False])
 
-        opt_true = (df[f'{method}_worked_equal']==True)
-        opt_false = (df[f'{method}_worked_equal']==False)
-        opt_NA = (df[f'{method}_worked_equal'].isnull())
+        opt_true = (df[f'{method}_worked_geq']==True)
+        opt_false = (df[f'{method}_worked_geq']==False)
+        opt_NA = (df[f'{method}_worked_geq'].isnull())
 
         out = dict(
             IVT_method_T = df[IVT_true].shape[0],
@@ -1034,7 +1034,6 @@ class PostProcess:
             opt_method_T = df[opt_true].shape[0],
             opt_method_F = df[opt_false].shape[0],
             opt_method_NA = df[opt_NA].shape[0],
-
 
             both_succeeded = df[(opt_true & IVT_true)].shape[0],
             both_failed = df[(~opt_true & ~IVT_true)].shape[0],
@@ -1047,16 +1046,16 @@ class PostProcess:
 
         failed = df[((~opt_true) & (~IVT_true))]
         
+        failed_runs = failed[[f'max_grid_EL', f'{method}_maxContEL', f'best_value_{method}', 
+                    f'{method}_diff_from_opt', 'run']].sort_values(by=[f'{method}_diff_from_opt', 'run'])
 
         print("\n")
-
         print(out)
-
         print("\n")
-        
         print(f"Testing {method}; these runs failed on both methods:")
+        print("\n")        
         
-        print(failed[[f'max_grid_EL', f'{method}_maxContEL', f'best_value_{method}', f'{method}_diff_from_opt']])
+        print(failed_runs)
 
 
 
@@ -1133,12 +1132,12 @@ class PostProcess:
 
         my_df = copy.copy(self.df)
 
-        my_df['FD_BetterThanMin'] = my_df['fullDoseEL'] >= my_df['minEqDoseEL']
+        my_df['high_better_than_low'] = my_df['RFB_highDoseMaxEL'] >= my_df['RFB_lowDoseMaxEL']
 
-        strats = ["minEqDose", "fullDose"]
+        # strats = ["minEqDose", "fullDose"]
         
-        for string in strats:
-            my_df[string + "%"] = 100*my_df[string + "EL"]/my_df["max_grid_EL"]
+        # for string in strats:
+        #     my_df[string + "%"] = 100*my_df[string + "EL"]/my_df["max_grid_EL"]
         
         grouped = my_df.groupby(["run"]).first()
 
@@ -1146,7 +1145,30 @@ class PostProcess:
 
         df_out = df_out.reset_index()
         
-        df_out = df_out.sort_values(['FD_BetterThanMin', 'sr_prop'])
+        df_out = df_out.sort_values(['high_better_than_low', 'sr_prop'])
+
+        
+        sex_and_high_eff = df_out[((df_out['sr_prop']>0.9)
+                            & (df_out['omega_1']>0.9) 
+                            & (df_out['omega_2']>0.9) 
+                            # & (df_out['delta_1']>0.01)
+                            # & (df_out['delta_2']>0.01)  
+                            # & (df_out['RS']<0.00001)
+                            # & (df_out['SR']<0.00001)
+                            )]
+        
+        # sex_and_high_eff = df_out[(df_out['sr_prop']>0.6)]
+        
+        print("\n")
+        print("worked/total:",sex_and_high_eff['high_better_than_low'].sum(), sex_and_high_eff.shape[0])
+        print("\n")
+        print(sex_and_high_eff[['high_better_than_low', 'sr_prop',
+                'omega_1', 'omega_2', 'delta_1', 'delta_2',
+                'RR'
+                ]].sort_values(['high_better_than_low', 'sr_prop']))
+
+
+        # print(df_out.loc[~df_out['high_better_than_low']]['sr_prop'].mean())
                 
         filename = f"./param_scan_cluster/outputs/rand/analysis/high_or_low_dose/df_{len(df_out)}.csv"
 
@@ -1264,12 +1286,18 @@ class MaxAlongContourDF:
             
         data['min_corner'] = data[["corner_01", "corner_10"]].min(axis=1)
 
-        data = data.assign(RFB_diff_from_opt=lambda d: d['max_grid_EL'] - d['RFB_maxContEL'])
-        
-        data = data.assign(EqSel_diff_from_opt=lambda d: d['max_grid_EL'] - d['EqSel_maxContEL'])
+        data['RFB_diff_from_opt'] = data.apply(self.get_diff_from_opt_RFB, axis=1)
+
+        data['EqSel_diff_from_opt'] = data.apply(self.get_diff_from_opt_EqSel, axis=1)
         
         return data
 
+
+    def get_diff_from_opt_RFB(self, data):
+        return data['max_grid_EL'] - max(data['RFB_maxContEL'], data['best_value_RFB'])
+    
+    def get_diff_from_opt_EqSel(self, data):
+        return data['max_grid_EL'] - max(data['EqSel_maxContEL'], data['best_value_EqSel'])
     
 
 
@@ -1282,9 +1310,6 @@ class MaxAlongContourDF:
             print(f"{n_never_fail} runs never failed - need longer n_years. Filtering them out for now.")
             df = df[df["fullDoseEL"]>0]
         
-        # out = df.sort_values(['min_corner', 'RFB_maxCont%', 'EqSel_maxCont%'])
-        # out = df.sort_values(['run'])
-        # return out
         return df
 
 

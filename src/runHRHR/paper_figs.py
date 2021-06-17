@@ -12,11 +12,11 @@ from param_scan_cluster.functions import get_PS_rand_str, PostProcess
 # which plots
 
 model_output_overview = False
-rf_yield = False
+rf_yield = True
 dose_space = False
 doses_scatter = False
 param_scan_hobb_vs_me = False
-param_scan_high_low_dose = True
+param_scan_high_low_dose = False
 
 
 
@@ -37,7 +37,7 @@ if model_output_overview:
 
 if rf_yield:
     ConfigSingleRun = SingleConfig(10, 10**(-3), 10**(-5), 1, 1, 0.5, 0.5)
-    ConfigSingleRun.load_saved = False
+    # ConfigSingleRun.load_saved = False
     RST = RunSingleTactic()
     RST.yield_stopper = 0
     output = RST.run_single_tactic(ConfigSingleRun)

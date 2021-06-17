@@ -23,9 +23,9 @@ def main(config):
 
     # PP.re_run(NDoses=6, run_indices=list(range(1)))
     # PP.re_run(NDoses=41, run_indices=[706, 538, 548, 403, 490, 474, 367, 34])
-    PP.re_run(NDoses=16, run_indices=[321])
+    # PP.re_run(NDoses=51, run_indices=[34, 322, 367, 451, 465, 490, 538])
         
-    # PP.check_high_or_low_dose()
+    PP.check_high_or_low_dose()
 
 
 

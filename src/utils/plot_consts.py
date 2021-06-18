@@ -40,3 +40,5 @@ TITLE_MAP = dict(
 # default is half page
 PLOT_WIDTH = 600
 PLOT_HEIGHT = 400
+
+FULL_PAGE_WIDTH = 800

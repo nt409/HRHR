@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from math import log2, floor, log10, pi
 from scipy import stats
+from PIL import Image
 
 # import plotly.express as px
 
@@ -16,12 +17,13 @@ from .params import PARAMS
 
 from .plot_traces import get_RFB_diff_traces, get_eq_sel_traces, get_heatmap_lines, \
     get_strain_freq_traces, contour_at_0, get_multi_contour_traces, \
-    get_MRFB_contour_traces, get_MS_RFB_traces, contour_at_single_level
+    get_MS_RFB_traces, contour_at_single_level
 
 from .plot_utils import get_text_annotation, get_arrow_annotation, standard_layout, \
     grey_colorscale, my_colorbar, get_big_text_annotation
 
-from .plot_consts import ATTRS_DICT, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT
+from .plot_consts import ATTRS_DICT, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT, \
+        FULL_PAGE_WIDTH
 
 from .functions import EqualResFreqBreakdownArray, EqualSelectionArray
 
@@ -177,7 +179,7 @@ def yield_res_freqs_plot(data, conf_str):
         rf_traces.append(line)
         fig.add_trace(line, row=2, col=1)
 
-    fig.update_xaxes(title="Year", row=2, col=1, showgrid=False)
+    fig.update_xaxes(title="Year", row=2, col=1, showgrid=False, zeroline=False)
     fig.update_yaxes(title="Resistant<br>frequency", row=2, col=1)
 
 
@@ -559,8 +561,8 @@ def dose_sum_hobb_vs_me(data, Config, to_plot, conf_str):
                         font=dict(size=18)
                                     )
 
-    fig.update_xaxes(title="Difference in logit of<br>res. freqs. at breakdown", row=1, col=2, showgrid=False)
-    fig.update_xaxes(title="Difference of log of<br>selection ratios after one year", row=2, col=2, showgrid=False)
+    fig.update_xaxes(title="Difference in logit of<br>res. freqs. at breakdown", row=1, col=2, showgrid=False, zeroline=False)
+    fig.update_xaxes(title="Difference of log of<br>selection ratios after one year", row=2, col=2, showgrid=False, zeroline=False)
     fig.update_yaxes(title="Effective life", row=1, col=2)
     fig.update_yaxes(title="Effective life", row=2, col=2)
     
@@ -571,8 +573,8 @@ def dose_sum_hobb_vs_me(data, Config, to_plot, conf_str):
     dx = 0.01
     dy = 0.01
     
-    fig.update_xaxes(title="Dose (fungicide A)", range=[0-dx,1+dx], row=1, col=1, showgrid=False)
-    fig.update_yaxes(title="Dose (fungicide B)", range=[0-dy,1+dy], row=1, col=1, showgrid=False)
+    fig.update_xaxes(title="Dose (fungicide A)", range=[0-dx,1+dx], row=1, col=1, showgrid=False, zeroline=False)
+    fig.update_yaxes(title="Dose (fungicide B)", range=[0-dy,1+dy], row=1, col=1, showgrid=False, zeroline=False)
 
     fig.show()
     filename = conf_str.replace("/grid/", "/dose_space/dose_sum_hobb_vs_me/")
@@ -700,7 +702,7 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
                         font=dict(size=20)
                                     )
 
-    fig.update_xaxes(title="Difference in logit of<br>resistance frequencies<br>at breakdown", row=1, col=1, showgrid=False)
+    fig.update_xaxes(title="Difference in logit of<br>resistance frequencies<br>at breakdown", row=1, col=1, showgrid=False, zeroline=False)
     fig.update_yaxes(title="Effective life", row=1, col=1)
     
     # if heatmap not contour use [0-dx, 1+dx] etc
@@ -710,8 +712,8 @@ def dose_sum_LR(data, Config, to_plot, conf_str):
     dx = 0.01
     dy = 0.01
     
-    fig.update_xaxes(title="Dose (fungicide A)", range=[0-dx,1+dx], row=1, col=2, showgrid=False)
-    fig.update_yaxes(title="Dose (fungicide B)", range=[0-dy,1+dy], row=1, col=2, showgrid=False)
+    fig.update_xaxes(title="Dose (fungicide A)", range=[0-dx,1+dx], row=1, col=2, showgrid=False, zeroline=False)
+    fig.update_yaxes(title="Dose (fungicide B)", range=[0-dy,1+dy], row=1, col=2, showgrid=False, zeroline=False)
 
     fig.show()
     filename = conf_str.replace("/grid/", f"/dose_space/dose_sum/{to_plot}")
@@ -958,32 +960,6 @@ def eq_RFB_contours(data, Config, title=None):
     fig.write_image(filename)
 
 
-def multi_RFB_contours(grid, contours, names, Config):
-    traces = get_MRFB_contour_traces(grid, contours, names, Config)
-
-    fig = go.Figure(data=traces, layout=standard_layout(True))
-
-    fig.update_layout(width=PLOT_WIDTH, height=PLOT_WIDTH-50)
-
-    fig.update_layout(legend=dict(orientation="h", x=0.5, y=1, yanchor="bottom", xanchor="center"))
-    
-    dx = 0.01
-    dy = 0.01
-
-    fig.update_xaxes(title="Dose (fungicide A)",
-        range=[0-dx,1+dx],
-        showgrid=False)
-
-    fig.update_yaxes(title="Dose (fungicide B)",
-        range=[0-dy,1+dy],
-        showgrid=False)
-
-    fig.show()
-    conf_str = Config.config_string_img
-    filename = conf_str.replace("/grid/", "/dose_space/multi_RFB_contours/")
-    fig.write_image(filename)
-
-
 
 def MS_RFB_scatter_plot(data, Config):
 
@@ -1126,7 +1102,7 @@ def outcomes_by_ratio(data, conf_str):
 class DiseaseProgressCurvesAll:
     def __init__(self, data, conf_str) -> None:
 
-        self.width = 800
+        self.width = FULL_PAGE_WIDTH
 
         self.height = 650
 
@@ -1347,12 +1323,388 @@ class DiseaseProgressCurvesAll:
 
 
 
+
+
+
+
+
+
+class CombinedModelPlot:
+    def __init__(self, data, conf_str) -> None:
+
+        self.width = FULL_PAGE_WIDTH
+
+        self.height = 950
+
+        self.xx = data['t_vec']
+        
+        self.array = data['sol_array']
+
+        self.data = data
+
+        self.DPC_year = 5
+
+        fig = self._generate_figure()
+
+        self._save_and_show(fig, conf_str)
+
+
+
+
+    def _generate_figure(self):
+
+        self.config = self.get_config()
+
+        m_o_trcs_dict = self.get_model_output_overview_traces()
+
+        y_rf_trcs_dict = self.get_yield_RF_traces()
+
+        traces_dict = {**m_o_trcs_dict, **y_rf_trcs_dict}
+
+        ugly_fig = self.add_traces_to_layout(traces_dict)
+
+        fig = self._sort_layout(ugly_fig)
+
+        return fig
+        
+    
+
+
+    @staticmethod
+    def get_config():
+
+        E_cols = pltly_clrs.n_colors("rgb(0,0,255)", "rgb(255,255,255)", 5, colortype="rgb")[:4]
+        
+        I_cols = pltly_clrs.n_colors("rgb(255,0,0)", "rgb(255,255,255)", 5, colortype="rgb")[:4]
+
+
+        return {
+            'S': dict(color='limegreen', dash='solid', name='Susceptible', ind=PARAMS.S_ind),
+            'R': dict(color='rgb(100,100,100)', dash='solid', name='Removed', ind=PARAMS.R_ind),
+
+            'ERR': dict(color=E_cols[0], dash='dot', name='E (rr)', ind=PARAMS.ER_ind),
+            'ERS': dict(color=E_cols[1], dash='dash', name='E (rs)', ind=PARAMS.ERS_ind),
+            'ESR': dict(color=E_cols[2], dash='dashdot', name='E (sr)', ind=PARAMS.ESR_ind),
+            'ESS': dict(color=E_cols[3], dash='solid', name='E (ss)', ind=PARAMS.ES_ind),
+
+            'IRR': dict(color=I_cols[0], dash='dot', name='I (rr)', ind=PARAMS.IR_ind),
+            'IRS': dict(color=I_cols[1], dash='dash', name='I (rs)', ind=PARAMS.IRS_ind),
+            'ISR': dict(color=I_cols[2], dash='dashdot', name='I (sr)', ind=PARAMS.ISR_ind),
+            'ISS': dict(color=I_cols[3], dash='solid', name='I (ss)', ind=PARAMS.IS_ind),
+
+            'F1': dict(color='turquoise', dash='solid', name='Fungicide A', ind=PARAMS.Fung1_ind),
+            'F2': dict(color='magenta', dash='dot', name='Fungicide B', ind=PARAMS.Fung2_ind),
+        }
+
+
+
+
+
+    def get_model_output_overview_traces(self):
+        S_R_traces = self.get_S_R_traces()
+        E_traces = self.get_E_traces()
+        I_traces = self.get_I_traces()
+        F_traces = self.get_F_traces()
+
+        out = dict(S_R = S_R_traces,
+                    E = E_traces,
+                    I = I_traces,
+                    F = F_traces)
+
+        return out
+    
+
+
+
+
+    def get_S_R_traces(self):
+        
+        out = []
+
+        for key in ['S', 'R']:
+            out.append(self.get_DPC_trace(key))
+        return out
+    
+    
+
+    def get_E_traces(self):
+        
+        out = []
+
+        for key in ['ERR', 'ERS', 'ESR', 'ESS']:
+            out.append(self.get_DPC_trace(key))
+
+        return out
+    
+
+
+    
+    def get_I_traces(self):
+        
+        out = []
+
+        for key in ['IRR', 'IRS', 'ISR', 'ISS']:
+            out.append(self.get_DPC_trace(key))
+
+        return out
+    
+
+
+    def get_F_traces(self):
+
+        out = []
+
+        for key in ['F1', 'F2']:
+            out.append(self.get_DPC_trace(key))
+
+        return out
+
+
+
+    def get_DPC_trace(self, key):
+        clr = self.config[key]['color']
+        dash = self.config[key]['dash']
+        name = self.config[key]['name']
+        ind = self.config[key]['ind']
+
+        return go.Scatter(x=self.xx,
+                    y=self.array[:, ind, self.DPC_year],
+                    line=dict(color=clr, dash=dash),
+                    legendgroup="DPC",
+                    name=name
+                    )
+
+
+    def get_yield_RF_traces(self):        
+
+        yield_traces = self.get_yield_traces()
+        
+        RF_traces = self.get_RF_traces()
+        
+        traces = {"yield": yield_traces, "RF": RF_traces}
+
+        return traces
+    
+    
+    def get_yield_traces(self):
+        out = []
+
+        yy = self.data['yield_vec']
+        
+        xx = list(range(1,1+len(yy)))
+
+        line = go.Scatter(x=xx, y=yy, name="Yield", legendgroup="YRF")
+        
+        Y_LOW = yy[-1]-2
+
+        self.yield_lower_lim = Y_LOW
+        
+        X_END = 0.5 + xx[-1]
+                
+        shape = go.Scatter(x=[0, 0, X_END, X_END],
+                            y=[Y_LOW, 95, 95, Y_LOW],
+                            fill="toself",
+                            mode="lines",
+                            showlegend=False,
+                            line=dict(width=0, color="rgb(150,150,150)"))
+        
+        out.append(shape)
+        out.append(line)
+
+        return out
+    
+
+
+
+
+    def get_RF_traces(self):
+        out = []
+        
+        y1 = self.data['res_vec_dict']['f1']
+        y2 = self.data['res_vec_dict']['f2']
+        
+        xx = list(range(len(y1)))
+
+        for data, name, dash, col in zip([y1, y2], ['A', 'B'], ['solid', 'dot'], ['red', 'blue']):
+            line = go.Scatter(x=xx, 
+                y=data,
+                name=f"R.F. (fung. {name})",
+                legendgroup="YRF",
+                line=dict(dash=dash, color=col))
+            out.append(line)
+
+        return out
+
+
+
+    def add_traces_to_layout(self, data_dict):
+        fig = make_subplots(rows=2, cols=3, 
+                            horizontal_spacing=0.2,
+                            shared_xaxes=True,
+                            # row_heights=[0.3, 0.3]
+                            )
+
+        self.add_traces(fig, data_dict['S_R'], 1, 1)
+        self.add_traces(fig, data_dict['E'], 1, 2)
+        self.add_traces(fig, data_dict['I'], 2, 1)
+        self.add_traces(fig, data_dict['F'], 2, 2)
+        
+        self.add_traces(fig, data_dict['yield'], 1, 3)
+        self.add_traces(fig, data_dict['RF'], 2, 3)
+
+        return fig
+
+
+
+    def _sort_layout(self, fig):
+        fig = self.update_axes(fig)
+
+        fig.update_layout(standard_layout(False, self.width, self.height))
+        
+        annotz = self.get_corner_text_labels_comb()
+        annotz += self.get_unacceptable_yield_annotation()
+        
+        fig.update_layout(annotations=annotz)
+
+        fig = self.add_diagram(fig)
+
+        fig.update_layout(margin=dict(t=450))
+
+        fig = self.sort_legend(fig)
+
+        return fig
+
+
+    def add_diagram(self, fig):
+        
+        img = Image.open("runHRHR/img/diagram.png")
+
+        fig.add_layout_image(
+            dict(
+                source=img,
+                
+                xref="paper", yref="paper",
+                x=0,
+                y=1.15,
+                sizex=1.5,
+                sizey=1.5,
+                xanchor="left",
+                yanchor="bottom",
+                opacity=1,
+                ))
+        return fig
+
+
+    def sort_legend(self, fig):
+        fig.update_layout(showlegend=True, legend=dict(font=dict(size=16)))
+        return fig
+
+
+    @staticmethod
+    def get_corner_text_labels_comb():
+
+        very_top = 1.8
+        
+        top_row = 1.12
+        bottom_row = 0.54
+        
+        left = -0.04
+        middle = 0.33
+        right = 0.72
+
+        annotz = [
+            get_big_text_annotation(left, very_top, 'A'),
+            get_big_text_annotation(left, top_row, 'B'),
+            get_big_text_annotation(left, bottom_row, 'C'),
+            get_big_text_annotation(middle, top_row, 'D'),
+            get_big_text_annotation(middle, bottom_row, 'E'),
+            get_big_text_annotation(right, top_row, 'F'),
+            get_big_text_annotation(right, bottom_row, 'G'),
+            ]
+
+        return annotz
+
+
+
+    def get_unacceptable_yield_annotation(self):
+        # 0.5*(95+self.yield_lower_lim)
+
+        return [dict(
+            xref="x3",
+            # yref="y1",
+            xanchor="left",
+            # yanchor="top",
+            x= 0.5,
+            y= 0.55,
+            text="Unacc.<br>yield",
+            showarrow=False,
+            )]
+
+
+
+    def add_traces(self, fig, traces, row, col):
+        for trace in traces:
+            fig.add_trace(trace, row, col)
+
+        return fig
+
+
+
+
+    def update_axes(self, fig):
+
+        fig.update_xaxes(row=1, col=1, showgrid=False)
+        fig.update_xaxes(row=1, col=2, showgrid=False)
+        
+        fig.update_xaxes(title="Time<br>(degree-days)", row=2, col=1, showgrid=False, zeroline=False)
+        fig.update_xaxes(title="Time<br>(degree-days)", row=2, col=2, showgrid=False, zeroline=False)
+        
+        fig.update_xaxes(title="Time (years)", row=2, col=3, showgrid=False, zeroline=False)
+        fig.update_xaxes(row=1, col=3, showgrid=False, zeroline=False)
+        
+        
+        fig.update_yaxes(title="L.A.I.", row=1, col=1, showgrid=False, zeroline=False)
+        fig.update_yaxes(title="L.A.I.", row=1, col=2, showgrid=False, zeroline=False)
+        fig.update_yaxes(title="L.A.I.", row=2, col=1, showgrid=False, zeroline=False)
+        fig.update_yaxes(title="Concentration", row=2, col=2, showgrid=False, zeroline=False)
+
+        fig.update_yaxes(title="Yield", row=1, col=3, showgrid=False, zeroline=False)
+        fig.update_yaxes(title="R.F.", row=2, col=3, showgrid=False, zeroline=False)
+
+        return fig
+    
+
+
+    def _save_and_show(self, fig, conf_str):
+        fig.show()
+        filename = conf_str.replace("/single/", "/paper_figs/model_overview_combined_")
+        
+        print("saving figure to: \n", filename)
+
+        fig.write_image(filename)
+
+
+# End of CombinedModelPlot
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class DoseSpaceScenariosPlot:
     def __init__(self, data, conf_str) -> None:
 
-        self.width = 800
+        self.width = FULL_PAGE_WIDTH
 
-        self.height = 620
+        self.height = 900
 
         self.data = data
 
@@ -1511,8 +1863,8 @@ class DoseSpaceScenariosPlot:
     @staticmethod
     def _update_axes(fig):
         eps = 0.04
-        fig.update_xaxes(title="Dose (fungicide A)", range=[0-eps,1+eps], showgrid=False)
-        fig.update_yaxes(title="Dose (fungicide B)", range=[0-eps,1+eps], showgrid=False)
+        fig.update_xaxes(title="Dose (fungicide A)", range=[0-eps,1+eps], showgrid=False, zeroline=False)
+        fig.update_yaxes(title="Dose (fungicide B)", range=[0-eps,1+eps], showgrid=False, zeroline=False)
         return fig
     
 
@@ -1541,7 +1893,7 @@ class DoseSpaceScenariosPlot:
 class DosesScatterPlot:
     def __init__(self, data, conf_str) -> None:
 
-        self.width = 800
+        self.width = FULL_PAGE_WIDTH
 
         self.height = 620
 
@@ -1660,7 +2012,7 @@ class DosesScatterPlot:
 class YieldAndRfPlot:
     def __init__(self, data, conf_str) -> None:
 
-        self.width = 800
+        self.width = FULL_PAGE_WIDTH
 
         self.height = 620
 
@@ -1810,7 +2162,7 @@ class YieldAndRfPlot:
 
     @staticmethod
     def _update_axes(fig):
-        fig.update_xaxes(title="Time (years)", row=2, col=1, showgrid=False)
+        fig.update_xaxes(title="Time (years)", row=2, col=1, showgrid=False, zeroline=False)
         
         fig.update_yaxes(title="Yield<br>(% of disease free)", row=1, col=1)
         
@@ -1852,7 +2204,7 @@ class YieldAndRfPlot:
 class ParamScanPlotMeVsHobb:
     def __init__(self, data, conf_str) -> None:
 
-        self.width = 800
+        self.width = FULL_PAGE_WIDTH
 
         self.height = 800
 
@@ -2009,7 +2361,7 @@ class ParamScanPlotMeVsHobb:
 class ParamScanPlotHighLowDose:
     def __init__(self, data, conf_str) -> None:
 
-        self.width = 800
+        self.width = FULL_PAGE_WIDTH
 
         self.height = 800
 
@@ -2216,7 +2568,7 @@ class ParamScanPlotHighLowDose:
 class FigTemplateClass:
     def __init__(self, data, conf_str) -> None:
 
-        self.width = 800
+        self.width = FULL_PAGE_WIDTH
 
         self.height = 620
 

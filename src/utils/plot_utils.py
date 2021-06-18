@@ -7,7 +7,7 @@ from .plot_consts import NULL_HEATMAP_COLOUR, PLOT_WIDTH, PLOT_HEIGHT, LABEL_COL
 
 def standard_layout(legend_on, width=PLOT_WIDTH, height=PLOT_HEIGHT):
     return go.Layout(
-            font = dict(size=20),
+            font = dict(size=16),
             template="plotly_white",
             width=width,
             height=height,

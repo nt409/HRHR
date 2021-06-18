@@ -14,6 +14,7 @@ then compile into one df using post_process.py
 import sys
 
 from ..functions import ParamScanRand
+# from ...configs.par_scan import config_rand
 from ..config import config_rand
 
 

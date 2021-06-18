@@ -11,8 +11,7 @@ from utils.params import PARAMS
 from utils.functions import RunGrid, RunSingleTactic, \
     logit10_difference, EqualResFreqBreakdownArray, \
     EqualSelectionArray
-from utils.plotting import dose_grid_heatmap, eq_RFB_contours, \
-    DoseSpaceScenariosPlot
+from utils.plotting import DoseSpaceScenariosPlot
 
 from .cont_opt import ContourStratDFGetter
 

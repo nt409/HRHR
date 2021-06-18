@@ -19,9 +19,9 @@ from runHRHR.config_classes import SingleConfig
 # Changing doses fns
 # Changing fcide fns
 # Param Scan fns
-# class Simulator
-# class RunSingleTactic
-# classes based on RunMultipleTactics
+# cls Simulator
+# cls RunSingleTactic
+# cls RunGrid
 
 
 #----------------------------------------------------------------------------------------------
@@ -313,8 +313,6 @@ class Fungicide:
         return effect
 
 
-# * Simulator Class
-
 class Simulator:
     def __init__(self, fungicide_params):
         if fungicide_params is None:
@@ -397,103 +395,11 @@ class Simulator:
 
     
 
-    
-    def _final_value_res_props(self):
-        """
-        Uses final value (end of season) to determine the res props. 
-        These are used for next season (with a SR step in between if sr_prop=/=0)
-        """
-
-        disease = (self.solution[-1,PARAMS.IR_ind] + 
-                        self.solution[-1,PARAMS.IRS_ind] +
-                        self.solution[-1,PARAMS.ISR_ind] + 
-                        self.solution[-1,PARAMS.IS_ind])
-            
-        Res_disease_1 = self.solution[-1,PARAMS.IR_ind] + self.solution[-1,PARAMS.IRS_ind]
-        Res_disease_2 = self.solution[-1,PARAMS.IR_ind] + self.solution[-1,PARAMS.ISR_ind]
-
-        res_props_out = dict(
-            f1 = Res_disease_1/disease,
-            f2 = Res_disease_2/disease,
-            )
-        
-        strain_frequencies = dict(
-            RR = self.solution[-1,PARAMS.IR_ind]/disease,
-            RS = self.solution[-1,PARAMS.IRS_ind]/disease,
-            SR = self.solution[-1,PARAMS.ISR_ind]/disease,
-            SS = self.solution[-1,PARAMS.IS_ind]/disease
-        )
-        
-        return res_props_out, strain_frequencies
-
-    
-    def _integrated_res_props(self):
-        """
-        Not used in most recent version 
-        
-        - idea was to integrate over end of the season,
-        rather than just take the final value
-        
-        """
-
-        disease = simps(self.solution[:,PARAMS.IR_ind] + self.solution[:,PARAMS.IRS_ind]
-                         + self.solution[:,PARAMS.ISR_ind] + self.solution[:,PARAMS.IS_ind], self.solutiont)
-            
-        Res_disease_1 = simps(self.solution[:,PARAMS.IR_ind] + self.solution[:,PARAMS.IRS_ind], self.solutiont)
-        Res_disease_2 = simps(self.solution[:,PARAMS.IR_ind] + self.solution[:,PARAMS.ISR_ind], self.solutiont)
-        
-        res_props_out = dict(
-            f1 = Res_disease_1/disease,
-            f2 = Res_disease_2/disease,
-            )
-        
-        strain_frequencies = dict(
-            RR = simps(self.solution[:,PARAMS.IR_ind], self.solutiont)/disease,
-            RS = simps(self.solution[:,PARAMS.IRS_ind], self.solutiont)/disease,
-            SR = simps(self.solution[:,PARAMS.ISR_ind], self.solutiont)/disease,
-            SS = simps(self.solution[:,PARAMS.IS_ind], self.solutiont)/disease,
-            )
-
-        return res_props_out, strain_frequencies
-    
-    
-    #----------------------------------------------------------------------------------------------
-    def _calculate_res_props(self, method=None):
-
-        if method is None or method=='final_value':
-            return self._final_value_res_props()
-
-        if method=='integrated':
-            return self._integrated_res_props()
 
 
-    def _integrated_inoc_val(self):
-        disease = simps(self.solution[:,PARAMS.IR_ind]+self.solution[:,PARAMS.IRS_ind] +
-                self.solution[:,PARAMS.ISR_ind]+self.solution[:,PARAMS.IS_ind],self.solutiont)
-        return PARAMS.init_den*((1-PARAMS.last_year_prop) + 
-                        PARAMS.last_year_prop * PARAMS.inoc_frac_integral * disease)
 
 
-    def _final_inoc_value(self):
-        return PARAMS.init_den*((1-PARAMS.last_year_prop) +
-                    PARAMS.last_year_prop * PARAMS.inoc_frac*
-                    (self.solution[-1,PARAMS.IR_ind]+self.solution[-1,PARAMS.IRS_ind]+
-                        self.solution[-1,PARAMS.ISR_ind]+self.solution[-1,PARAMS.IS_ind])
-                    ) 
 
-    #----------------------------------------------------------------------------------------------
-    def _get_inoculum_value(self):
-        
-        method = PARAMS.res_prop_calc_method
-        
-        if method is None or method=='final_value':
-            return self._final_inoc_value()
-        
-        elif method=='integrated':
-            return self._integrated_inoc_val()
-        
-        else:
-            raise Exception("inoculum method incorrect")
 
 
 
@@ -574,20 +480,17 @@ class Simulator:
         
         #----------------------------------------------------------------------------------------------
         self.solutiont = np.concatenate(t_list)
-        solutionTranspose  = np.concatenate(y_list,axis=1)
+        solutionTranspose  = np.concatenate(y_list, axis=1)
         self.solution  = np.transpose(solutionTranspose)
-        
+
 
         # #----------------------------------------------------------------------------------------------  
-        final_res_dict, props_out = self._calculate_res_props(method=PARAMS.res_prop_calc_method)
+        final_res_dict, props_out = ResPropFinder(self.solution).calculate()
         
-        inoc = self._get_inoculum_value()
+        inoc = InoculumFinder(self.solution, "constant").inoc
 
         # get selection
-        selection = dict(
-            f1 = 1,
-            f2 = 1
-            )
+        selection = dict(f1=1, f2=1)
 
         for key in ['f1','f2']:
             if initial_res_dict[key] > 0:
@@ -619,16 +522,142 @@ class Simulator:
 
 
 
+class InoculumFinder:
+    def __init__(self, solution, method) -> None:
+        self.solution = solution
+        self.method = method
+        self.inoc = self._get_inoculum_value()
+
+    #----------------------------------------------------------------------------------------------
+    def _get_inoculum_value(self):
+        
+        method = self.method
+        
+        if method is None or method=='constant':
+            return self._constant()
+        
+        elif method=='final_value':
+            return self._final_inoc_value()
+        
+        elif method=='integrated':
+            return self._integrated_inoc_val()
+        
+        else:
+            raise Exception("inoculum method incorrect")
+
+    def _constant(self):
+        return PARAMS.init_den
+
+    def _final_inoc_value(self):
+        return PARAMS.init_den*(
+                (1-PARAMS.last_year_prop) +
+                    PARAMS.last_year_prop * PARAMS.inoc_frac*
+                    (self.solution[-1,PARAMS.IR_ind] +
+                        self.solution[-1,PARAMS.IRS_ind] +
+                        self.solution[-1,PARAMS.ISR_ind] +
+                        self.solution[-1,PARAMS.IS_ind])
+                        )
+
+                    
+    def _integrated_inoc_val(self):
+        disease = simps(self.solution[:,PARAMS.IR_ind]+self.solution[:,PARAMS.IRS_ind] +
+                self.solution[:,PARAMS.ISR_ind]+self.solution[:,PARAMS.IS_ind],self.solutiont)
+        return PARAMS.init_den*((1-PARAMS.last_year_prop) + 
+                        PARAMS.last_year_prop * PARAMS.inoc_frac_integral * disease)
+
+
+# * End of InoculumFinder cls
 
 
 
+class ResPropFinder:
+    def __init__(self, solution) -> None:
+        self.solution = solution
+    
+    def calculate(self):
+        """
+        Uses final value (end of season) to determine the res props. 
 
-# * Dose class
+        These are used for next season (with a SR step in between if sr_prop=/=0)
+        """
+
+        disease = (self.solution[-1,PARAMS.IR_ind] + 
+                        self.solution[-1,PARAMS.IRS_ind] +
+                        self.solution[-1,PARAMS.ISR_ind] + 
+                        self.solution[-1,PARAMS.IS_ind])
+            
+        Res_disease_1 = self.solution[-1,PARAMS.IR_ind] + self.solution[-1,PARAMS.IRS_ind]
+        Res_disease_2 = self.solution[-1,PARAMS.IR_ind] + self.solution[-1,PARAMS.ISR_ind]
+
+        res_props_out = dict(
+            f1 = Res_disease_1/disease,
+            f2 = Res_disease_2/disease,
+            )
+        
+        strain_frequencies = dict(
+            RR = self.solution[-1,PARAMS.IR_ind]/disease,
+            RS = self.solution[-1,PARAMS.IRS_ind]/disease,
+            SR = self.solution[-1,PARAMS.ISR_ind]/disease,
+            SS = self.solution[-1,PARAMS.IS_ind]/disease
+        )
+        
+        return res_props_out, strain_frequencies
+
+# * End of RPFinder cls
+    
+    
+
+
+
 
 class FungicideStrategy:
     def __init__(self, my_strategy, n_seasons):
-        self.n_seasons = n_seasons
         self.my_strategy = my_strategy
+        self.n_seasons = n_seasons
+
+
+
+    def get_doses(self, f1_val, f2_val, n_doses):
+
+        self._set_concs(f1_val, f2_val, n_doses)
+
+        self._dose_for_this_strategy()      
+
+        return self.fung1_doses, self.fung2_doses
+
+
+    def _set_concs(self, f1_val, f2_val, n_doses):
+        if n_doses is not None:
+            self._set_grid_concs(f1_val, f2_val, n_doses)
+        else:
+            self._set_regular_concs(f1_val, f2_val)
+
+
+    def _set_grid_concs(self, f1_val, f2_val, n_doses):
+        self.conc_f1 = f1_val/(n_doses-1)
+        self.conc_f2 = f2_val/(n_doses-1)
+
+
+    def _set_regular_concs(self, f1_val, f2_val):
+        self.conc_f1 = f1_val
+        self.conc_f2 = f2_val
+
+
+
+    def _dose_for_this_strategy(self):
+        if self.my_strategy=='mix':
+            self._get_mixed_doses()
+                
+        elif self.my_strategy=='alt_12':
+            self._get_alt_12_doses()
+        
+        elif self.my_strategy=='alt_21':
+            self._get_alt_21_doses()
+        
+        else:
+            raise Exception("incorrect strategy named")
+
+
 
 
     def _get_mixed_doses(self):        
@@ -667,53 +696,11 @@ class FungicideStrategy:
 
 
 
-    def _set_grid_concs(self, f1_val, f2_val, n_doses):
-        self.conc_f1 = f1_val/(n_doses-1)
-        self.conc_f2 = f2_val/(n_doses-1)
 
 
-    def _set_regular_concs(self, f1_val, f2_val):
-        self.conc_f1 = f1_val
-        self.conc_f2 = f2_val
+# * End of FungicideStrategy class
 
 
-    def _set_concs(self, f1_val, f2_val, n_doses):
-        if n_doses is not None:
-            self._set_grid_concs(f1_val, f2_val, n_doses)
-        else:
-            self._set_regular_concs(f1_val, f2_val)
-
-
-    def _dose_for_this_strategy(self):
-        if self.my_strategy=='mix':
-            self._get_mixed_doses()
-                
-        elif self.my_strategy=='alt_12':
-            self._get_alt_12_doses()
-        
-        elif self.my_strategy=='alt_21':
-            self._get_alt_21_doses()
-        
-        else:
-            raise Exception("incorrect strategy named")
-
-
-
-    def get_doses(self, f1_val, f2_val, n_doses):
-
-        self._set_concs(f1_val, f2_val, n_doses)
-
-        self._dose_for_this_strategy()      
-
-        return self.fung1_doses, self.fung2_doses
-
-
-
-# * End of Dose class
-
-
-
-# * RunSingleTactic class
 
 class RunSingleTactic:
     def __init__(self, fcide_parms=None):
@@ -1051,22 +1038,66 @@ class RunSingleTactic:
         return model_output
 
 
-# End of RunSingleTactic
+# * End of RunSingleTactic
 
 
 
 
 
-# * RunMultipleTactics
 
-class RunMultipleTactics:
+class RunGrid:
     def __init__(self, fcide_parms=None):
         self.sing_tact = RunSingleTactic(fcide_parms)
+
+
+
+    def grid_of_tactics(self, ConfigG):
+        """
+        Run across grid
+        """
+
+        self.filename = ConfigG.config_string
+
+        if ConfigG.load_saved:
+            loaded_run = self._load_multi_tactic(self.filename)
+            if loaded_run is not None:
+                return loaded_run
+
+        Conf = copy.copy(ConfigG)
+
+        self._initialise_multi_vars(Conf.n_doses, Conf.n_years)
+
+        self._run_the_grid(Conf)
+
+        grid_output = self._save_grid()
+
+        return grid_output
+
+
+
+    def _run_the_grid(self, Conf):
+        fs = FungicideStrategy(Conf.strategy, Conf.n_years)
+        
+        for f1_ind in tqdm(range(Conf.n_doses)):
+            for f2_ind in range(Conf.n_doses):
+
+                Conf.fung1_doses, Conf.fung2_doses = fs.get_doses(
+                                                    f1_ind, f2_ind, Conf.n_doses)
+
+                one_tact_output =  self.sing_tact.run_single_tactic(Conf)
+                
+                self._post_process_multi(one_tact_output, f1_ind, f2_ind, Conf)
+
+        self.t_vec = one_tact_output['t_vec']
+
+
 
 
     @staticmethod
     def _lifetime_yield(Y_vec, F_y):
         return sum(Y_vec[:(F_y+1)])/100
+
+
 
     @staticmethod
     def _this_year_profit(yield_, dose1, dose2):
@@ -1101,6 +1132,8 @@ class RunMultipleTactics:
         # need other_costs>0.79*tons_per_ha*price_per_ton (yield without spraying)
         
         return profit
+
+
 
     
     def _economic_life(self, Y_vec, dose1, dose2):
@@ -1164,10 +1197,6 @@ class RunMultipleTactics:
         
 
     
-    def _get_fung_strat(self, Conf):
-        self.fung_strat = FungicideStrategy(Conf.strategy, Conf.n_years)
-
-
 
     def _update_dict_array_this_dose(self, to_update, data, f1_ind, f2_ind, key1):
 
@@ -1217,51 +1246,6 @@ class RunMultipleTactics:
 
 
 
-class RunGrid(RunMultipleTactics):
-    def __init__(self, fcide_parms=None):
-        super().__init__(fcide_parms)
-
-
-    def grid_of_tactics(self, ConfigG):
-        """
-        Run across grid
-        """
-
-        self.filename = ConfigG.config_string
-
-        if ConfigG.load_saved:
-            loaded_run = self._load_multi_tactic(self.filename)
-            if loaded_run is not None:
-                return loaded_run
-
-        Conf = copy.copy(ConfigG)
-
-        self._get_fung_strat(Conf)
-
-        self._initialise_multi_vars(Conf.n_doses, Conf.n_years)
-
-        self._run_the_grid(Conf)
-
-        grid_output = self._save_grid()
-
-        return grid_output
-
-
-
-    def _run_the_grid(self, Conf):
-        
-        for f1_ind in tqdm(range(Conf.n_doses)):
-            for f2_ind in range(Conf.n_doses):
-
-                Conf.fung1_doses, Conf.fung2_doses = self.fung_strat.get_doses(
-                                                    f1_ind, f2_ind, Conf.n_doses)
-
-                one_tact_output =  self.sing_tact.run_single_tactic(Conf)
-                
-                self._post_process_multi(one_tact_output, f1_ind, f2_ind, Conf)
-
-        self.t_vec = one_tact_output['t_vec']
-
 
 
 
@@ -1284,477 +1268,10 @@ class RunGrid(RunMultipleTactics):
         return grid_output
 
 
+# End of RunGrid class
 
 
 
-
-
-class RunDoseSpace(RunMultipleTactics):
-  
-    @staticmethod
-    def constant_effect(x, cont_radial, cont_perp):
-        print("nb this uses PARAMS curvatures and omega=1")
-        out = (1- exp(-PARAMS.theta_1*x)) * (1- exp(-PARAMS.theta_2*cont_radial*x)) - cont_perp
-        return out
-
-
-    def _initialise_dose_space(self, n_doses):
-
-        self.contour_perp = np.linspace(0, 1, n_doses+2)[1:-1]
-        self.contours_radial = [2**(n) for n in range(-floor(n_doses/2), floor(n_doses/2)+1, 1)]
-
-        self.f1_vals = np.zeros((n_doses, n_doses))
-        self.f2_vals = np.zeros((n_doses, n_doses))
-
-
-    def _run_dose_space(self, Conf):
-        
-        self._get_fung_strat(Conf)
-
-        self._initialise_dose_space(Conf.n_doses)     
-        
-        for i in tqdm(range(Conf.n_doses)):
-            for j in range(Conf.n_doses):
-
-                f1_val = fsolve(self.constant_effect, 
-                                args=(self.contours_radial[j],
-                                      self.contour_perp[i]), x0=0.001)[0]
-
-                f2_val = self.contours_radial[j]*f1_val
-
-                if f1_val>1 or f2_val>1:
-                    self.LTY[i,j] = None
-                    self.TY[i,j] = None
-                    self.FY[i,j] = None
-                    continue
-
-                Conf.fung1_doses, Conf.fung2_doses = self.fung_strat.get_doses(
-                                                            f1_val, f2_val, None)
-
-                one_tact_output =  self.sing_tact.run_single_tactic(Conf)
-                
-                self.f1_vals[i,j] = f1_val
-                self.f2_vals[i,j] = f2_val
-                
-                self._post_process_multi(one_tact_output, i, j, Conf)
-                
-        self.t_vec = one_tact_output['t_vec']
-
-
-
-    def _save_dose_space(self):
-        ds_output = {'LTY': self.LTY,
-                    'TY': self.TY,
-                    'FY': self.FY,
-                    'f1_vals': self.f1_vals,
-                    'f2_vals': self.f2_vals,
-                    'contour_perp': self.contour_perp,
-                    'contours_radial': self.contours_radial,
-                    'yield_array': self.yield_array,
-                    'res_arrays': self.res_arrays,
-                    'start_freqs': self.start_freqs,
-                    'selection_arrays': self.selection_arrays,
-                    'inoc_array': self.inoc_array,
-                    't_vec': self.t_vec,
-                    'econ': self.econ,
-                    }
-
-        object_dump(self.filename, ds_output)
-
-        return ds_output
-
-
-
-    def run_loop(self, ConfigDS):
-        """
-        Run across grid
-        """
-        
-        filename = ConfigDS.config_string
-        self.filename = filename.replace("grid", "dose_space")
-
-        if ConfigDS.load_saved:
-            loaded_run = self._load_multi_tactic(self.filename)
-            if loaded_run is not None:
-                return loaded_run
-
-        Conf = copy.copy(ConfigDS)
-
-        self._initialise_multi_vars(Conf.n_doses, Conf.n_years)
-
-        self._run_dose_space(Conf)
-        
-        ds_output = self._save_dose_space()
-
-        return ds_output
-
-
-
-class RunRadial(RunMultipleTactics):
-
-    def _run_angle_radius_combos(self, ConfigDS):
-
-        Conf = copy.copy(ConfigDS)
-
-        self._get_fung_strat(Conf)
-        
-        angles = np.linspace(0, pi/2, Conf.n_angles)
-        radii = np.linspace(0, 2**(0.5), Conf.n_radii+1)[1:]
-
-        self.row_list = []
-
-        for angle in tqdm(angles):
-            for radius in radii:
-
-                f1_val = radius*cos(angle)
-                f2_val = radius*sin(angle)
-
-                if radius==2**0.5 and angle==pi/4:
-                    # floating point error meant this important point missed without this
-                    f1_val=1
-                    f2_val=1
-
-                if f1_val>1 or f2_val>1:
-                    continue
-                
-                Conf.fung1_doses, Conf.fung2_doses = self.fung_strat.get_doses(
-                                                        f1_val, f2_val, None)
-
-                one_tact_output =  self.sing_tact.run_single_tactic(Conf)
-                
-                lty = self._lifetime_yield(one_tact_output['yield_vec'], one_tact_output['failure_year'])
-                ty = self._total_yield(one_tact_output['yield_vec'])
-                fy = one_tact_output['failure_year']
-                
-                total_dose_f1 = Conf.fung1_doses['spray_1'][0] + Conf.fung1_doses['spray_2'][0]
-                total_dose_f2 = Conf.fung2_doses['spray_1'][0] + Conf.fung2_doses['spray_2'][0]
-
-                econ = self._economic_life(one_tact_output['yield_vec'], total_dose_f1, total_dose_f2)
-
-                self.row_list.append(dict(d1=f1_val,
-                            d2=f2_val,
-                            LTY=lty,
-                            TY=ty,
-                            FY=fy,
-                            Econ=econ,
-                            angle=angle,
-                            radius=radius,
-                            ))
-
-
-
-    def master_loop_radial(self, Conf):
-        """
-        Run radially in dose space
-        """
-
-        filename = Conf.config_string
-        filename = filename.replace("grid", "radial")
-
-        if Conf.load_saved:
-            loaded_run = self._load_multi_tactic(filename)
-            if loaded_run is not None:
-                return loaded_run
-
-        self._run_angle_radius_combos(Conf)
-                
-        df_out = pd.DataFrame(self.row_list)
-
-        object_dump(filename, df_out)
-
-        return df_out
-
-
-
-class RunRfRatio(RunSingleTactic):
-    def __init__(self, grid_output):
-        # super.__init__(None)
-
-        self.FY_array = grid_output['FY'] 
-        self.res_arrays = grid_output['res_arrays']
-        self.start_freqs = grid_output['start_freqs']
-
-        self.N = self.FY_array.shape[0]
-
-        self._find_opt_FY()
-
-
-    def _find_opt_FY(self):
-        """
-        Get failure year for res freq @ breakdown strat
-        """
-        self.opt_FY_rfb = int(np.amax(self.FY_array))
-
-
-    def _get_rfb_df(self, f2):
-        delt_rf_list = []
-        f1_list = []
-        f2_list = []
-        
-        for f1 in range(self.N):
-            fy = int(self.FY_array[f1, f2])
-            
-            rf1 = self.res_arrays['f1'][f1,f2,fy]
-            rf2 = self.res_arrays['f2'][f1,f2,fy]
-            
-            if fy>0:
-                delt_rf_list.append(logit10_difference(rf1, rf2))
-                f1_list.append(f1)
-                f2_list.append(f2)
-        
-        df = pd.DataFrame(dict(metric=delt_rf_list, f1=f1_list, f2=f2_list))
-        return df
-    
-
-    def _get_eq_sel_df(self, f2):
-        
-        print("warning now using end freqs!!!")
-
-        eq_sel_list = []
-        f1_list = []
-        f2_list = []
-        
-        for f1 in range(self.N):
-            fy = int(self.FY_array[f1, f2])
-            
-            sr0 = self.start_freqs['SR'][f1,f2,0]
-            sr1 = self.start_freqs['SR'][f1,f2,1]
-            
-            rs0 = self.start_freqs['RS'][f1,f2,0]
-            rs1 = self.start_freqs['RS'][f1,f2,1]
-            
-            s1 = rs1/rs0
-            s2 = sr1/sr0
-
-            if fy>0:
-                eq_sel_list.append(-1 + s1/s2)
-                f1_list.append(f1)
-                f2_list.append(f2)
-        
-        df = pd.DataFrame(dict(metric=eq_sel_list, f1=f1_list, f2=f2_list))
-        return df
-
-
-    @staticmethod
-    def _interpolate_dfs(lessthan0, morethan0):
-        lower_f1 = list(lessthan0.f1)[-1]
-        upper_f1 = list(morethan0.f1)[0]
-        
-        lower_metric = list(lessthan0.metric)[-1]
-        upper_metric = list(morethan0.metric)[0]
-
-        f1_out = lower_f1 + (upper_f1-lower_f1) * (-lower_metric) / (upper_metric - lower_metric)
-        return f1_out
-
-
-    def get_f1_from_df(self, df):
-        lessthan0 = df[df['metric']<0]
-        equals0 = df[df['metric']==0]
-        morethan0 = df[df['metric']>0]
-
-        if len(equals0):
-            print("is 0")
-            if len(equals0.f2)>1:
-                raise Exception("shouldn't be more than 1 dose with equal one selection")
-            else:
-                return equals0.f1
-
-        else:
-            if len(lessthan0) and len(morethan0):
-                f1_out = self._interpolate_dfs(lessthan0, morethan0)
-                return f1_out
-            else:
-                return None
-    @staticmethod
-    def _is_decreasing(L):
-        return all(x>y for x, y in zip(L, L[1:]))
-    
-    @staticmethod
-    def _is_increasing(L):
-        return not all(x>y for x, y in zip(L, L[1:]))
-
-    def get_f1_forK_from_df(self, df, K):
-        lessthanK = df[df['metric']<K]
-        equalsK = df[df['metric']==K]
-        morethanK = df[df['metric']>K]
-        
-        # check monotonicity
-        if not self._is_decreasing(list(df['metric'])):
-            # raise Exception(L, [x<y for x, y in zip(L, L[1:])], "non monotone")
-            print("not decreasing")
-            # return None
-        
-        if not self._is_increasing(list(df['metric'])):
-            # raise Exception(L, [x<y for x, y in zip(L, L[1:])], "non monotone")
-            print("not increasing")
-            # return None
-        
-        if self._is_increasing(list(df['metric'])):
-            # raise Exception(L, [x<y for x, y in zip(L, L[1:])], "non monotone")
-            print("IS increasing")
-            # return None
-
-
-        if len(equalsK):
-            print("is K")
-            if len(equalsK.f2)>1:
-                raise Exception("shouldn't be more than 1 dose")
-            else:
-                return equalsK.f1
-
-        else:
-            if len(lessthanK) and len(morethanK):
-                f1_out = self._interpolate_dfs(lessthanK, morethanK)
-                if f1_out>30:
-                    print(df, K, "wow")
-                return f1_out
-            else:
-                return None
-
-
-    def _find_RFB_contour(self):
-        """
-        Find contour along which rfs are equal in breakdown year
-        """
-        self.df_RFB = pd.DataFrame()
-        for f2 in range(self.N):
-            df = self._get_rfb_df(f2)
-            f1 = self.get_f1_from_df(df)
-
-            if f1 is not None:
-                self.df_RFB = self.df_RFB.append(dict(f1_inds=f1, f2_inds=f2), ignore_index=True)
-        
-        self.df_RFB['f1'] = [i/(self.N-1) for i in self.df_RFB.f1_inds]
-        self.df_RFB['f2'] = [i/(self.N-1) for i in self.df_RFB.f2_inds]
-
-    def _find_RFB_contour_at_K(self, K):
-        """
-        Find contour along which logit rfs differ by K in breakdown year
-        """
-        df_RFB = pd.DataFrame()
-        for f2 in range(self.N):
-            df = self._get_rfb_df(f2)
-            f1 = self.get_f1_forK_from_df(df, K)
-
-            if f1 is not None:
-                df_RFB = df_RFB.append(dict(f1_inds=f1, f2_inds=f2), ignore_index=True)
-        
-        if "f1_inds" in df_RFB.columns:
-            df_RFB['f1'] = [i/(self.N-1) for i in df_RFB.f1_inds]
-            df_RFB['f2'] = [i/(self.N-1) for i in df_RFB.f2_inds]
-            return df_RFB
-        else:
-            return None
-
-
-    def _find_EqS_contour(self):
-        """
-        Find contour along which rfs are equal in breakdown year
-        """
-        self.df_EqS = pd.DataFrame()
-        for f2 in range(self.N):
-            df = self._get_eq_sel_df(f2)
-            f1 = self.get_f1_from_df(df)
-
-            if f1 is not None:
-                self.df_EqS = self.df_EqS.append(dict(f1_inds=f1, f2_inds=f2), ignore_index=True)
-        
-        self.df_EqS['f1'] = [i/(self.N-1) for i in self.df_EqS.f1_inds]
-        self.df_EqS['f2'] = [i/(self.N-1) for i in self.df_EqS.f2_inds]
-
-
-    def get_multi_RFB_contours(self, cont_list):
-        out = []
-        for k in cont_list:
-            cont_df = self._find_RFB_contour_at_K(k)
-            
-            if cont_df is not None:
-                x_list = list(cont_df.f1)
-                y_list = list(cont_df.f2)
-                out.append([x_list, y_list])
-        return out
-
-
-    def get_contours(self):
-        self._find_RFB_contour()
-        self._find_EqS_contour()
-        return [self.df_RFB, self.df_EqS]
-    
-
-    def _run_RFB_contour(self, res_props):
-        self._find_RFB_contour()
-
-        d1s = self.df_RFB.f1
-        d2s = self.df_RFB.f2
-
-        rf1 = res_props['f1']
-        rf2 = res_props['f2']
-
-        FY_list = []
-
-        for d1, d2 in zip(d1s, d2s):
-            
-            d1 = float(0.5*d1)
-            d2 = float(0.5*d2)
-
-            ConfigSingleRun = SingleConfig(30, rf1, rf2, d1, d1, d2, d2)
-            output = RunSingleTactic().run_single_tactic(ConfigSingleRun)
-            FY_list.append(output['failure_year'])
-        
-        self.opt_RFB = max(FY_list)
-
-    def _run_EqS_contour(self, res_props):
-        self._find_EqS_contour()
-
-        d1s = self.df_EqS.f1
-        d2s = self.df_EqS.f2
-
-        rf1 = res_props['f1']
-        rf2 = res_props['f2']
-
-        FY_list = []
-
-        for d1, d2 in zip(d1s, d2s):
-            
-            d1 = float(0.5*d1)
-            d2 = float(0.5*d2)
-
-            ConfigSingleRun = SingleConfig(30, rf1, rf2, d1, d1, d2, d2)
-            output = RunSingleTactic().run_single_tactic(ConfigSingleRun)
-            FY_list.append(output['failure_year'])
-        
-        self.opt_EqS = max(FY_list)
-
-
-
-    def run_contours(self, res_props):
-        self._run_RFB_contour(res_props)
-        self._run_EqS_contour(res_props)
-
-        return [self.opt_RFB, self.opt_EqS]
-        
-
-        
-
-
-
-def compare_me_vs_hobb_by_ratio(ConfigGridRun, rf1, ratios):
-    EqS_list = []
-    RFB_list = []
-
-    for ratio in ratios:
-        rf2 = ratio*rf1 
-        ConfigGridRun.res_props = dict(f1=rf1, f2=rf2)
-        ConfigGridRun.add_string()
-        grid = RunGrid().grid_of_tactics(ConfigGridRun)
-        output = RunRfRatio(grid).run_contours(ConfigGridRun.res_props)
-        RFB_list.append(output[0])
-        EqS_list.append(output[1])
-
-    df = pd.DataFrame(dict(ratio=ratios, EqS=EqS_list, RFB=RFB_list))
-    return df
-
-# End of RunMultipleTactics classes
 
 
 
@@ -1799,6 +1316,8 @@ class EqualResFreqBreakdownArray:
         """
         return (np.nanmax(self.array)>0
                             and np.nanmin(self.array)<0)
+
+
 
 
 

@@ -2,15 +2,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
-from math import log10, exp
+# from math import log10, exp
 
-
-# from tqdm import tqdm
-# import itertools
-
-# from runHRHR.config_classes import GridConfig, SingleConfig
-# from utils.params import PARAMS
-# from utils.plotting import dose_grid_heatmap, eq_RFB_contours
 
 from utils.functions import RunSingleTactic
 

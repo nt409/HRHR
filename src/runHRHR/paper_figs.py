@@ -1,7 +1,7 @@
 from utils.functions import RunSingleTactic, RunGrid
 from utils.plotting import DiseaseProgressCurvesAll, DoseSpaceScenariosPlot, \
     DosesScatterPlot, YieldAndRfPlot, ParamScanPlotMeVsHobb, \
-    ParamScanPlotHighLowDose
+    ParamScanPlotHighLowDose, CombinedModelPlot
 
 from .config_classes import SingleConfig, GridConfig
 
@@ -12,7 +12,8 @@ from param_scan_cluster.functions import get_PS_rand_str, PostProcess
 # which plots
 
 model_output_overview = False
-rf_yield = True
+rf_yield = False
+model_output_combined = True
 dose_space = False
 doses_scatter = False
 param_scan_hobb_vs_me = False
@@ -42,6 +43,15 @@ if rf_yield:
     RST.yield_stopper = 0
     output = RST.run_single_tactic(ConfigSingleRun)
     YieldAndRfPlot(output, ConfigSingleRun.config_string_img)
+
+
+if model_output_combined:
+    ConfigSingleRun = SingleConfig(10, 10**(-3), 10**(-6), 1, 1, 0.5, 0.5)
+    # ConfigSingleRun.load_saved = False
+    RST = RunSingleTactic()
+    RST.yield_stopper = 0
+    output = RST.run_single_tactic(ConfigSingleRun)
+    CombinedModelPlot(output, ConfigSingleRun.config_string_img)
 
 
 if dose_space:

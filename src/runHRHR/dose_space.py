@@ -1,7 +1,8 @@
-from utils.functions import RunDoseSpace, RunGrid, RunRadial, RunRfRatio
+from utils.functions import RunDoseSpace, RunGrid, RunRadial
+
 from utils.plotting import dose_space_contour, eq_RFB_contours, radial, \
-    dose_sum_LR, dose_sum_hobb_vs_me, first_year_yield, multi_RFB_contours, \
-    MS_RFB_scatter_plot
+    dose_sum_LR, dose_sum_hobb_vs_me, first_year_yield, MS_RFB_scatter_plot
+
 from .config import ConfigGridRun
 
 import copy
@@ -14,7 +15,6 @@ dose_sum_plot = False
 radial_plot = False
 first_year_yield_plot = False
 RFB_contours = False
-get_multi_RFB_contours = False
 MS_RFB_scatter = True
 
 
@@ -121,28 +121,6 @@ if RFB_contours:
     eq_RFB_contours(output, ConfRFB)
 
 
-
-if get_multi_RFB_contours:
-    ConfMRFB = copy.copy(ConfigGridRun)
-    
-    ConfMRFB.res_props = dict(
-        f1 = 10**(-5),
-        f2 = 10**(-3),
-        )
-    ConfMRFB.n_doses = 25
-    ConfMRFB.add_string()
-
-    grid = RunGrid().grid_of_tactics(ConfMRFB)
-
-    conts = [-0.5, -0.1, 0, 0.1, 0.5]
-    names = [str(e) for e in conts]
-
-    contours = RunRfRatio(grid).get_multi_RFB_contours(conts)
-    
-    multi_RFB_contours(grid, contours, names, ConfMRFB)
-
-    # conf_str = ConfMRFB.config_string_img
-    # dose_grid_heatmap_with_contours(grid, ConfigGridRun, contours, conf_str)
 
 
 if MS_RFB_scatter:

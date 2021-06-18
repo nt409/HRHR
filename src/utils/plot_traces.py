@@ -407,46 +407,6 @@ def get_multi_contour_traces(data, Config):
 
 # End of RFB contours
 
-# MRFB contours
-
-def _add_contour_lines(contours, names, colors):
-    
-    out = []
-    for i, cont in enumerate(contours):
-        line = go.Scatter(x=cont[0],
-                    y=cont[1],
-                    name=names[i],
-                    line=dict(color=colors[i]),
-                    mode="lines+markers")
-        out.append(line)
-    return out
-
-
-def get_MRFB_contour_traces(grid, contours, names, Config):
-    
-    xheat = np.linspace(0, 1, Config.n_doses)
-    yheat = np.linspace(0, 1, Config.n_doses)
-    z = np.transpose(grid["FY"])
-    
-    clrbar = my_colorbar(TITLE_MAP["FY"])
-    
-    heatmap = go.Heatmap(
-        x = xheat,
-        y = yheat,
-        z = z,
-        colorscale=grey_colorscale(z),
-        colorbar=clrbar
-        )
-    
-    traces = [heatmap]
-
-    colors = _get_color_range(list(range(len(names))))
-    
-    traces += _add_contour_lines(contours, names, colors)
-
-    return traces
-
-# End of MRFB contours
 
 
 # MS_RFB_scatter

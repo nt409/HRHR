@@ -11,10 +11,10 @@ from param_scan_cluster.functions import get_PS_rand_str, PostProcess
 
 # which plots
 
-model_output_overview = True
+model_output_overview = False
 rf_yield = False
 model_output_combined = False
-dose_space = False
+dose_space = True
 doses_scatter = False
 param_scan_hobb_vs_me = False
 param_scan_high_low_dose = False

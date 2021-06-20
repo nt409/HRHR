@@ -1704,7 +1704,7 @@ class DoseSpaceScenariosPlot:
 
         self.width = FULL_PAGE_WIDTH
 
-        self.height = 900
+        self.height = 650
 
         self.data = data
 

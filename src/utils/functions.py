@@ -1,15 +1,10 @@
 import itertools
-from typing import final
 import numpy as np
-from math import exp, ceil, floor, pi, sin, cos, log10
+from math import exp, ceil, floor, log10
 from scipy.integrate import simps, ode
 import pickle
-import json
 import os
-# import pdb
 import copy
-from scipy.optimize import fsolve
-import pandas as pd
 from tqdm import tqdm
 
 from .params import PARAMS
@@ -18,47 +13,27 @@ from runHRHR.config_classes import SingleConfig
 # * TOC
 # Utility functions
 # Changing doses fns
-# Changing fcide fns
-# Param Scan fns
 # cls Simulator
 # cls RunSingleTactic
 # cls RunGrid
+# and other auxiliary classes
 
 
 #----------------------------------------------------------------------------------------------
 # Utility functions
 
-def object_dump(file_name, object_to_dump, object_type=None):
+def object_dump(file_name, object_to_dump):
+    
     # check if file path exists - if not create
     outdir =  os.path.dirname(file_name)
     if not os.path.exists(outdir):
         os.makedirs(outdir,exist_ok=True) 
-    #default pickle
-    if object_type is None:
-        object_type='pickle'
-    
-    if object_type == 'pickle':
-        with open(file_name, 'wb') as handle:
-            pickle.dump(object_to_dump, handle, protocol=pickle.HIGHEST_PROTOCOL) # protocol?
-    elif object_type=='json':
-        with open(file_name, 'w') as handle:
-            json.dump(object_to_dump, handle)
-    return None
+        
+    with open(file_name, 'wb') as handle:
+        pickle.dump(object_to_dump, handle, protocol=pickle.HIGHEST_PROTOCOL) # protocol?
 
 
-# def object_open(file_name, object_type=None):
-#     #default pickle
-#     if object_type is None:
-#         object_type='pickle'
-    
-#     if object_type=='pickle':
-#         object_to_load = pickle.load(open(file_name, 'rb'))
-#     elif object_type=='json':
-#         object_to_load = json.load(open(file_name))
-#     else:
-#         object_to_load = None
 
-#     return object_to_load
 
 
 def logit10(x):
@@ -67,12 +42,12 @@ def logit10(x):
     else:
         raise Exception(f"x={x} - invalid value")
 
-def log10_difference(x1, x2):
-    return log10(x1) - log10(x2)
 
 def logit10_difference(x1, x2):
     return logit10(x1) - logit10(x2)
 
+def log10_difference(x1, x2):
+    return log10(x1) - log10(x2)
 
 # End of utility functions
 
@@ -105,214 +80,7 @@ def get_SR_by_doses(doses, freqs):
 
 
 
-# * changing fcide fns
-
-def get_cf_filename(Config, vars, names):
-    c_string = Config.config_string.split(".pickle")[0]
-    c_string = c_string.replace("single/", "changing_fcide/")
-
-    out = c_string
-    my_folder = ""
-    for var, name in zip(vars,names):
-        my_str = f"_{name}={round(var[0],2)},{round(var[-1],2)},{round(len(var),2)}"
-        out += my_str
-        my_folder += name + "_"
-    
-    out = out.replace(".", ",")
-    out = out.replace(",,/", "../")
-
-    out_file = out + ".pickle"
-
-    out_img = out + ".png"
-    out_img = out_img.replace("saved_runs/changing_fcide/", 
-                    f"figures/changing_fcide/{my_folder[:-1]}/")
-    
-    return out_file, out_img
-
-
-
-
-def process_changing_fcide(df, xname, yname, zname, wname=None):
-    """
-    Convert dataframe into x,y,z output to plot
-    """
-
-    x = df[xname].unique()
-    y = df[yname].unique()
-
-    z = -2*np.ones((len(y), len(x)))
-
-    x_inds = range(len(x))
-    y_inds = range(len(y))
-
-    for i, j in itertools.product(x_inds, y_inds):
-        zz = df[(df[xname]==x[i]) & (df[yname]==y[j])]
-        filtered = zz[zname]
-        if len(filtered):
-            if wname is None:
-                z[j, i] = float(filtered)
-            else:
-                if max(zz[wname])>0:
-                    w_filt = zz[zz[wname]==max(zz[wname])]
-                    best_ones = w_filt[zname]
-                    print(w_filt)
-                    use = np.mean(best_ones)
-                    z[j, i] = float(use)
-                else:
-                    z[j, i] = None
-    
-    return x, y, z
-
-
-
-
-
-def changing_fcide_dose_curve(doses, curvatures, rf, NY):
-
-    ConfigSingleRun = SingleConfig(NY, rf, rf, 0, 0, 0, 0)
-    
-    filename, filename_img = get_cf_filename(ConfigSingleRun,
-                                [doses,
-                                curvatures],
-                                ["doses",
-                                "curv"])
-    
-    if ConfigSingleRun.load_saved and os.path.isfile(filename):
-        print("loading df")
-        df = pickle.load(open(filename, 'rb'))
-    else:
-        print("running to find df")
-
-
-        rows = []
-        for dose, curve in itertools.product(doses, curvatures):
-            ConfigSingleRun = SingleConfig(NY, rf, rf, dose, dose, dose, dose)
-            
-            ConfigSingleRun.load_saved = False
-            
-            fungicide_params = dict(
-                omega_1 = PARAMS.omega_1,
-                omega_2 = PARAMS.omega_2,
-                theta_1 = curve,
-                theta_2 = curve,
-                delta_1 = PARAMS.delta_1,
-                delta_2 = PARAMS.delta_2,
-            )
-            output = RunSingleTactic(fungicide_params).run_single_tactic(ConfigSingleRun)
-            
-            FY = output['failure_year']
-            rows.append(dict(dose=dose, curve=curve, failure_year=FY))
-        
-        df = pd.DataFrame(rows)
-
-        object_dump(filename, df)
-
-    x, y, z = process_changing_fcide(df, 'dose', 'curve', 'failure_year')
-    
-    return x, y, z, filename_img
-
-
-def changing_fcide_curve_asymp(curvatures, asymps, rf, NY):
-    
-    ConfigSingleRun = SingleConfig(NY, rf, rf, 1, 1, 1, 1)
-    
-    filename, filename_img = get_cf_filename(ConfigSingleRun,
-                                [curvatures,
-                                asymps],
-                                ["curv",
-                                "asymp"])
-    
-    if ConfigSingleRun.load_saved and os.path.isfile(filename):
-        print("loading df")
-        df = pickle.load(open(filename, 'rb'))
-    else:
-        print("running to find df")
-        
-        ConfigSingleRun.load_saved = False
-
-        rows = []
-        for curve, asymp in itertools.product(curvatures, asymps):
-            
-            fungicide_params = dict(
-                omega_1 = asymp,
-                omega_2 = asymp,
-                theta_1 = curve,
-                theta_2 = curve,
-                delta_1 = PARAMS.delta_1,
-                delta_2 = PARAMS.delta_2,
-            )
-            output = RunSingleTactic(fungicide_params).run_single_tactic(ConfigSingleRun)
-            FY = output['failure_year']
-            rows.append(dict(curve=curve, asymp=asymp, failure_year=FY))
-
-        df = pd.DataFrame(rows)
-
-        object_dump(filename, df)
-
-    x, y, z = process_changing_fcide(df, 'curve', 'asymp', 'failure_year')
-    
-    return x, y, z, filename_img
-
-
-
-def changing_fcide_sexp_asymp_curv(sex_props,
-                            asymps, curvatures, rf, NY):
-    
-    ConfigSingleRun = SingleConfig(NY, rf, rf, 1, 1, 1, 1)
-
-    filename, filename_img = get_cf_filename(ConfigSingleRun,
-                                [sex_props,
-                                asymps,
-                                curvatures],
-                                ["sex-p",
-                                "asymp",
-                                "curv"])
-    
-    if ConfigSingleRun.load_saved and os.path.isfile(filename):
-        print("loading df")
-        df = pickle.load(open(filename, 'rb'))
-    else:
-        print("running to find df")
-        rows = []
-        ConfigSingleRun.load_saved = False
-
-        for sex_p, curve, asymp in tqdm(itertools.product(sex_props, curvatures, asymps)):
-
-            ConfigSingleRun.sex_prop = sex_p
-            
-            fungicide_params = dict(
-                omega_1 = asymp,
-                omega_2 = asymp,
-                theta_1 = curve,
-                theta_2 = curve,
-                delta_1 = PARAMS.delta_1,
-                delta_2 = PARAMS.delta_2,
-            )
-            output = RunSingleTactic(fungicide_params).run_single_tactic(ConfigSingleRun)
-            FY = output['failure_year']
-            rows.append(dict(sex_p=sex_p, curve=curve, asymp=asymp, failure_year=FY))
-
-        df = pd.DataFrame(rows)
-
-        object_dump(filename, df)
-    
-    x, y, z = process_changing_fcide(df, 'sex_p', 'asymp', 'curve', wname="failure_year")
-    
-    return x, y, z, filename_img
-
-# End of changing fcide fns
-
 #----------------------------------------------------------------------------------------------
-class Fungicide:
-    def __init__(self, omega, theta, delta):
-        self.omega = omega
-        self.theta = theta
-        self.delta = delta
-
-    def effect(self, conc):
-        effect = 1 - self.omega*(1 - exp(- self.theta * conc))
-        return effect
-
 
 class Simulator:
     def __init__(self, fungicide_params):
@@ -613,13 +381,20 @@ class Simulator:
         else:
             return 0
 
-
-# * End of Simulator cls
-
+# * End of Sim cls
 
 
+class Fungicide:
+    def __init__(self, omega, theta, delta):
+        self.omega = omega
+        self.theta = theta
+        self.delta = delta
 
+    def effect(self, conc):
+        effect = 1 - self.omega*(1 - exp(- self.theta * conc))
+        return effect
 
+# * End of Fcide cls
 
 
 
@@ -691,6 +466,7 @@ class SelectionFinder:
         if ird[key] > 0:
             self.sel[key] = frd[key] / (ird[key]/PARAMS.init_den)
 
+# * End of SelFinder cls
 
 
 
@@ -714,6 +490,7 @@ class YieldFinder:
                             self.t)
         return out 
 
+# * End of YldFinder cls
 
 
 
@@ -801,11 +578,10 @@ class FungicideStrategy:
             spray_2 = np.zeros(self.n_seasons)
             )
 
+# * End of FcideStrt cls
 
 
 
-
-# * End of FungicideStrategy class
 
 
 
@@ -1356,7 +1132,7 @@ class RunGrid:
 class EqualResFreqBreakdownArray:
     def __init__(self, grid_output) -> None:
         self.FYs = grid_output['FY']
-        self.res_arrays = grid_output['res_arrays']
+        self.end_freqs = grid_output['end_freqs']
         self.array = self._generate_RFB_array()
         self.is_valid = self._check_valid()
 
@@ -1376,11 +1152,12 @@ class EqualResFreqBreakdownArray:
             
             else:
                 
-                rf1 = self.res_arrays['f1'][i,j,int(fy)]
-                rf2 = self.res_arrays['f2'][i,j,int(fy)]
+                r1 = self.end_freqs['RS'][i,j,int(fy)-1]
+                r2 = self.end_freqs['SR'][i,j,int(fy)-1]
 
                 try:
-                    out[i,j] = logit10_difference(rf1, rf2)
+                    out[i,j] = logit10_difference(r1, r2)
+
                 except:
                     out[i,j] = None
 
@@ -1397,6 +1174,7 @@ class EqualResFreqBreakdownArray:
 
 
 
+# * End of ERFB cls
 
 
 
@@ -1466,3 +1244,6 @@ class EqualSelectionArray:
         return (np.nanmax(self.array)>0.5
                             and np.nanmin(self.array)<0.5)
 
+
+
+# * End of ES cls

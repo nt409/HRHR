@@ -1,4 +1,5 @@
 import itertools
+from typing import final
 import numpy as np
 from math import exp, ceil, floor, pi, sin, cos, log10
 from scipy.integrate import simps, ode
@@ -339,31 +340,234 @@ class Simulator:
         self.fcide2 = Fungicide(omega_2, theta_2, delta_2)
     
 
+
+
+    def run(self, fung1_doses, fung2_doses, primary_inoc):
+        self.primary_inoc = primary_inoc
+        self.fung1_doses = fung1_doses
+        self.fung2_doses = fung2_doses
+
+        self._solve_ode()
+        
+        out = self._post_process()
+
+        return out
+
+
+    def run_disease_free(self):
+
+        y0 = [PARAMS.S_0] + [0]*(PARAMS.no_variables-1)
+
+        sol = ode(self.ode_system).set_integrator('dopri5', nsteps=PARAMS.nstepz)
+        
+        tim_1, t_yield = self._get_dis_free_t_vecs()
+
+        _ = self._get_y_array_this_segment(y0, sol, tim_1)
+        y_yield = self._get_y_array_this_segment(sol.y, sol, t_yield)
+        y_yield[:, -1] = sol.y
+
+        dis_free_yield = simps(y_yield[0,:], t_yield)
+
+        return dis_free_yield
+
     @staticmethod
-    def _growth(A, t):
-        if t>=PARAMS.T_emerge:
-            grw = PARAMS.r*(PARAMS.k-A)
-            return grw
-        else:
-            return 0
+    def _get_dis_free_t_vecs():
+        t0 = PARAMS.T_emerge
+        t1 = PARAMS.T_GS61
+        t2 = PARAMS.T_GS87
+        
+        n1 = 1 + (t1-t0)/PARAMS.dt
+        n2 = 1 + (t2-t1)/PARAMS.dt
+        
+        c1 = ceil(n1-0.5)
+        c2 = ceil(n2-0.5)
+        
+        tim_1 = np.linspace(t0,t1,c1)
+        t_yield = np.linspace(t1,t2,c2)
+        
+        return tim_1, t_yield
+
+
+
+    def _solve_ode(self):
+
+        sol = ode(self.ode_system).set_integrator('dopri5', nsteps=PARAMS.nstepz)
+
+        time_list = [PARAMS.T_emerge,
+            PARAMS.T_GS32,
+            PARAMS.T_GS39,
+            PARAMS.T_GS61,
+            PARAMS.T_GS87]
+        
+        y_list, t_list = self._get_y_and_t_lists(time_list, sol)
+        
+        self.soln_t = np.concatenate(t_list)
+        
+        solutionTranspose  = np.concatenate(y_list, axis=1)
+
+        self.soln  = np.transpose(solutionTranspose)
+
+        self.yield_integral = YieldFinder(y_list[-1], t_list[-1]).yield_
+
+
+
+
+    def _get_y_and_t_lists(self, time_list, sol):
+        """
+        Solves the ODE in 4 stages:
+        
+        - before first spray
+        - spray 1
+        - spray 2
+        - yield period (end of season)
+
+        """
+        y0_new = None
+        
+        y_list = []
+        t_list = []
+
+        segments = ["start", "spray_1", "spray_2", "end"]
+
+        list_of_tvs = self._get_list_of_time_vecs(time_list, segments)
+
+        for time_vec, segment in zip(list_of_tvs, segments):
+
+            y0_new = self._get_y0_this_segment(segment, sol)
+
+            y_array = self._get_y_array_this_segment(y0_new, sol, time_vec)
+
+            if segment=="end":
+                y_out, t_out = self._update_lists_final_seg(y_array, time_vec, sol)
+            else:
+                y_out, t_out = self._update_lists_other_segs(y_array, time_vec)
+
+            y_list.append(y_out)
+            t_list.append(t_out)
+
+        return y_list, t_list
+
+
 
 
     @staticmethod
-    def _senescence(t):
-        if t>=PARAMS.T_GS61:
-            out = 0.005*((t-PARAMS.T_GS61)/(PARAMS.T_GS87-PARAMS.T_GS61)) + 0.1*exp(-0.02*(PARAMS.T_GS87-t))
-            return out
+    def _get_list_of_time_vecs(time_list, segments):
+        sum_ns = 0
+
+        list_of_tvs = []
+
+        for ii, segment in enumerate(segments):
+
+            if segment=="end":
+                # makes sure total number of points is PARAMS.t_points
+                n = 3 + PARAMS.t_points - sum_ns
+            else:
+                n = 1 + (time_list[ii+1]-time_list[ii])/PARAMS.dt
+                n = floor(n)
+                sum_ns += n
+
+            time_vec = np.linspace(time_list[ii], time_list[ii+1], n)
+
+            list_of_tvs.append(time_vec)
+
+        return list_of_tvs
+
+
+    def _get_y0_this_segment(self, segment, sol):
+        
+        if segment=="start":
+            PI = self.primary_inoc
+
+            y0_new = [PARAMS.S_0] + [0]*9 + [PI['RR'], 
+                        PI['RS'],
+                        PI['SR'],
+                        PI['SS']] + [0]*2
+
         else:
-            return 0
+            y0_new = sol.y
+
+            if segment in ["spray_1", "spray_2"]:
+                y0_new[PARAMS.Fung1_ind] = y0_new[PARAMS.Fung1_ind] + self.fung1_doses[segment]
+                y0_new[PARAMS.Fung2_ind] = y0_new[PARAMS.Fung2_ind] + self.fung2_doses[segment]
+        
+        return y0_new
+    
+    
+    
+    @staticmethod
+    def _get_y_array_this_segment(y0_new, sol, time_vec):
+        
+        sol.set_initial_value(y0_new, time_vec[0])
+
+        y_array  = np.zeros((PARAMS.no_variables, len(time_vec)))
+
+        for index, t in enumerate(time_vec[1:]):
+            if sol.successful():
+                y_array[:,index] = sol.y
+                sol.integrate(t)
+            else:
+                raise RuntimeError('ode solver unsuccessful')
+        
+        return y_array
 
 
-    def _ode_system(self, t, y):
+
+    @staticmethod
+    def _update_lists_other_segs(y_array, time_vec):
+        y_out = y_array[:,:-1]
+        t_out = time_vec[:-1]
+
+        return y_out, t_out
+
+
+
+    @staticmethod
+    def _update_lists_final_seg(y_array, time_vec, sol):
+        # final one of loop - need to add final time
+        # rather than leave it for start condition 
+        # of next run through loop
+        y_array[:,-1] = sol.y
+
+        y_out = y_array
+        t_out = time_vec
+        
+        return y_out, t_out
+
+
+
+
+    def _post_process(self):
+
+        final_res_dict, props_out = ResPropFinder().calculate(self.soln)
+        
+        inoc = PARAMS.init_den
+
+        selection = SelectionFinder(self.primary_inoc, final_res_dict).sel
+
+        out = dict(final_res_dict=final_res_dict,
+                props_out=props_out,
+                inoc=inoc,
+                selection=selection,
+                yield_integral=self.yield_integral,
+                solution=self.soln,
+                solutiont=self.soln_t)
+        
+        return out
+
+
+
+
+
+
+    def ode_system(self, t, y):
 
         S,ER,ERS,ESR,ES,IR,IRS,ISR,IS,R,PR,PRS,PSR,PS,conc_1,conc_2 = y
 
         A = S + ER + ERS + ESR + ES + IR + IRS + ISR + IS + R
 
-        dydt = [self._growth(A,t) - (self._senescence(t))*S -  S * (PARAMS.beta/A) * (  
+        dydt = [self._growth(A,t)
+             - (self._senescence(t))*S
+             -  S * (PARAMS.beta/A) * (
                   (IR + PR)
                 + (IRS + PRS) * (self.fcide2.effect(conc_2))
                 + (ISR + PSR) * (self.fcide1.effect(conc_1))
@@ -386,208 +590,58 @@ class Simulator:
             - PARAMS.nu * PSR,
             - PARAMS.nu * PS,
             
-            -self.fcide1.delta * conc_1,
-            -self.fcide2.delta * conc_2
+            - self.fcide1.delta * conc_1,
+            - self.fcide2.delta * conc_2
             ]
 
         return dydt
 
-
-    
-
-
-
-
-
-
-
-
-
-    def _solve_ode(self,
-            fung1_doses,
-            fung2_doses,
-            primary_inoc):
-
-        initial_res_dict = dict(
-            f1 = primary_inoc['RR'] + primary_inoc['RS'],
-            f2 = primary_inoc['RR'] + primary_inoc['SR']
-            ) 
-
-        y0 = [PARAMS.S_0] + [0]*9 + [primary_inoc['RR'],  primary_inoc['RS'], primary_inoc['SR'], primary_inoc['SS']] + [0]*2
-        
-        sol = ode(self._ode_system,jac=None).set_integrator('dopri5',nsteps= PARAMS.nstepz)
-
-        time_list = [PARAMS.T_emerge,
-            PARAMS.T_GS32,
-            PARAMS.T_GS39,
-            PARAMS.T_GS61,
-            PARAMS.T_GS87]
-        
-        y0_new = None
-
-        spraying_time = [False, True, True, False]
-        which_spray = [None, "spray_1", "spray_2", None]
-        
-        y_list = []
-        t_list = []
-
-        sum_ns = 0
-
-        for ii in range(len(time_list)-1):
-            n = 1 + (time_list[ii+1]-time_list[ii])/PARAMS.dt
-            n = floor(n)
-
-
-            if ii==len(time_list)-2:
-                n = 3 + PARAMS.t_points - sum_ns
-            else:
-                sum_ns += n
-
-            time_vec = np.linspace(time_list[ii], time_list[ii+1], n)
-        
-            y_array  = np.zeros((PARAMS.no_variables, len(time_vec)))
-
-            if y0_new is None:
-                y0_new = y0
-            else:
-                y0_new = sol.y
-                if spraying_time[ii]:                
-                    key = which_spray[ii]
-                    
-                    y0_new[PARAMS.Fung1_ind] = y0_new[PARAMS.Fung1_ind] + fung1_doses[key]
-                    y0_new[PARAMS.Fung2_ind] = y0_new[PARAMS.Fung2_ind] + fung2_doses[key]
-
-            sol.set_initial_value(y0_new, time_vec[0])
-            
-            for index, t in enumerate(time_vec[1:]):
-                if sol.successful():
-                    y_array[:,index] = sol.y
-                    sol.integrate(t)
-                else:
-                    raise RuntimeError('ode solver unsuccessful')
-            
-            if ii!=len(time_list)-2:
-                y_list.append(y_array[:,:-1])
-                t_list.append(time_vec[:-1])
-            else:
-                # final one of loop - need to add final time
-                # rather than leave it for start condition 
-                # of next run through loop
-                y_array[:,index+1] = sol.y
-                y_list.append(y_array)
-                t_list.append(time_vec)
-
-        
-        #----------------------------------------------------------------------------------------------
-        self.solutiont = np.concatenate(t_list)
-        solutionTranspose  = np.concatenate(y_list, axis=1)
-        self.solution  = np.transpose(solutionTranspose)
-
-
-        # #----------------------------------------------------------------------------------------------  
-        final_res_dict, props_out = ResPropFinder(self.solution).calculate()
-        
-        inoc = InoculumFinder(self.solution, "constant").inoc
-
-        # get selection
-        selection = dict(f1=1, f2=1)
-
-        for key in ['f1','f2']:
-            if initial_res_dict[key] > 0:
-                selection[key] = final_res_dict[key]/(initial_res_dict[key]/PARAMS.init_den)
-
-        # get integral
-        y_yield = y_list[-1]
-        
-        t_yield = t_list[-1]
-
-        yield_integral = simps(y_yield[PARAMS.S_ind,:] + 
-                            y_yield[PARAMS.ER_ind,:] 
-                            + y_yield[PARAMS.ERS_ind,:] + y_yield[PARAMS.ESR_ind,:]
-                            + y_yield[PARAMS.ES_ind,:],
-                            t_yield)
-
-        out = dict(selection=selection,
-                final_res_dict=final_res_dict,
-                inoc=inoc,
-                props_out=props_out,
-                yield_integral=yield_integral,
-                solution=self.solution,
-                solutiont=self.solutiont)
-        
-        return out
-
-
-# * End of Simulator Class
-
-
-
-class InoculumFinder:
-    def __init__(self, solution, method) -> None:
-        self.solution = solution
-        self.method = method
-        self.inoc = self._get_inoculum_value()
-
-    #----------------------------------------------------------------------------------------------
-    def _get_inoculum_value(self):
-        
-        method = self.method
-        
-        if method is None or method=='constant':
-            return self._constant()
-        
-        elif method=='final_value':
-            return self._final_inoc_value()
-        
-        elif method=='integrated':
-            return self._integrated_inoc_val()
-        
+    @staticmethod
+    def _growth(A, t):
+        if t>=PARAMS.T_emerge:
+            grw = PARAMS.r*(PARAMS.k-A)
+            return grw
         else:
-            raise Exception("inoculum method incorrect")
-
-    def _constant(self):
-        return PARAMS.init_den
-
-    def _final_inoc_value(self):
-        return PARAMS.init_den*(
-                (1-PARAMS.last_year_prop) +
-                    PARAMS.last_year_prop * PARAMS.inoc_frac*
-                    (self.solution[-1,PARAMS.IR_ind] +
-                        self.solution[-1,PARAMS.IRS_ind] +
-                        self.solution[-1,PARAMS.ISR_ind] +
-                        self.solution[-1,PARAMS.IS_ind])
-                        )
-
-                    
-    def _integrated_inoc_val(self):
-        disease = simps(self.solution[:,PARAMS.IR_ind]+self.solution[:,PARAMS.IRS_ind] +
-                self.solution[:,PARAMS.ISR_ind]+self.solution[:,PARAMS.IS_ind],self.solutiont)
-        return PARAMS.init_den*((1-PARAMS.last_year_prop) + 
-                        PARAMS.last_year_prop * PARAMS.inoc_frac_integral * disease)
+            return 0
 
 
-# * End of InoculumFinder cls
+    @staticmethod
+    def _senescence(t):
+        if t>=PARAMS.T_GS61:
+            out = 0.005*((t-PARAMS.T_GS61)/(PARAMS.T_GS87-PARAMS.T_GS61)) + 0.1*exp(-0.02*(PARAMS.T_GS87-t))
+            return out
+        else:
+            return 0
+
+
+# * End of Simulator cls
+
+
+
+
+
+
 
 
 
 class ResPropFinder:
-    def __init__(self, solution) -> None:
-        self.solution = solution
+    def __init__(self) -> None:
+        pass
     
-    def calculate(self):
+    def calculate(self, solution):
         """
         Uses final value (end of season) to determine the res props. 
 
         These are used for next season (with a SR step in between if sr_prop=/=0)
         """
 
-        disease = (self.solution[-1,PARAMS.IR_ind] + 
-                        self.solution[-1,PARAMS.IRS_ind] +
-                        self.solution[-1,PARAMS.ISR_ind] + 
-                        self.solution[-1,PARAMS.IS_ind])
+        disease = (solution[-1,PARAMS.IR_ind] + 
+                        solution[-1,PARAMS.IRS_ind] +
+                        solution[-1,PARAMS.ISR_ind] + 
+                        solution[-1,PARAMS.IS_ind])
             
-        Res_disease_1 = self.solution[-1,PARAMS.IR_ind] + self.solution[-1,PARAMS.IRS_ind]
-        Res_disease_2 = self.solution[-1,PARAMS.IR_ind] + self.solution[-1,PARAMS.ISR_ind]
+        Res_disease_1 = solution[-1,PARAMS.IR_ind] + solution[-1,PARAMS.IRS_ind]
+        Res_disease_2 = solution[-1,PARAMS.IR_ind] + solution[-1,PARAMS.ISR_ind]
 
         res_props_out = dict(
             f1 = Res_disease_1/disease,
@@ -595,17 +649,70 @@ class ResPropFinder:
             )
         
         strain_frequencies = dict(
-            RR = self.solution[-1,PARAMS.IR_ind]/disease,
-            RS = self.solution[-1,PARAMS.IRS_ind]/disease,
-            SR = self.solution[-1,PARAMS.ISR_ind]/disease,
-            SS = self.solution[-1,PARAMS.IS_ind]/disease
-        )
+            RR = solution[-1,PARAMS.IR_ind]/disease,
+            RS = solution[-1,PARAMS.IRS_ind]/disease,
+            SR = solution[-1,PARAMS.ISR_ind]/disease,
+            SS = solution[-1,PARAMS.IS_ind]/disease
+            )
         
         return res_props_out, strain_frequencies
 
 # * End of RPFinder cls
     
+
+class SelectionFinder:    
+    def __init__(self, primary_inoc, final_res_dict) -> None:
+        self._get_init_res_dict(primary_inoc)
+
+        self.final_res_dict = final_res_dict
+
+        self._get_selection()
+
+
+    def _get_init_res_dict(self, primary_inoc):
+        self.initial_res_dict = dict(
+            f1 = primary_inoc['RR'] + primary_inoc['RS'],
+            f2 = primary_inoc['RR'] + primary_inoc['SR']
+            ) 
+
+
+    def _get_selection(self):
+        self.sel = dict(f1=1, f2=1)
+
+        for key in ['f1','f2']:
+            self._get_sel_this_fung(key)
+        
+
+
+    def _get_sel_this_fung(self, key):
+        ird = self.initial_res_dict
+        frd = self.final_res_dict
+        
+        if ird[key] > 0:
+            self.sel[key] = frd[key] / (ird[key]/PARAMS.init_den)
+
+
+
+
+
+
+class YieldFinder:
+    def __init__(self, y, t) -> None:
+        """
+        y and t are from final stage of growing season
+        """
+        self.y = y
+        self.t = t
+        self.yield_ = self._get_yield()
     
+    def _get_yield(self):
+        out = simps(self.y[PARAMS.S_ind,:] + 
+                            self.y[PARAMS.ER_ind,:] +
+                            self.y[PARAMS.ERS_ind,:] +
+                            self.y[PARAMS.ESR_ind,:] +
+                            self.y[PARAMS.ES_ind,:],
+                            self.t)
+        return out 
 
 
 
@@ -707,93 +814,41 @@ class RunSingleTactic:
 
         self.sim = Simulator(fcide_parms)
 
-        self._find_disease_free_yield()
+        self.dis_free_yield = self.sim.run_disease_free()
 
         self.yield_stopper = 95
 
         self.PATHOGEN_STRAIN_NAMES = ['RR', 'RS', 'SR', 'SS']
 
 
-    def _find_disease_free_yield(self):
 
-        y0   = [PARAMS.S_0] + [0]*(PARAMS.no_variables-1)
 
-        sol  = ode(self.sim._ode_system, jac=None).set_integrator('dopri5', nsteps=PARAMS.nstepz)
+
+    def run_single_tactic(self, Config):
+        """
+        Run HRHR model for one strategy
+        """
         
-        t0 = PARAMS.T_emerge
-        t1 = PARAMS.T_GS61
-        t2 = PARAMS.T_GS87
+        self.filename = Config.config_string
         
-        n1= 1 + (t1-t0)/PARAMS.dt
-        n2= 1 + (t2-t1)/PARAMS.dt
+        if Config.load_saved:
+            loaded_run = self._load_single_tactic()
+            if loaded_run is not None:
+                return loaded_run
+
+        self._initialise_variables_single_run(Config)
+
+        self._loop_over_years(Config)
         
-        c1 = ceil(n1-0.5)
-        c2 = ceil(n2-0.5)
+        model_output = self._save_single_run()
         
-        tim1 = np.linspace(t0,t1,c1)
-        tim2 = np.linspace(t1,t2,c2)
-        
-        yy1  = np.zeros((PARAMS.no_variables, len(tim1)))
-        yy2  = np.zeros((PARAMS.no_variables, len(tim2)))
-        
-        #----------------------------------------------------------------------------------------------
-        sol.set_initial_value(y0,t0)
-        for ind, t in enumerate(tim1[1:]):
-            if sol.successful():
-                yy1[:,ind] = sol.y
-                sol.integrate(t)
-            else:
-                raise RuntimeError('ode solver unsuccessful')
-        
-        #----------------------------------------------------------------------------------------------
-        y1 = sol.y
-        sol.set_initial_value(y1,t1)
-        for ind, t in enumerate(tim2[1:]):
-            if sol.successful():
-                yy2[:,ind] = sol.y
-                sol.integrate(t)
-            else:
-                raise RuntimeError('ode solver unsuccessful')
-        
-        yy2[:, ind] = sol.y
-        
-        df_yield_integral = simps(yy2[0,:],tim2)
+        return model_output
 
-        self.dis_free_yield = df_yield_integral
-
-
-    def _initialise_freqs(self):
-        out = {}
-        for key in self.PATHOGEN_STRAIN_NAMES:
-            out[key] = np.zeros(self.n_years+1)
-
-        return out
-
-
-
-
-    def _initialise_res_vec_dict(self, res_props):
-        out = {}
-        keys = ['f1', 'f2']
-        
-        for key in keys:
-            out[key] = np.zeros(self.n_years+1)
-            # set first year
-            out[key][0] = res_props[key]
-
-        return out
-
-
-
-    def _initialise_sel_vec_dict(self):
-        out = {}
-        keys = ['f1', 'f2']
-        
-        for key in keys:
-            out[key] = np.zeros(self.n_years+1)
-
-        return out
     
+
+
+
+
     
     def _initialise_variables_single_run(self, Config):
         
@@ -822,13 +877,13 @@ class RunSingleTactic:
         
         self.t_vec = np.zeros(PARAMS.t_points)
 
-
-        self.selection_vec_dict = self._initialise_sel_vec_dict()
-
+        self.selection_vec_dict = self._initialise_dict_of_vecs(['f1', 'f2'], self.n_years+1)
+        
         # post-sex from previous year
-        self.start_of_season = self._initialise_freqs()
+        self.start_of_season = self._initialise_dict_of_vecs(self.PATHOGEN_STRAIN_NAMES, self.n_years+1)
+
         # pre-sex
-        self.end_of_season = self._initialise_freqs()
+        self.end_of_season = self._initialise_dict_of_vecs(self.PATHOGEN_STRAIN_NAMES, self.n_years+1)
         
         self.inoc_vec[0] = PARAMS.init_den
 
@@ -836,22 +891,35 @@ class RunSingleTactic:
 
 
 
-    def update_start_of_season(self, yr):
-        for key in self.PATHOGEN_STRAIN_NAMES:
-            self.start_of_season[key][yr] = self.strain_freqs[key]
+
+
+    def _initialise_dict_of_vecs(self, keys, length):
+        out = {}
+        
+        for key in keys:
+            out[key] = np.zeros(length)
+
+        return out
     
 
-
-    def get_initial_freqs(self, yr):
+    def _initialise_res_vec_dict(self, res_props):
         out = {}
-        for key in self.PATHOGEN_STRAIN_NAMES:
-            out[key] = self.inoc_vec[yr]*self.strain_freqs[key]
+        keys = ['f1', 'f2']
+        
+        for key in keys:
+            out[key] = np.zeros(self.n_years+1)
+            # set first year
+            out[key][0] = res_props[key]
+
         return out
 
 
 
-    @staticmethod
-    def _load_single_tactic(filename):
+
+
+    def _load_single_tactic(self):
+        filename = self.filename
+        
         if os.path.isfile(filename) and "single" in filename:
             loaded_run = pickle.load(open(filename, 'rb'))
             return loaded_run
@@ -890,12 +958,46 @@ class RunSingleTactic:
 
 
     
+
+
+    def _run_single_year(self, Config, yr):
+        
+        fung1_doses = self._get_single_fung_dose(Config.fung1_doses, yr)
+        
+        fung2_doses = self._get_single_fung_dose(Config.fung2_doses, yr)
+        
+        self.update_start_of_season(yr)
+
+        model_inoc_in = self.get_initial_freqs(yr)
+        
+        output = self.sim.run(fung1_doses, fung2_doses, model_inoc_in)
+
+        self._process_single_output(output, Config, yr)
+
+        self._update_failure_year(yr)
+
+
+
     @staticmethod
     def _get_single_fung_dose(dose_vec, yr):
-        return dict(
-                    spray_1 = dose_vec['spray_1'][yr],
-                    spray_2 = dose_vec['spray_2'][yr]
-                    )
+        return dict(spray_1 = dose_vec['spray_1'][yr],
+                    spray_2 = dose_vec['spray_2'][yr])
+
+
+
+    def update_start_of_season(self, yr):
+        for key in self.PATHOGEN_STRAIN_NAMES:
+            self.start_of_season[key][yr] = self.strain_freqs[key]
+    
+
+
+    def get_initial_freqs(self, yr):
+        out = {}
+        for key in self.PATHOGEN_STRAIN_NAMES:
+            out[key] = self.inoc_vec[yr]*self.strain_freqs[key]
+        return out
+
+
 
 
     def _update_failure_year(self, yr):
@@ -913,21 +1015,8 @@ class RunSingleTactic:
 
 
 
-    def _run_single_year(self, Config, yr):
-        
-        fung1_doses = self._get_single_fung_dose(Config.fung1_doses, yr)
-        
-        fung2_doses = self._get_single_fung_dose(Config.fung2_doses, yr)
-        
-        self.update_start_of_season(yr)
 
-        model_inoc_in = self.get_initial_freqs(yr)
-        
-        output = self.sim._solve_ode(fung1_doses, fung2_doses, model_inoc_in)
 
-        self._process_single_output(output, Config, yr)
-
-        self._update_failure_year(yr)
 
 
 
@@ -943,20 +1032,8 @@ class RunSingleTactic:
 
 
 
-    def _update_selection_vec_dict(self, output, yr):
-        for key in ['f1', 'f2']:
-            self.selection_vec_dict[key][yr] = output['selection'][key]
 
 
-    def _update_res_vec_dict(self, output, yr):
-        for key in ['f1', 'f2']:
-            self.res_vec_dict[key][yr] = output['final_res_dict'][key]
-
-
-    def _update_end_of_season(self, freqs_out, yr):
-        for key in freqs_out.keys():
-            self.end_of_season[key][yr] = freqs_out[key]
-        
 
 
 
@@ -997,6 +1074,27 @@ class RunSingleTactic:
 
 
 
+    def _update_selection_vec_dict(self, output, yr):
+        for key in ['f1', 'f2']:
+            self.selection_vec_dict[key][yr] = output['selection'][key]
+
+
+    def _update_res_vec_dict(self, output, yr):
+        for key in ['f1', 'f2']:
+            self.res_vec_dict[key][yr] = output['final_res_dict'][key]
+
+
+    def _update_end_of_season(self, freqs_out, yr):
+        for key in freqs_out.keys():
+            self.end_of_season[key][yr] = freqs_out[key]
+        
+
+
+
+
+
+
+
 
     def _save_single_run(self):
         model_output = {
@@ -1016,26 +1114,6 @@ class RunSingleTactic:
         
         return model_output
 
-
-    def run_single_tactic(self, Config):
-        """
-        Run HRHR model for one strategy
-        """
-        
-        self.filename = Config.config_string
-        
-        if Config.load_saved:
-            loaded_run = self._load_single_tactic(self.filename)
-            if loaded_run is not None:
-                return loaded_run
-
-        self._initialise_variables_single_run(Config)
-
-        self._loop_over_years(Config)
-        
-        model_output = self._save_single_run()
-        
-        return model_output
 
 
 # * End of RunSingleTactic

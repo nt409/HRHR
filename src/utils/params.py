@@ -61,14 +61,13 @@ class Parameters:
 
         self.t_points = ceil((self.T_GS87 - self.T_emerge)/self.dt)
         
-        self.res_prop_calc_method = 'final_value'
-
         self.yield_threshold = 95
         
         self.JSON_path = 'HR_HR/Asexual_config/JSON/'
         self.pickle_path = 'HR_HR/Asexual_output/Saved_pickles/Cluster_version/'
         
         self.no_variables = 16
+        
         self.S_ind = 0
         self.ER_ind = 1
         self.ERS_ind = 2

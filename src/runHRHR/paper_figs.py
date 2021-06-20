@@ -11,9 +11,9 @@ from param_scan_cluster.functions import get_PS_rand_str, PostProcess
 
 # which plots
 
-model_output_overview = False
+model_output_overview = True
 rf_yield = False
-model_output_combined = True
+model_output_combined = False
 dose_space = False
 doses_scatter = False
 param_scan_hobb_vs_me = False
@@ -32,6 +32,7 @@ def get_param_data(par_str):
 
 if model_output_overview:
     ConfigSingleRun = SingleConfig(1, 2*10**(-1), 5*10**(-2), 1, 1, 0.5, 0.5)
+    ConfigSingleRun.load_saved = False
     output = RunSingleTactic().run_single_tactic(ConfigSingleRun)
     DiseaseProgressCurvesAll(output, ConfigSingleRun.config_string_img)
 

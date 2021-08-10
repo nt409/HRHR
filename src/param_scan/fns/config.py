@@ -1,5 +1,5 @@
 # proper/fast/prev_run
-run_type = "fast"
+run_type = "proper"
 
 
 baseline = {
@@ -15,8 +15,7 @@ baseline = {
 
         "SR": [0,1],
         
-        "load_saved": True,
-
+        "load_saved": False,
         "folder_save": "./param_scan/outputs",
         }
 
@@ -24,9 +23,9 @@ baseline = {
 if run_type == "proper":
     run_pars = {
         "grid_number": 51,
-        "n_cont_points": 70,
+        "n_cont_points": 51,
         "n_years": 50,
-        "NIts": 25,
+        "NIts": 2,
         }
 
 elif run_type == "fast":
@@ -34,7 +33,7 @@ elif run_type == "fast":
         "grid_number": 7,
         "n_cont_points": 5,
         "n_years": 35,
-        "NIts": 2,   
+        "NIts": 4,   
         }
 
 elif run_type == "prev_run":

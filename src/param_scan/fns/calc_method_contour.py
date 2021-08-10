@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 
 
@@ -24,6 +23,8 @@ class RunAlongContourDFs:
     def __init__(self, rand_pars, grid_output,
                         n_points, strat_name) -> None:
         
+        print(f"Running contour method: {strat_name}")
+
         if strat_name=="RFB":
             level = 0
             strat_obj = EqualResFreqBreakdownArray(grid_output)
@@ -166,8 +167,8 @@ class ThisStratSummaryDF:
         self.level = level
         self.max_grid_EL = max_grid_EL
 
-        self.LOW_THRESH = 0.2
-        self.HIGH_THRESH = 0.8
+        self.LOW_THRESH = 1/3
+        self.HIGH_THRESH = 2/3
 
         self.df = self.get_summary_df()
 
@@ -299,43 +300,52 @@ class DoseSumExtremesGetter:
 
     def __init__(self, z, level) -> None:
 
-        cs = self._get_contour_set(z, level)
-        
-        self.min_max_DS = self._get_min_max_dose_sums(cs)
+        self.min_max_DS = self.get_min_and_max_valid_DS(z, level)
 
 
+
+    def get_min_and_max_valid_DS(self, z, level):
+        # relative to 0
+        zz = np.array(z) - level
+
+        ds_vec = np.linspace(0, 2, -1+2*z.shape[0])
+
+        vals = []
+
+        for ds_ind in range(len(ds_vec)):
+            is_valid = self._check_this_dose_sum(zz, ds_ind, z.shape[0])
+            
+            if is_valid:
+                vals.append(ds_vec[ds_ind])
+
+
+        if not len(vals):
+            return {}
+
+
+        return dict(min=min(vals), max=max(vals))
       
 
 
-    def _get_contour_set(self, z, level):
 
-        x, y = np.mgrid[0:1:z.shape[0]*1j, 0:1:z.shape[1]*1j]
+    def _check_this_dose_sum(self, zz, ds_ind, n):
+        vals = []
 
-        cs = plt.contour(x, y, z, levels=[level])
+        bottom = max(0, 1 + ds_ind-n)
+        top = min(ds_ind, n-1)
         
-        return cs
+        for ii in range(bottom, 1+top):
+            if not np.isnan(zz[ii, ds_ind-ii]):
+                vals.append(zz[ii, ds_ind-ii])
 
+        if not len(vals):
+            return False
 
+        if min(vals)<0 and max(vals)>0:
+            return True
+        
+        return False
 
-
-
-    def _get_min_max_dose_sums(self, cs):
-
-        if not cs.allsegs:
-            print("Warning: cs.allsegs was empty!")
-            # why not?
-            # suspect too many 'nan's to create a proper contour
-            return {}
-
-        else:
-            cont = cs.allsegs[0][0]
-            
-            x_vals = np.asarray(cont[:,0])
-            y_vals = np.asarray(cont[:,1])
-
-            dose_sum = x_vals + y_vals
-
-            return dict(min=min(dose_sum), max=max(dose_sum))
 
 
 
@@ -506,15 +516,16 @@ class ContourDoseFinder:
 
 def find_FY_sel(single_run):
     
-    start_freqs = single_run['start_of_season']
+    start_freqs = single_run['start_freqs']
+    end_freqs = single_run['end_freqs']
     
-    sr1 = start_freqs['RS'][1]/start_freqs['RS'][0]
-    sr2 = start_freqs['SR'][1]/start_freqs['SR'][0]
+    sr1 = end_freqs['RS'][0]/start_freqs['RS'][0]
+    sr2 = end_freqs['SR'][0]/start_freqs['SR'][0]
     
     try:
         return sr1/(sr1+sr2)
     except Exception as e:
-        print(f"FY finder warning/error: {e}, srs={(sr1,sr2)}")
+        print(f"find_FY_sel warning/error: {e} \n srs={(sr1,sr2)}")
         return None
 
 
@@ -525,18 +536,16 @@ def find_FY_sel(single_run):
 
 def find_RFB(sing_run):
     
-    fy_in = sing_run['failure_year']
+    fy = sing_run['failure_year']
+    fy = int(fy)
 
-    fy = int(fy_in)
-
-    res_vecs = sing_run['res_vec_dict']
+    end_freqs = sing_run['end_freqs']
     
-    rf1 = res_vecs['f1'][fy]
-    
-    rf2 = res_vecs['f2'][fy]
+    r1 = end_freqs['RS'][fy-1]
+    r2 = end_freqs['SR'][fy-1]
 
     try:
-        return logit10_difference(rf1, rf2)
-    except:
-        print(f"problem with calculating delta_RFB for: {rf1, rf2}")
+        return logit10_difference(r1, r2)
+    except Exception as e:
+        print(f"find_RFB warning/error: {e} \n rfs={r1, r2}")
         return "NA"

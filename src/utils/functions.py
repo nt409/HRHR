@@ -656,10 +656,10 @@ class RunSingleTactic:
         self.selection_vec_dict = self._initialise_dict_of_vecs(['f1', 'f2'], self.n_years+1)
         
         # post-sex from previous year
-        self.start_of_season = self._initialise_dict_of_vecs(self.PATHOGEN_STRAIN_NAMES, self.n_years+1)
+        self.start_freqs = self._initialise_dict_of_vecs(self.PATHOGEN_STRAIN_NAMES, self.n_years+1)
 
         # pre-sex
-        self.end_of_season = self._initialise_dict_of_vecs(self.PATHOGEN_STRAIN_NAMES, self.n_years+1)
+        self.end_freqs = self._initialise_dict_of_vecs(self.PATHOGEN_STRAIN_NAMES, self.n_years+1)
         
         self.inoc_vec[0] = PARAMS.init_den
 
@@ -742,7 +742,7 @@ class RunSingleTactic:
         
         fung2_doses = self._get_single_fung_dose(Config.fung2_doses, yr)
         
-        self.update_start_of_season(yr)
+        self.update_start_freqs(yr)
 
         model_inoc_in = self.get_initial_freqs(yr)
         
@@ -761,9 +761,9 @@ class RunSingleTactic:
 
 
 
-    def update_start_of_season(self, yr):
+    def update_start_freqs(self, yr):
         for key in self.PATHOGEN_STRAIN_NAMES:
-            self.start_of_season[key][yr] = self.strain_freqs[key]
+            self.start_freqs[key][yr] = self.strain_freqs[key]
     
 
 
@@ -780,11 +780,9 @@ class RunSingleTactic:
         """
         Set failure year if:
         - yield is below threshold
-        - started above threshold
         - is first time it has dropped below threshold
         """
         if ((self.yield_vec[yr]<PARAMS.yield_threshold) and 
-                (self.yield_vec[0]>PARAMS.yield_threshold) and 
                 (self.failure_year==0)):
             self.failure_year = yr+1
 
@@ -823,7 +821,7 @@ class RunSingleTactic:
 
         freqs_out = output['props_out']
                 
-        self._update_end_of_season(freqs_out, yr)
+        self._update_end_freqs(freqs_out, yr)
 
         # sex/asex after each season
         res_prop_1_end = output['props_out']['RR'] + output['props_out']['RS']
@@ -860,9 +858,9 @@ class RunSingleTactic:
             self.res_vec_dict[key][yr] = output['final_res_dict'][key]
 
 
-    def _update_end_of_season(self, freqs_out, yr):
+    def _update_end_freqs(self, freqs_out, yr):
         for key in freqs_out.keys():
-            self.end_of_season[key][yr] = freqs_out[key]
+            self.end_freqs[key][yr] = freqs_out[key]
         
 
 
@@ -875,8 +873,8 @@ class RunSingleTactic:
     def _save_single_run(self):
         model_output = {
                 'res_vec_dict': self.res_vec_dict,
-                'start_of_season': self.start_of_season,
-                'end_of_season': self.end_of_season,
+                'start_freqs': self.start_freqs,
+                'end_freqs': self.end_freqs,
                 'yield_vec': self.yield_vec,
                 'inoc_vec': self.inoc_vec, 
                 'selection_vec_dict': self.selection_vec_dict, 
@@ -1088,8 +1086,8 @@ class RunGrid:
         self.yield_array[f1_ind,f2_ind,:] = data_this_dose["yield_vec"]
 
         self.res_arrays = self._update_dict_array_this_dose(copy.copy(self.res_arrays), data_this_dose, f1_ind, f2_ind, "res_vec_dict")
-        self.start_freqs = self._update_dict_array_this_dose(copy.copy(self.start_freqs), data_this_dose, f1_ind, f2_ind, "start_of_season")
-        self.end_freqs = self._update_dict_array_this_dose(copy.copy(self.end_freqs), data_this_dose, f1_ind, f2_ind, "end_of_season")
+        self.start_freqs = self._update_dict_array_this_dose(copy.copy(self.start_freqs), data_this_dose, f1_ind, f2_ind, "start_freqs")
+        self.end_freqs = self._update_dict_array_this_dose(copy.copy(self.end_freqs), data_this_dose, f1_ind, f2_ind, "end_freqs")
         self.selection_arrays = self._update_dict_array_this_dose(copy.copy(self.selection_arrays), data_this_dose, f1_ind, f2_ind, "selection_vec_dict")
 
 

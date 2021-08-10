@@ -20,6 +20,8 @@ class CheckStrategyUsingIVT_DF:
 
     """
     def __init__(self, grid_output, strat_name) -> None:
+        
+        print(f"Running IVT method: {strat_name}")
 
         self.FYs = grid_output['FY']
         

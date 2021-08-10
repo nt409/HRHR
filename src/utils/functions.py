@@ -58,7 +58,7 @@ def get_SR_by_doses(doses, freqs):
     outputs = {}
     for dose, rf in itertools.product(doses, freqs):
         ConfigSingleRun = SingleConfig(1, rf, rf, dose, dose, dose, dose)
-        output = RunSingleTactic().run_single_tactic(ConfigSingleRun)
+        output = RunSingleTactic().run(ConfigSingleRun)
         outputs[f"dose={dose},rf={rf}"] = output
 
 
@@ -600,7 +600,7 @@ class RunSingleTactic:
 
 
 
-    def run_single_tactic(self, Config):
+    def run(self, Config):
         """
         Run HRHR model for one strategy
         """
@@ -905,7 +905,7 @@ class RunGrid:
 
 
 
-    def grid_of_tactics(self, ConfigG):
+    def run(self, ConfigG):
         """
         Run across grid
         """
@@ -938,7 +938,7 @@ class RunGrid:
                 Conf.fung1_doses, Conf.fung2_doses = fs.get_doses(
                                                     f1_ind, f2_ind, Conf.n_doses)
 
-                one_tact_output =  self.sing_tact.run_single_tactic(Conf)
+                one_tact_output =  self.sing_tact.run(Conf)
                 
                 self._post_process_multi(one_tact_output, f1_ind, f2_ind, Conf)
 

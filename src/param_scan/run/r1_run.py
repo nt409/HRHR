@@ -6,20 +6,21 @@ Scan over:
 - partial res
 - levels of SR
 
-We use one SR for each chunk, run on cluster,
-then compile into one df using post_process.py
+Process
+- run on cluster,
+- one seed for each chunk, 
+- compile into one df using combine_outputs.py
 
 """
 
 import sys
 
-from ..functions import ParamScanRand
-# from ...configs.par_scan import config_rand
-from ..config import config_rand
+from ..fns.calc_full_scan import ParameterScan
+from ..fns.config import config_rand
 
 
 def main(config, seed):
-    ParamScanRand(config).run(seed)
+    ParameterScan(config, seed).run()
 
 
 if __name__=="__main__":

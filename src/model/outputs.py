@@ -299,3 +299,67 @@ class SingleTacticOutput:
         delattr(self, "n_years")
         delattr(self, "df_yield")
         delattr(self, "strain_names")
+
+
+
+
+
+
+
+
+
+class GridTacticOutput:
+    def __init__(self, n_doses, n_years) -> None:
+
+        self.LTY = np.zeros((n_doses, n_doses))
+        self.TY = np.zeros((n_doses, n_doses))
+        self.FY = np.zeros((n_doses, n_doses))
+        
+        self.yield_array = np.zeros((n_doses, n_doses, n_years))
+        
+        fung_keys = ['f1', 'f2']
+        self.selection_DA = self._get_dict_of_zero_arrays(fung_keys, (n_doses, n_doses, n_years+1))
+        self.res_vec_DA = self._get_dict_of_zero_arrays(fung_keys, (n_doses, n_doses, n_years+1))
+
+        strain_keys = ['RR', 'RS', 'SR', 'SS']
+        self.start_freqs_DA = self._get_dict_of_zero_arrays(strain_keys, (n_doses, n_doses, n_years+1))
+        self.end_freqs_DA = self._get_dict_of_zero_arrays(strain_keys, (n_doses, n_doses, n_years+1))
+    
+    
+    
+    @staticmethod
+    def _get_dict_of_zero_arrays(keys, shape):
+        out = {}
+        for key in keys:
+            out[key] = np.zeros(shape)
+        return out
+
+
+
+
+    def update_dicts_of_arrays(self, data, f1_ind, f2_ind):
+        self.selection_DA = self._update_dict_array_this_dose(
+                                            self.selection_DA, data, 
+                                            f1_ind, f2_ind, "selection_vec_dict")
+
+        self.res_vec_DA = self._update_dict_array_this_dose(
+                                            self.res_vec_DA, data, 
+                                            f1_ind, f2_ind, "res_vec_dict")
+
+        self.start_freqs_DA = self._update_dict_array_this_dose(
+                                            self.start_freqs_DA, data, 
+                                            f1_ind, f2_ind, "start_freqs")
+
+        self.end_freqs_DA = self._update_dict_array_this_dose(
+                                            self.end_freqs_DA, data, 
+                                            f1_ind, f2_ind, "end_freqs")
+
+
+
+    def _update_dict_array_this_dose(self, to_update, data, f1_ind, f2_ind, attr):
+        
+        for key_ in to_update.keys():
+            calculated = vars(data)[attr]
+            to_update[key_][f1_ind,f2_ind,:] = calculated[key_]
+        
+        return to_update

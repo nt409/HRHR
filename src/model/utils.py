@@ -230,8 +230,8 @@ class SelectionFinder:
 
 class EqualResFreqBreakdownArray:
     def __init__(self, grid_output) -> None:
-        self.FYs = grid_output['FY']
-        self.end_freqs = grid_output['end_freqs']
+        self.FYs = grid_output.FY
+        self.end_freqs = grid_output.end_freqs_DA
         self.array = self._generate_RFB_array()
         self.is_valid = self._check_valid()
 
@@ -291,11 +291,11 @@ class EqualSelectionArray:
 
 
         
-        self.FYs = grid_output['FY']
+        self.FYs = grid_output.FY
 
-        self.start_freqs = grid_output['start_freqs']
+        self.start_freqs = grid_output.start_freqs_DA
         
-        self.end_freqs = grid_output['end_freqs']
+        self.end_freqs = grid_output.end_freqs_DA
 
         self.array = self._generate_EqSel_array()
 

@@ -14,8 +14,8 @@ from param_scan.fns.post_process import PostProcess
 
 model_output_overview = False
 rf_yield = False
-model_output_combined = True
-dose_space = False
+model_output_combined = False
+dose_space = True
 doses_scatter = False
 param_scan_hobb_vs_me = False
 param_scan_high_low_dose = False
@@ -58,13 +58,14 @@ if model_output_combined:
 
 if dose_space:
     ConfigGridRun = GridConfig(30, 10**(-7), 10**(-3), 51)
-    output = RunGrid().grid_of_tactics(ConfigGridRun)
+    ConfigGridRun.load_saved = False
+    output = RunGrid().run(ConfigGridRun)
     DoseSpaceScenariosPlot(output, ConfigGridRun.config_string_img)
 
 
 if doses_scatter:
     ConfigGridRun = GridConfig(30, 10**(-7), 10**(-3), 51)
-    output = RunGrid().grid_of_tactics(ConfigGridRun)
+    output = RunGrid().run(ConfigGridRun)
     DosesScatterPlot(output, ConfigGridRun.config_string_img)
 
 

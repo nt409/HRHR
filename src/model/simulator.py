@@ -12,7 +12,7 @@ from .utils import res_prop_calculator, yield_calculator, \
     SelectionFinder, FungicideStrategy, object_dump
 from .ode_system import ODESystem
 from .config_classes import SingleConfig
-from .outputs import SimOutput, SingleTacticOutput
+from .outputs import GridTacticOutput, SimOutput, SingleTacticOutput
 
 
 
@@ -440,27 +440,22 @@ class RunGrid:
 
 
 
-    def run(self, ConfigG):
-        """
-        Run across grid
-        """
+    def run(self, Conf):
 
-        self.filename = ConfigG.config_string
-
-        if ConfigG.load_saved:
+        self.filename = Conf.config_string
+        
+        if Conf.load_saved:
             loaded_run = self._load_multi_tactic(self.filename)
             if loaded_run is not None:
                 return loaded_run
 
-        Conf = copy.copy(ConfigG)
-
-        self._initialise_multi_vars(Conf.n_doses, Conf.n_years)
+        self.output = GridTacticOutput(Conf.n_doses, Conf.n_years)
 
         self._run_the_grid(Conf)
 
-        grid_output = self._save_grid()
+        self._save_grid()
 
-        return grid_output
+        return self.output
 
 
 
@@ -477,8 +472,25 @@ class RunGrid:
                 
                 self._post_process_multi(one_tact_output, f1_ind, f2_ind, Conf)
 
-        self.t_vec = one_tact_output['t_vec']
 
+
+
+
+    
+    def _post_process_multi(self, data_this_dose, f1_ind, f2_ind, Conf):
+
+        self.output.LTY[f1_ind,f2_ind] = self._lifetime_yield(data_this_dose.yield_vec, data_this_dose.failure_year)
+
+        self.output.TY[f1_ind,f2_ind] = self._total_yield(data_this_dose.yield_vec)
+
+        self.output.FY[f1_ind,f2_ind] = data_this_dose.failure_year
+
+        self.output.yield_array[f1_ind,f2_ind,:] = data_this_dose.yield_vec
+
+
+        self.output.update_dicts_of_arrays(data_this_dose, f1_ind, f2_ind)
+
+        
 
 
 
@@ -488,62 +500,12 @@ class RunGrid:
 
 
 
-    @staticmethod
-    def _this_year_profit(yield_, dose1, dose2):
-        
-        tons_per_ha = 10
-        
-        # £/tonne
-        price_per_ton = 117.14
-
-        # £32.40/ha for full dose, and two applications
-        c1 = 2*32.4
-        c2 = 2*32.4
-
-        # £/ha other machinery costs through the year?
-        breakeven_yield = 0.95
-        
-        # if breakeven yield is 95%, then breakeven if
-        # spray full dose and obtain 95% yield
-        other_costs = tons_per_ha*price_per_ton*breakeven_yield - 20 - c1 - c2
-        
-        if dose1+dose2>0:
-            # £20 tractor costs
-            other_costs += 20
-        
-        tonnes = (yield_/100)*tons_per_ha
-        revenue = price_per_ton*tonnes
-        
-        costs = dose1*c1 + dose2*c2 + other_costs
-
-        profit = revenue - costs
-
-        # need other_costs>0.79*tons_per_ha*price_per_ton (yield without spraying)
-        
-        return profit
-
-
-
-    
-    def _economic_life(self, Y_vec, dose1, dose2):
-        total_profit = 0
-        profit = self._this_year_profit(Y_vec[0], dose1, dose2)
-        # if profit>0:
-        #     total_profit += profit
-        
-        i = 1
-        while profit>0 and i<len(Y_vec):
-            total_profit += profit
-            profit = self._this_year_profit(Y_vec[i], dose1, dose2)
-            i += 1
-        
-        return total_profit
-
-
 
     @staticmethod
     def _total_yield(Y_vec):
         return sum(Y_vec)/100
+
+
 
 
 
@@ -557,104 +519,10 @@ class RunGrid:
 
 
 
-    @staticmethod
-    def _get_dict_of_zero_arrays(keys, shape):
-        out = {}
-        for key in keys:
-            out[key] = np.zeros(shape)
-        return out
-
-
-
-    def _initialise_multi_vars(self, n_doses, n_years):
-
-        self.LTY = np.zeros((n_doses, n_doses))
-        self.TY = np.zeros((n_doses, n_doses))
-        self.FY = np.zeros((n_doses, n_doses))
-        self.econ = np.zeros((n_doses, n_doses))
-        
-        self.yield_array = np.zeros((n_doses, n_doses, n_years))
-        self.inoc_array  = np.zeros((n_doses, n_doses, n_years+1))
-        
-        fung_keys = ['f1', 'f2']
-        self.res_arrays = self._get_dict_of_zero_arrays(fung_keys, (n_doses, n_doses, n_years+1))
-        self.selection_arrays = self._get_dict_of_zero_arrays(fung_keys, (n_doses, n_doses, n_years+1))
-
-        strain_keys = ['RR', 'RS', 'SR', 'SS']
-        self.start_freqs = self._get_dict_of_zero_arrays(strain_keys, (n_doses, n_doses, n_years+1))
-        self.end_freqs = self._get_dict_of_zero_arrays(strain_keys, (n_doses, n_doses, n_years+1))
-        
-
-    
-
-    def _update_dict_array_this_dose(self, to_update, data, f1_ind, f2_ind, key1):
-
-        for key_ in to_update.keys():
-            to_update[key_][f1_ind,f2_ind,:] = data[key1][key_]
-        
-        return to_update
-    
-       
-
-
-    @staticmethod
-    def _get_total_doses_applied_this_year(Conf):
-        total_dose_f1 = Conf.fung1_doses['spray_1'][0] + Conf.fung1_doses['spray_2'][0]
-        total_dose_f2 = Conf.fung2_doses['spray_1'][0] + Conf.fung2_doses['spray_2'][0]
-        return total_dose_f1, total_dose_f2
-
-
-
-
-    
-    def _post_process_multi(self, data_this_dose, f1_ind, f2_ind, Conf):
-
-        self.LTY[f1_ind,f2_ind] = self._lifetime_yield(data_this_dose['yield_vec'],data_this_dose['failure_year'])
-
-        self.TY[f1_ind,f2_ind] = self._total_yield(data_this_dose['yield_vec'])
-
-        total_dose_f1, total_dose_f2 = self._get_total_doses_applied_this_year(Conf)
-
-        self.econ[f1_ind, f2_ind] = self._economic_life(data_this_dose['yield_vec'], total_dose_f1, total_dose_f2)        
-        
-        self.FY[f1_ind,f2_ind] = data_this_dose['failure_year']
-
-        self.inoc_array[f1_ind,f2_ind,:] = data_this_dose["inoc_vec"]
-        self.yield_array[f1_ind,f2_ind,:] = data_this_dose["yield_vec"]
-
-        self.res_arrays = self._update_dict_array_this_dose(copy.copy(self.res_arrays), data_this_dose, f1_ind, f2_ind, "res_vec_dict")
-        self.start_freqs = self._update_dict_array_this_dose(copy.copy(self.start_freqs), data_this_dose, f1_ind, f2_ind, "start_freqs")
-        self.end_freqs = self._update_dict_array_this_dose(copy.copy(self.end_freqs), data_this_dose, f1_ind, f2_ind, "end_freqs")
-        self.selection_arrays = self._update_dict_array_this_dose(copy.copy(self.selection_arrays), data_this_dose, f1_ind, f2_ind, "selection_vec_dict")
-
-
-    
-
-
-
-
-
-
-
-
-
     def _save_grid(self):
-        grid_output = {'LTY': self.LTY,
-                    'TY': self.TY,
-                    'FY': self.FY,
-                    'yield_array': self.yield_array,
-                    'res_arrays': self.res_arrays,
-                    'start_freqs': self.start_freqs,
-                    'end_freqs': self.end_freqs,
-                    'selection_arrays': self.selection_arrays,
-                    'inoc_array': self.inoc_array,
-                    't_vec': self.t_vec,
-                    'econ': self.econ,
-                    }
-        
-        object_dump(self.filename, grid_output)
-        
-        return grid_output
+        object_dump(self.filename, self.output)
+
+
 
 
 # End of RunGrid class

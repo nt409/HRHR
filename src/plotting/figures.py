@@ -1704,16 +1704,16 @@ class DoseSpaceScenariosPlot:
 
 
     def get_FY_heatmap(self):
-        FY = self.data['FY']
+        FYs = np.transpose(self.data.FY)
 
-        xheat = np.linspace(0, 1, FY.shape[0])
-        yheat = np.linspace(0, 1, FY.shape[1])
+        xheat = np.linspace(0, 1, FYs.shape[0])
+        yheat = np.linspace(0, 1, FYs.shape[1])
 
         heatmap = go.Heatmap(
             x = xheat,
             y = yheat,
-            z = np.transpose(FY),
-            colorscale = grey_colorscale(FY),
+            z = FYs,
+            colorscale = grey_colorscale(FYs),
             colorbar = my_colorbar(TITLE_MAP["FY"])
             )
 
@@ -1765,7 +1765,7 @@ class DoseSpaceScenariosPlot:
 
 
     def get_min_dose_point(self):
-        FYs = np.transpose(self.data['FY'])
+        FYs = np.transpose(self.data.FY)
 
         x = np.linspace(0, 1, FYs.shape[0])
         
@@ -1869,7 +1869,7 @@ class DosesScatterPlot:
         traces.append(line)
 
         z = EqualResFreqBreakdownArray(self.data).array
-        FYs = self.data['FY']
+        FYs = self.data.FY
 
         x = np.asarray(z).flatten()
         y = np.asarray(FYs).flatten()
@@ -1994,7 +1994,7 @@ class YieldAndRfPlot:
     def get_yield_traces(self):
         out = []
 
-        yy = self.data['yield_vec']
+        yy = self.data.yield_vec
         
         xx = list(range(1,1+len(yy)))
 
@@ -2025,8 +2025,8 @@ class YieldAndRfPlot:
     def get_RF_traces(self):
         out = []
         
-        y1 = self.data['res_vec_dict']['f1']
-        y2 = self.data['res_vec_dict']['f2']
+        y1 = self.data.res_vec_dict['f1']
+        y2 = self.data.res_vec_dict['f2']
         
         xx = list(range(len(y1)))
 

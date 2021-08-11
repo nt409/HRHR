@@ -70,7 +70,7 @@ class SinglePSRun:
 
         RP.find_pars()
         
-        RP.get_all_parms_dict()
+        RP.get_all_parms_df()
 
         RP.get_grid_conf(self.config["grid_number"])
 

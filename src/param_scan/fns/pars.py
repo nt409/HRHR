@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 
 from utils.config_classes import GridConfig, SingleConfig
-from utils.params import PARAMS
 from utils.functions import RunSingleTactic
 
 
@@ -53,9 +52,11 @@ class RandomPars:
             delt_1 = np.random.uniform(low=conf["dec_rate1"][0], high=conf["dec_rate1"][1])
             delt_2 = np.random.uniform(low=conf["dec_rate2"][0], high=conf["dec_rate2"][1])
             
+            theta_val = conf["theta"]
+            
             sr_prop = np.random.uniform(low=conf["SR"][0], high=conf["SR"][1])
 
-            fungicide_params = self.get_fung_parms_dict(om_1, om_2, delt_1, delt_2)
+            fungicide_params = self.get_fung_parms_dict(om_1, om_2, delt_1, delt_2, theta_val)
 
             pathogen_pars = dict(rfs1=rfs1,
                 rfs2=rfs2,
@@ -67,7 +68,7 @@ class RandomPars:
         
         self.get_inoc_dict(rfs1, rfs2, rfD)
         
-        self.fung_parms = self.get_fung_parms_dict(om_1, om_2, delt_1, delt_2)
+        self.fung_parms = fungicide_params
 
         self.path_and_fung_pars = rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2
 
@@ -124,17 +125,17 @@ class RandomPars:
 
     
 
-    def get_fung_parms_dict(self, omega_1, omega_2, delta_1, delta_2):
+    def get_fung_parms_dict(self, omega_1, omega_2, delta_1, delta_2, theta):
         return dict(omega_1 = omega_1,
                     omega_2 = omega_2,
-                    theta_1 = PARAMS.theta_1,
-                    theta_2 = PARAMS.theta_2,
+                    theta_1 = theta,
+                    theta_2 = theta,
                     delta_1 = delta_1,
                     delta_2 = delta_2)
 
 
     
-    def get_all_parms_dict(self):
+    def get_all_parms_df(self):
         out = {**self.fung_parms,
                 **self.inoc,
                 "sr_prop": self.sr_prop,

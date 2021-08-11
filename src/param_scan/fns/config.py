@@ -1,6 +1,7 @@
 # proper/fast/prev_run
-run_type = "fast"
+run_type = "proper"
 
+baseline_dec = 1.11*10**(-2)
 
 baseline = {
         "RFS1": [-8,-2],
@@ -9,9 +10,11 @@ baseline = {
 
         "asym1": [0.4, 1],
         "asym2": [0.4, 1],
+        
+        "theta": 12,
 
-        "dec_rate1": [0.5*1.11*10**(-2), 2*1.11*10**(-2)],
-        "dec_rate2": [0.5*1.11*10**(-2), 2*1.11*10**(-2)],
+        "dec_rate1": [(1/3)*baseline_dec, 3*baseline_dec],
+        "dec_rate2": [(1/3)*baseline_dec, 3*baseline_dec],
 
         "SR": [0,1],
         
@@ -24,8 +27,8 @@ if run_type == "proper":
     run_pars = {
         "grid_number": 51,
         "n_cont_points": 71,
-        "n_years": 35,
-        "NIts": 2,
+        "n_years": 40,
+        "NIts": 15,
         }
 
 elif run_type == "fast":

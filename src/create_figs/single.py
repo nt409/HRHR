@@ -1,8 +1,8 @@
-from utils.functions import RunSingleTactic
+from model.simulator import RunSingleTactic
 
-from utils.config import ConfigSingleRun
+from model.config import ConfigSingleRun
 
-from utils.config_classes import SingleConfig
+from model.config_classes import SingleConfig
 
 from plotting.figures import yield_by_year, res_freqs_single_t_plot, \
     single_year_plot, yield_res_freqs_plot, plot_frequencies, plot_frequencies_over_time
@@ -13,15 +13,15 @@ from plotting.figures import yield_by_year, res_freqs_single_t_plot, \
 yield_single = False
 res_freqs_single = False
 yield_res_freqs = False
-single_year = False
+single_year = True
 freq_bar_plot = False
-freq_time_plot = True
+freq_time_plot = False
 
 # run
 bools = [res_freqs_single, freq_bar_plot]
 
 if any(bools):
-    output = RunSingleTactic().run_single_tactic(ConfigSingleRun)
+    output = RunSingleTactic().run(ConfigSingleRun)
 
 
 # plots
@@ -32,7 +32,7 @@ if yield_single:
     rf2 = 10**(-2)
     ConfigYRF = SingleConfig(20, rf1, rf2, 1, 1, 1, 1)
 
-    output = RunSingleTactic().run_single_tactic(ConfigYRF)
+    output = RunSingleTactic().run(ConfigYRF)
 
     yield_by_year(output, conf_str)
 
@@ -42,7 +42,7 @@ if yield_res_freqs:
     rf2 = 10**(-2)
     ConfigYRF = SingleConfig(20, rf1, rf2, 1, 1, 1, 1)
 
-    output = RunSingleTactic().run_single_tactic(ConfigYRF)
+    output = RunSingleTactic().run(ConfigYRF)
 
     yield_res_freqs_plot(output, ConfigYRF.config_string_img)
     
@@ -55,7 +55,7 @@ if single_year:
     rf1 = 10**(-1)
     rf2 = 2*10**(-1)
     ConfigSY = SingleConfig(20, rf1, rf2, 1, 1, 0.5, 0.5)
-    output = RunSingleTactic().run_single_tactic(ConfigSY)
+    output = RunSingleTactic().run(ConfigSY)
 
     indices_use = dict(
         # all = list(range(16)),
@@ -80,7 +80,7 @@ if freq_time_plot:
     ConfigFTP.sex_prop = 0
     ConfigFTP.add_string()
 
-    output = RunSingleTactic().run_single_tactic(ConfigFTP)
+    output = RunSingleTactic().run(ConfigFTP)
 
     plot_frequencies_over_time(output, ConfigFTP.config_string_img)
 

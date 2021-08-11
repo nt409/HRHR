@@ -10,8 +10,8 @@ from PIL import Image
 
 
 
-from utils.params import PARAMS
-from utils.functions import EqualResFreqBreakdownArray, EqualSelectionArray
+from model.params import PARAMS
+from model.utils import EqualResFreqBreakdownArray, EqualSelectionArray
 
 from .traces import get_RFB_diff_traces, get_eq_sel_traces, get_heatmap_lines, \
     get_strain_freq_traces, contour_at_0, get_multi_contour_traces, \
@@ -1103,9 +1103,9 @@ class DiseaseProgressCurvesAll:
 
         self.height = 650
 
-        self.xx = data['t_vec']
+        self.xx = data.states_list[0].t
         
-        self.array = data['sol_array']
+        self.states_list = data.states_list
 
         fig = self._generate_figure()
 
@@ -1115,8 +1115,6 @@ class DiseaseProgressCurvesAll:
 
 
     def _generate_figure(self):
-
-        self.config = self.get_config()
 
         traces_dict = self.get_model_output_overview_traces()
 
@@ -1129,31 +1127,6 @@ class DiseaseProgressCurvesAll:
     
 
 
-    @staticmethod
-    def get_config():
-
-        E_cols = pltly_clrs.n_colors("rgb(0,0,255)", "rgb(255,255,255)", 5, colortype="rgb")[:4]
-        
-        I_cols = pltly_clrs.n_colors("rgb(255,0,0)", "rgb(255,255,255)", 5, colortype="rgb")[:4]
-
-
-        return {
-            'S': dict(color='limegreen', dash='solid', name='Susceptible', ind=PARAMS.S_ind),
-            'R': dict(color='rgb(100,100,100)', dash='solid', name='Removed', ind=PARAMS.R_ind),
-
-            'ERR': dict(color=E_cols[0], dash='dot', name='E (rr)', ind=PARAMS.ER_ind),
-            'ERS': dict(color=E_cols[1], dash='dash', name='E (rs)', ind=PARAMS.ERS_ind),
-            'ESR': dict(color=E_cols[2], dash='dashdot', name='E (sr)', ind=PARAMS.ESR_ind),
-            'ESS': dict(color=E_cols[3], dash='solid', name='E (ss)', ind=PARAMS.ES_ind),
-
-            'IRR': dict(color=I_cols[0], dash='dot', name='I (rr)', ind=PARAMS.IR_ind),
-            'IRS': dict(color=I_cols[1], dash='dash', name='I (rs)', ind=PARAMS.IRS_ind),
-            'ISR': dict(color=I_cols[2], dash='dashdot', name='I (sr)', ind=PARAMS.ISR_ind),
-            'ISS': dict(color=I_cols[3], dash='solid', name='I (ss)', ind=PARAMS.IS_ind),
-
-            'F1': dict(color='turquoise', dash='solid', name='Fungicide A', ind=PARAMS.Fung1_ind),
-            'F2': dict(color='magenta', dash='dot', name='Fungicide B', ind=PARAMS.Fung2_ind),
-        }
 
 
     def get_model_output_overview_traces(self):
@@ -1217,13 +1190,15 @@ class DiseaseProgressCurvesAll:
 
 
     def get_DPC_trace(self, key):
-        clr = self.config[key]['color']
-        dash = self.config[key]['dash']
-        name = self.config[key]['name']
-        ind = self.config[key]['ind']
+        clr = ATTRS_DICT[key]['color']
+        dash = ATTRS_DICT[key]['dash']
+        name = ATTRS_DICT[key]['name']
+        # ind = ATTRS_DICT[key]['ind']
+
+        yy = vars(self.states_list[0])[key]
 
         return go.Scatter(x=self.xx,
-                    y=self.array[:, ind, 0],
+                    y=yy,
                     line=dict(color=clr, dash=dash),
                     name=name
                     )
@@ -1332,14 +1307,14 @@ class CombinedModelPlot:
         self.width = FULL_PAGE_WIDTH
 
         self.height = 950
-
-        self.xx = data['t_vec']
         
-        self.array = data['sol_array']
+        self.states_list = data.states_list
 
         self.data = data
 
         self.DPC_year = 5
+
+        self.xx = data.states_list[self.DPC_year].t
 
         fig = self._generate_figure()
 
@@ -1349,8 +1324,6 @@ class CombinedModelPlot:
 
 
     def _generate_figure(self):
-
-        self.config = self.get_config()
 
         m_o_trcs_dict = self.get_model_output_overview_traces()
 
@@ -1365,34 +1338,6 @@ class CombinedModelPlot:
         return fig
         
     
-
-
-    @staticmethod
-    def get_config():
-
-        E_cols = pltly_clrs.n_colors("rgb(0,0,255)", "rgb(255,255,255)", 5, colortype="rgb")[:4]
-        
-        I_cols = pltly_clrs.n_colors("rgb(255,0,0)", "rgb(255,255,255)", 5, colortype="rgb")[:4]
-
-
-        return {
-            'S': dict(color='limegreen', dash='solid', name='Susceptible', ind=PARAMS.S_ind),
-            'R': dict(color='rgb(100,100,100)', dash='solid', name='Removed', ind=PARAMS.R_ind),
-
-            'ERR': dict(color=E_cols[0], dash='dot', name='E (rr)', ind=PARAMS.ER_ind),
-            'ERS': dict(color=E_cols[1], dash='dash', name='E (rs)', ind=PARAMS.ERS_ind),
-            'ESR': dict(color=E_cols[2], dash='dashdot', name='E (sr)', ind=PARAMS.ESR_ind),
-            'ESS': dict(color=E_cols[3], dash='solid', name='E (ss)', ind=PARAMS.ES_ind),
-
-            'IRR': dict(color=I_cols[0], dash='dot', name='I (rr)', ind=PARAMS.IR_ind),
-            'IRS': dict(color=I_cols[1], dash='dash', name='I (rs)', ind=PARAMS.IRS_ind),
-            'ISR': dict(color=I_cols[2], dash='dashdot', name='I (sr)', ind=PARAMS.ISR_ind),
-            'ISS': dict(color=I_cols[3], dash='solid', name='I (ss)', ind=PARAMS.IS_ind),
-
-            'F1': dict(color='turquoise', dash='solid', name='Fungicide A', ind=PARAMS.Fung1_ind),
-            'F2': dict(color='magenta', dash='dot', name='Fungicide B', ind=PARAMS.Fung2_ind),
-        }
-
 
 
 
@@ -1451,7 +1396,7 @@ class CombinedModelPlot:
 
         out = []
 
-        for key in ['F1', 'F2']:
+        for key in ['fung_1', 'fung_2']:
             out.append(self.get_DPC_trace(key))
 
         return out
@@ -1459,13 +1404,12 @@ class CombinedModelPlot:
 
 
     def get_DPC_trace(self, key):
-        clr = self.config[key]['color']
-        dash = self.config[key]['dash']
-        name = self.config[key]['name']
-        ind = self.config[key]['ind']
+        clr = ATTRS_DICT[key]['color']
+        dash = ATTRS_DICT[key]['dash']
+        name = ATTRS_DICT[key]['name']
 
         return go.Scatter(x=self.xx,
-                    y=self.array[:, ind, self.DPC_year],
+                    y=vars(self.states_list[self.DPC_year])[key],
                     line=dict(color=clr, dash=dash),
                     legendgroup="DPC",
                     name=name
@@ -1486,7 +1430,7 @@ class CombinedModelPlot:
     def get_yield_traces(self):
         out = []
 
-        yy = self.data['yield_vec']
+        yy = self.data.yield_vec
         
         xx = list(range(1,1+len(yy)))
 
@@ -1517,8 +1461,8 @@ class CombinedModelPlot:
     def get_RF_traces(self):
         out = []
         
-        y1 = self.data['res_vec_dict']['f1']
-        y2 = self.data['res_vec_dict']['f2']
+        y1 = self.data.res_vec_dict['f1']
+        y2 = self.data.res_vec_dict['f2']
         
         xx = list(range(len(y1)))
 
@@ -1574,7 +1518,7 @@ class CombinedModelPlot:
 
     def add_diagram(self, fig):
         
-        img = Image.open("runHRHR/img/diagram.png")
+        img = Image.open("create_figs/img/diagram.png")
 
         fig.add_layout_image(
             dict(

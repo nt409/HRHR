@@ -3,7 +3,7 @@ import copy
 import numpy as np
 
 
-from utils.functions import RunGrid
+from model.simulator import RunGrid
 from plotting.figures import DoseSpaceScenariosPlot
 from .pars import RandomPars
 

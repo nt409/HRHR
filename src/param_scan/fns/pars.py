@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from utils.config_classes import GridConfig, SingleConfig
-from utils.functions import RunSingleTactic
+from model.config_classes import GridConfig, SingleConfig
+from model.simulator import RunSingleTactic
 
 
 

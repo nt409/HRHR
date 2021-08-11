@@ -1,6 +1,6 @@
 import numpy as np
 
-from utils.functions import get_SR_by_doses
+from model.utils import get_SR_by_doses
 from plotting.figures import SR_by_dose_plot
 
 

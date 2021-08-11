@@ -2,11 +2,11 @@ import pandas as pd
 import numpy as np
 from scipy.optimize import minimize
 
-
-
-from utils.functions import RunSingleTactic, \
-    logit10_difference, EqualResFreqBreakdownArray, \
+from model.simulator import RunSingleTactic
+from model.utils import logit10_difference, \
+    EqualResFreqBreakdownArray, \
     EqualSelectionArray
+
 
 # TOC
 # RunAlongContourDF

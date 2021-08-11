@@ -10,7 +10,7 @@ from utils.functions import RunSingleTactic, \
 
 # TOC
 # RunAlongContourDF
-# DoseSumExtremesGetter
+# DoseSumExtremes
 # ContourDoseFinder
 
 # ThisStratSummaryDF
@@ -21,7 +21,7 @@ from utils.functions import RunSingleTactic, \
 
 class RunAlongContourDFs:
     def __init__(self, rand_pars, grid_output,
-                        n_points, strat_name) -> None:
+                        n_cont_points, strat_name) -> None:
         
         print(f"Running contour method: {strat_name}")
 
@@ -36,17 +36,18 @@ class RunAlongContourDFs:
         else:
             raise Exception(f"invalid strat_name: {strat_name}")
 
-
-
-        self.df = ThisStratDetailedDF(rand_pars, 
-                                    n_points, 
-                                    strat_name, 
-                                    level,
-                                    strat_obj).df
         
         
         max_grid_EL = np.amax(grid_output['FY'])
 
+        self.df = ThisStratDetailedDF(rand_pars, 
+                                    n_cont_points, 
+                                    strat_name, 
+                                    level,
+                                    strat_obj,
+                                    max_grid_EL).df
+        
+        
         self.summary = ThisStratSummaryDF(self.df, 
                                         strat_name,
                                         level,
@@ -62,15 +63,15 @@ class RunAlongContourDFs:
 
 
 class ThisStratDetailedDF:
-    def __init__(self, rand_pars, n_points, strat_name, 
-                level, strat_obj) -> None:
+    def __init__(self, rand_pars, n_cont_points, strat_name, 
+                level, strat_obj, max_grid_EL) -> None:
         
         self.rand_pars = rand_pars
-        self.n_points = n_points
-        
+        self.n_cont_points = n_cont_points
         self.strat_name = strat_name
         self.level = level
         self.strat_obj = strat_obj
+        self.max_grid_EL = max_grid_EL
 
         self.df = self._get_df()
 
@@ -79,6 +80,8 @@ class ThisStratDetailedDF:
 
         cntr = self._find_cntr()        
         out = self._find_df(cntr)
+        out['worked'] = max(out['EL'])>=self.max_grid_EL
+        out['max_grid_EL'] = self.max_grid_EL
 
         return out
 
@@ -90,13 +93,15 @@ class ThisStratDetailedDF:
         
         if not self.strat_obj.is_valid:
             print("strategy not valid:", self.strat_name)
-            cntr_out = {}
-            return cntr_out
+            return {}
         else:    
-            DS_min_max = DoseSumExtremesGetter(self.strat_obj.array, self.level).min_max_DS
+            DS_extremes = DoseSumExtremes(self.strat_obj.array, self.level)
+            
+            if DS_extremes.min is None or DS_extremes.max is None:
+                return {}
             
             cntr_out = ContourDoseFinder(self.rand_pars, self.strat_name,
-                            DS_min_max, self.n_points, self.level).doses_out
+                            DS_extremes, self.n_cont_points, self.level).doses_out
             return cntr_out
 
 
@@ -296,39 +301,46 @@ class ThisStratSummaryDF:
 
 
 
-class DoseSumExtremesGetter:
+class DoseSumExtremes:
 
     def __init__(self, z, level) -> None:
-
-        self.min_max_DS = self.get_min_and_max_valid_DS(z, level)
+        self.min = None
+        self.max = None
+        
+        self.get_min_and_max_valid_DS(z, level)
 
 
 
     def get_min_and_max_valid_DS(self, z, level):
+        """
+        Check for each dose sum whether there are values above and below 'level'
+        """
         # relative to 0
         zz = np.array(z) - level
 
         ds_vec = np.linspace(0, 2, -1+2*z.shape[0])
 
-        vals = []
+        valid_ds_list = []
 
         for ds_ind in range(len(ds_vec)):
-            is_valid = self._check_this_dose_sum(zz, ds_ind, z.shape[0])
+            is_valid = self._check_this_ds_straddles_level(zz, ds_ind, z.shape[0])
             
             if is_valid:
-                vals.append(ds_vec[ds_ind])
+                valid_ds_list.append(ds_vec[ds_ind])
 
 
-        if not len(vals):
-            return {}
+        if not len(valid_ds_list):
+            return None
+
+        self.min = min(valid_ds_list)
+        self.max = max(valid_ds_list)
 
 
-        return dict(min=min(vals), max=max(vals))
-      
 
 
 
-    def _check_this_dose_sum(self, zz, ds_ind, n):
+
+    def _check_this_ds_straddles_level(self, zz, ds_ind, n):
         vals = []
 
         bottom = max(0, 1 + ds_ind-n)
@@ -358,7 +370,7 @@ class DoseSumExtremesGetter:
 
 
 class ContourDoseFinder:
-    def __init__(self, rand_pars, strat_name, DS_min_max, n_points, level, tol=0.001) -> None:
+    def __init__(self, rand_pars, strat_name, DS_extremes, n_cont_points, level, tol=0.001) -> None:
         self.rand_pars = rand_pars
         
         if strat_name=="RFB":
@@ -370,8 +382,8 @@ class ContourDoseFinder:
         else:
             raise Exception(f"invalid strat_name: {strat_name}")
 
-        self.DS_min_max = DS_min_max
-        self.n_points = n_points
+        self.DS_extremes = DS_extremes
+        self.n_cont_points = n_cont_points
         self.level = level
 
         self.CONT_DIST_THRESH = tol
@@ -383,9 +395,9 @@ class ContourDoseFinder:
 
     def get_doses_on_contour(self):
         
-        DS_bds = self.DS_min_max
+        DS_bds = self.DS_extremes
 
-        dose_sums = np.linspace(DS_bds['min'], DS_bds['max'], self.n_points)
+        dose_sums = np.linspace(DS_bds.min, DS_bds.max, self.n_cont_points)
 
         x_list = []
         y_list = []
@@ -417,7 +429,7 @@ class ContourDoseFinder:
                     print("this run didn't get close to the contour?? ...")
                     print("contour level:", self.model_cont_quant)
                     print("dose sum:", self.dose_sum)
-                    print(self.DS_min_max)
+                    print(DS_bds)
 
             except Exception as e:
                 print(e)

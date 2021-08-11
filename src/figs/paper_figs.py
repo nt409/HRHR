@@ -1,13 +1,14 @@
 from utils.functions import RunSingleTactic, RunGrid
-from utils.plotting import DiseaseProgressCurvesAll, DoseSpaceScenariosPlot, \
+
+from utils.config_classes import SingleConfig, GridConfig
+
+from utils.plotting.figures import DiseaseProgressCurvesAll, DoseSpaceScenariosPlot, \
     DosesScatterPlot, YieldAndRfPlot, ParamScanPlotMeVsHobb, \
     ParamScanPlotHighLowDose, CombinedModelPlot
 
-from .config_classes import SingleConfig, GridConfig
 
-
-from param_scan_cluster.config import config_rand
-from param_scan_cluster.functions import get_PS_rand_str, PostProcess
+from param_scan.fns.config import config_rand
+from param_scan.fns.post_process import PostProcess
 
 # which plots
 
@@ -68,12 +69,12 @@ if doses_scatter:
 
 
 if param_scan_hobb_vs_me:
-    par_str = get_PS_rand_str(config_rand)
+    par_str = config_rand['par_str']
     data = get_param_data(par_str)
     ParamScanPlotMeVsHobb(data, f"{par_str}.png")
 
 
 if param_scan_high_low_dose:
-    par_str = get_PS_rand_str(config_rand)
+    par_str = config_rand['par_str']
     data = get_param_data(par_str)
     ParamScanPlotHighLowDose(data, f"{par_str}.png")

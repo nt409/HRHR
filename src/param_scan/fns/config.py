@@ -1,5 +1,5 @@
 # proper/fast/prev_run
-run_type = "proper"
+run_type = "fast"
 
 
 baseline = {
@@ -23,17 +23,17 @@ baseline = {
 if run_type == "proper":
     run_pars = {
         "grid_number": 51,
-        "n_cont_points": 51,
-        "n_years": 50,
+        "n_cont_points": 71,
+        "n_years": 35,
         "NIts": 2,
         }
 
 elif run_type == "fast":
     run_pars = {
-        "grid_number": 7,
-        "n_cont_points": 5,
+        "grid_number": 5,
+        "n_cont_points": 3,
         "n_years": 35,
-        "NIts": 4,   
+        "NIts": 1,   
         }
 
 elif run_type == "prev_run":

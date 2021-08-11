@@ -109,6 +109,7 @@ class GridConfig(BaselineConfig):
 
         self.add_string()
 
+
     def add_string(self, extra_detail=None):
         self.add_baseline_str()
         filename = f"grid/{self.save_string}_Nd={self.n_doses}_S={self.strategy}"

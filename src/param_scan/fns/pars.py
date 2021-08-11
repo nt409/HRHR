@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from runHRHR.config_classes import GridConfig, SingleConfig
+from utils.config_classes import GridConfig, SingleConfig
 from utils.params import PARAMS
 from utils.functions import RunSingleTactic
 

@@ -8,12 +8,13 @@ import copy
 from tqdm import tqdm
 
 from .params import PARAMS
-from runHRHR.config_classes import SingleConfig
+from .config_classes import SingleConfig
 
 # * TOC
 # Utility functions
+# Simulatr functions
 # Changing doses fns
-# cls Simulator
+# cls Simulatr
 # cls RunSingleTactic
 # cls RunGrid
 # and other auxiliary classes
@@ -32,10 +33,6 @@ def object_dump(file_name, object_to_dump):
     with open(file_name, 'wb') as handle:
         pickle.dump(object_to_dump, handle, protocol=pickle.HIGHEST_PROTOCOL) # protocol?
 
-
-
-
-
 def logit10(x):
     if x>0 and x<1:
         return log10(x/(1-x))
@@ -50,6 +47,55 @@ def log10_difference(x1, x2):
     return log10(x1) - log10(x2)
 
 # End of utility functions
+
+
+# * Simulatr functions
+
+def yield_calculator(y, t):
+    out = simps(y[PARAMS.S_ind,:] + 
+                            y[PARAMS.ER_ind,:] +
+                            y[PARAMS.ERS_ind,:] +
+                            y[PARAMS.ESR_ind,:] +
+                            y[PARAMS.ES_ind,:],
+                            t)
+    return out
+
+
+
+
+def res_prop_calculator(solution):
+    """
+    Uses final value of disease densities (end of season) to determine the res props.
+
+    These are used for next season (with a SR step in between if sr_prop=/=0)
+    """
+
+    disease = (solution[-1,PARAMS.IR_ind] + 
+                    solution[-1,PARAMS.IRS_ind] +
+                    solution[-1,PARAMS.ISR_ind] + 
+                    solution[-1,PARAMS.IS_ind])
+        
+    Res_disease_1 = solution[-1,PARAMS.IR_ind] + solution[-1,PARAMS.IRS_ind]
+    Res_disease_2 = solution[-1,PARAMS.IR_ind] + solution[-1,PARAMS.ISR_ind]
+
+    res_props_out = dict(
+        f1 = Res_disease_1/disease,
+        f2 = Res_disease_2/disease,
+        )
+    
+    strain_frequencies = dict(
+        RR = solution[-1,PARAMS.IR_ind]/disease,
+        RS = solution[-1,PARAMS.IRS_ind]/disease,
+        SR = solution[-1,PARAMS.ISR_ind]/disease,
+        SS = solution[-1,PARAMS.IS_ind]/disease
+        )
+    
+    return res_props_out, strain_frequencies
+
+    
+
+# * End of simulator functions
+
 
 
 # * changing doses fns
@@ -84,29 +130,14 @@ def get_SR_by_doses(doses, freqs):
 
 class Simulator:
     def __init__(self, fungicide_params):
-        if fungicide_params is None:
-            omega_1 = PARAMS.omega_1
-            omega_2 = PARAMS.omega_2
-            
-            theta_1 = PARAMS.theta_1
-            theta_2 = PARAMS.theta_2
+        
+        self.ode_sys = ODESystem(fungicide_params)
 
-            delta_1 = PARAMS.delta_1
-            delta_2 = PARAMS.delta_2
+        self.selection_finder = SelectionFinder
+        self.res_prop_finder = res_prop_calculator
+        self.yield_finder = yield_calculator
 
-        else:
-            omega_1 = fungicide_params['omega_1']
-            omega_2 = fungicide_params['omega_2']
-            
-            theta_1 = fungicide_params['theta_1']
-            theta_2 = fungicide_params['theta_2']
 
-            delta_1 = fungicide_params['delta_1']
-            delta_2 = fungicide_params['delta_2']
-
-        self.fcide1 = Fungicide(omega_1, theta_1, delta_1)
-        self.fcide2 = Fungicide(omega_2, theta_2, delta_2)
-    
 
 
 
@@ -126,17 +157,18 @@ class Simulator:
 
         y0 = [PARAMS.S_0] + [0]*(PARAMS.no_variables-1)
 
-        sol = ode(self.ode_system).set_integrator('dopri5', nsteps=PARAMS.nstepz)
+        sol = ode(self.ode_sys.system).set_integrator('dopri5', nsteps=PARAMS.nstepz)
         
-        tim_1, t_yield = self._get_dis_free_t_vecs()
+        t_not_yield, t_yield = self._get_dis_free_t_vecs()
 
-        _ = self._get_y_array_this_segment(y0, sol, tim_1)
+        _ = self._get_y_array_this_segment(y0, sol, t_not_yield)
         y_yield = self._get_y_array_this_segment(sol.y, sol, t_yield)
         y_yield[:, -1] = sol.y
 
         dis_free_yield = simps(y_yield[0,:], t_yield)
 
         return dis_free_yield
+
 
     @staticmethod
     def _get_dis_free_t_vecs():
@@ -150,16 +182,16 @@ class Simulator:
         c1 = ceil(n1-0.5)
         c2 = ceil(n2-0.5)
         
-        tim_1 = np.linspace(t0,t1,c1)
+        t_not_yield = np.linspace(t0,t1,c1)
         t_yield = np.linspace(t1,t2,c2)
         
-        return tim_1, t_yield
+        return t_not_yield, t_yield
 
 
 
     def _solve_ode(self):
 
-        sol = ode(self.ode_system).set_integrator('dopri5', nsteps=PARAMS.nstepz)
+        sol = ode(self.ode_sys.system).set_integrator('dopri5', nsteps=PARAMS.nstepz)
 
         time_list = [PARAMS.T_emerge,
             PARAMS.T_GS32,
@@ -175,7 +207,7 @@ class Simulator:
 
         self.soln  = np.transpose(solutionTranspose)
 
-        self.yield_integral = YieldFinder(y_list[-1], t_list[-1]).yield_
+        self.yield_integral = self.yield_finder(y_list[-1], t_list[-1])
 
 
 
@@ -241,15 +273,16 @@ class Simulator:
         return list_of_tvs
 
 
+
     def _get_y0_this_segment(self, segment, sol):
         
         if segment=="start":
             PI = self.primary_inoc
 
             y0_new = [PARAMS.S_0] + [0]*9 + [PI['RR'], 
-                        PI['RS'],
-                        PI['SR'],
-                        PI['SS']] + [0]*2
+                                                PI['RS'],
+                                                PI['SR'],
+                                                PI['SS']] + [0]*2
 
         else:
             y0_new = sol.y
@@ -306,15 +339,13 @@ class Simulator:
 
     def _post_process(self):
 
-        final_res_dict, props_out = ResPropFinder().calculate(self.soln)
+        final_res_dict, props_out = self.res_prop_finder(self.soln)
         
-        inoc = PARAMS.init_den
-
-        selection = SelectionFinder(self.primary_inoc, final_res_dict).sel
+        selection = self.selection_finder(self.primary_inoc, final_res_dict).sel
 
         out = dict(final_res_dict=final_res_dict,
                 props_out=props_out,
-                inoc=inoc,
+                inoc=PARAMS.init_den,
                 selection=selection,
                 yield_integral=self.yield_integral,
                 solution=self.soln,
@@ -327,7 +358,38 @@ class Simulator:
 
 
 
-    def ode_system(self, t, y):
+
+# * End of Sim cls
+
+class ODESystem:
+    def __init__(self, fungicide_params) -> None:
+        if fungicide_params is None:
+            omega_1 = PARAMS.omega_1
+            omega_2 = PARAMS.omega_2
+            
+            theta_1 = PARAMS.theta_1
+            theta_2 = PARAMS.theta_2
+
+            delta_1 = PARAMS.delta_1
+            delta_2 = PARAMS.delta_2
+
+        else:
+            omega_1 = fungicide_params['omega_1']
+            omega_2 = fungicide_params['omega_2']
+            
+            theta_1 = fungicide_params['theta_1']
+            theta_2 = fungicide_params['theta_2']
+
+            delta_1 = fungicide_params['delta_1']
+            delta_2 = fungicide_params['delta_2']
+
+        self.fcide1 = Fungicide(omega_1, theta_1, delta_1)
+        self.fcide2 = Fungicide(omega_2, theta_2, delta_2)
+    
+
+
+
+    def system(self, t, y):
 
         S,ER,ERS,ESR,ES,IR,IRS,ISR,IS,R,PR,PRS,PSR,PS,conc_1,conc_2 = y
 
@@ -364,6 +426,7 @@ class Simulator:
 
         return dydt
 
+
     @staticmethod
     def _growth(A, t):
         if t>=PARAMS.T_emerge:
@@ -381,7 +444,8 @@ class Simulator:
         else:
             return 0
 
-# * End of Sim cls
+
+
 
 
 class Fungicide:
@@ -399,41 +463,6 @@ class Fungicide:
 
 
 
-class ResPropFinder:
-    def __init__(self) -> None:
-        pass
-    
-    def calculate(self, solution):
-        """
-        Uses final value (end of season) to determine the res props. 
-
-        These are used for next season (with a SR step in between if sr_prop=/=0)
-        """
-
-        disease = (solution[-1,PARAMS.IR_ind] + 
-                        solution[-1,PARAMS.IRS_ind] +
-                        solution[-1,PARAMS.ISR_ind] + 
-                        solution[-1,PARAMS.IS_ind])
-            
-        Res_disease_1 = solution[-1,PARAMS.IR_ind] + solution[-1,PARAMS.IRS_ind]
-        Res_disease_2 = solution[-1,PARAMS.IR_ind] + solution[-1,PARAMS.ISR_ind]
-
-        res_props_out = dict(
-            f1 = Res_disease_1/disease,
-            f2 = Res_disease_2/disease,
-            )
-        
-        strain_frequencies = dict(
-            RR = solution[-1,PARAMS.IR_ind]/disease,
-            RS = solution[-1,PARAMS.IRS_ind]/disease,
-            SR = solution[-1,PARAMS.ISR_ind]/disease,
-            SS = solution[-1,PARAMS.IS_ind]/disease
-            )
-        
-        return res_props_out, strain_frequencies
-
-# * End of RPFinder cls
-    
 
 class SelectionFinder:    
     def __init__(self, primary_inoc, final_res_dict) -> None:
@@ -460,37 +489,17 @@ class SelectionFinder:
 
 
     def _get_sel_this_fung(self, key):
-        ird = self.initial_res_dict
-        frd = self.final_res_dict
+        in_res_dict = self.initial_res_dict
+        fn_res_dict = self.final_res_dict
         
-        if ird[key] > 0:
-            self.sel[key] = frd[key] / (ird[key]/PARAMS.init_den)
+        if in_res_dict[key] > 0:
+            self.sel[key] = fn_res_dict[key] / (in_res_dict[key]/PARAMS.init_den)
 
 # * End of SelFinder cls
 
 
 
 
-
-class YieldFinder:
-    def __init__(self, y, t) -> None:
-        """
-        y and t are from final stage of growing season
-        """
-        self.y = y
-        self.t = t
-        self.yield_ = self._get_yield()
-    
-    def _get_yield(self):
-        out = simps(self.y[PARAMS.S_ind,:] + 
-                            self.y[PARAMS.ER_ind,:] +
-                            self.y[PARAMS.ERS_ind,:] +
-                            self.y[PARAMS.ESR_ind,:] +
-                            self.y[PARAMS.ES_ind,:],
-                            self.t)
-        return out 
-
-# * End of YldFinder cls
 
 
 
@@ -501,45 +510,29 @@ class FungicideStrategy:
 
 
 
-    def get_doses(self, f1_val, f2_val, n_doses):
+    def get_grid_doses(self, f1_val, f2_val, n_doses):
 
-        self._set_concs(f1_val, f2_val, n_doses)
+        self.conc_f1 = f1_val/(n_doses-1)
+        self.conc_f2 = f2_val/(n_doses-1)
 
-        self._dose_for_this_strategy()      
+        self._get_doses_for_this_strategy()      
 
         return self.fung1_doses, self.fung2_doses
 
 
-    def _set_concs(self, f1_val, f2_val, n_doses):
-        if n_doses is not None:
-            self._set_grid_concs(f1_val, f2_val, n_doses)
-        else:
-            self._set_regular_concs(f1_val, f2_val)
 
-
-    def _set_grid_concs(self, f1_val, f2_val, n_doses):
-        self.conc_f1 = f1_val/(n_doses-1)
-        self.conc_f2 = f2_val/(n_doses-1)
-
-
-    def _set_regular_concs(self, f1_val, f2_val):
-        self.conc_f1 = f1_val
-        self.conc_f2 = f2_val
-
-
-
-    def _dose_for_this_strategy(self):
+    def _get_doses_for_this_strategy(self):
         if self.my_strategy=='mix':
             self._get_mixed_doses()
-                
+
         elif self.my_strategy=='alt_12':
             self._get_alt_12_doses()
-        
+
         elif self.my_strategy=='alt_21':
             self._get_alt_21_doses()
-        
+
         else:
-            raise Exception("incorrect strategy named")
+            raise Exception(f"Invalid strategy named: {self.my_strategy}")
 
 
 
@@ -900,6 +893,7 @@ class RunSingleTactic:
 class RunGrid:
     def __init__(self, fcide_parms=None):
         self.sing_tact = RunSingleTactic(fcide_parms)
+        self.fung_strat = FungicideStrategy
 
 
 
@@ -928,13 +922,13 @@ class RunGrid:
 
 
     def _run_the_grid(self, Conf):
-        fs = FungicideStrategy(Conf.strategy, Conf.n_years)
+        fs = self.fung_strat(Conf.strategy, Conf.n_years)
         
         for f1_ind in tqdm(range(Conf.n_doses)):
             for f2_ind in range(Conf.n_doses):
 
-                Conf.fung1_doses, Conf.fung2_doses = fs.get_doses(
-                                                    f1_ind, f2_ind, Conf.n_doses)
+                Conf.fung1_doses, Conf.fung2_doses = fs.get_grid_doses(f1_ind,
+                                                        f2_ind, Conf.n_doses)
 
                 one_tact_output =  self.sing_tact.run(Conf)
                 

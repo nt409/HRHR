@@ -1,8 +1,10 @@
 import numpy as np
 
+
 from utils.functions import changing_fcide_dose_curve, changing_fcide_curve_asymp, \
     changing_fcide_sexp_asymp_curv
-from utils.plotting import fcide_grid
+
+from utils.plotting.figures import fcide_grid
 
 curv_dose = True
 curv_asymp = True

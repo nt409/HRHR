@@ -14,4 +14,4 @@ d22 = 0.5
 n_grid = 4
 
 ConfigSingleRun = SingleConfig(n_years, res_f1, res_f2, d11, d12, d21, d22)
-ConfigGridRun    =  GridConfig(n_years, res_f1, res_f2, n_grid)
+ConfigGridRun   =   GridConfig(n_years, res_f1, res_f2, n_grid)

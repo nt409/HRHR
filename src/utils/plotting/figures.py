@@ -8,24 +8,21 @@ from math import log2, floor, log10, pi
 from scipy import stats
 from PIL import Image
 
-# import plotly.express as px
 
 
+from ..params import PARAMS
+from ..functions import EqualResFreqBreakdownArray, EqualSelectionArray
 
-
-from .params import PARAMS
-
-from .plot_traces import get_RFB_diff_traces, get_eq_sel_traces, get_heatmap_lines, \
+from .traces import get_RFB_diff_traces, get_eq_sel_traces, get_heatmap_lines, \
     get_strain_freq_traces, contour_at_0, get_multi_contour_traces, \
     get_MS_RFB_traces, contour_at_single_level
 
-from .plot_utils import get_text_annotation, get_arrow_annotation, standard_layout, \
+from .utils import get_text_annotation, get_arrow_annotation, standard_layout, \
     grey_colorscale, my_colorbar, get_big_text_annotation
 
-from .plot_consts import ATTRS_DICT, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT, \
+from .consts import ATTRS_DICT, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT, \
         FULL_PAGE_WIDTH
 
-from .functions import EqualResFreqBreakdownArray, EqualSelectionArray
 
 
 # TOC

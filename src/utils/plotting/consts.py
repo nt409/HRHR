@@ -1,4 +1,4 @@
-from .params import PARAMS
+from ..params import PARAMS
 
 ATTRS_DICT = {
     str(PARAMS.S_ind): dict(name='Susceptible', colour='green', dash="solid"),
@@ -34,7 +34,7 @@ TITLE_MAP = dict(
     TY = "Total yield",
     FY = "Effective life",
     econ = "Economic life",
-)
+    )
 
 
 # default is half page

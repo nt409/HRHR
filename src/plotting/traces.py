@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 
 from .consts import STRAIN_ATTRS, TITLE_MAP
 from .utils import invisible_colorbar, my_colorbar, grey_colorscale
-from ..functions import logit10, log10_difference, logit10_difference
+from utils.functions import logit10, log10_difference, logit10_difference
 
 # * RFB
 

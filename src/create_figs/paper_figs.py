@@ -2,7 +2,7 @@ from utils.functions import RunSingleTactic, RunGrid
 
 from utils.config_classes import SingleConfig, GridConfig
 
-from utils.plotting.figures import DiseaseProgressCurvesAll, DoseSpaceScenariosPlot, \
+from plotting.figures import DiseaseProgressCurvesAll, DoseSpaceScenariosPlot, \
     DosesScatterPlot, YieldAndRfPlot, ParamScanPlotMeVsHobb, \
     ParamScanPlotHighLowDose, CombinedModelPlot
 

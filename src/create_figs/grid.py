@@ -1,6 +1,7 @@
 from utils.functions import RunGrid
 from utils.config import ConfigGridRun
-from utils.plotting.figures import dose_grid_heatmap, dose_grid_RA_heatmap
+
+from plotting.figures import dose_grid_heatmap, dose_grid_RA_heatmap
 
 # which plots
 

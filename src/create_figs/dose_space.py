@@ -6,7 +6,7 @@ from utils.functions import RunDoseSpace, RunGrid, RunRadial
 
 from utils.config import ConfigGridRun
 
-from utils.plotting.figures import dose_space_contour, eq_RFB_contours, radial, \
+from plotting.figures import dose_space_contour, eq_RFB_contours, radial, \
     dose_sum_LR, dose_sum_hobb_vs_me, first_year_yield, MS_RFB_scatter_plot
 
 # which plot

@@ -4,7 +4,7 @@ import numpy as np
 
 
 from utils.functions import RunGrid
-from utils.plotting.figures import DoseSpaceScenariosPlot
+from plotting.figures import DoseSpaceScenariosPlot
 from .pars import RandomPars
 
 # TOC

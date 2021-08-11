@@ -1,7 +1,7 @@
 from utils.functions import RunRfRatio, RunGrid, compare_me_vs_hobb_by_ratio
 from utils.config import ConfigGridRun
 
-from utils.plotting.figures import dose_grid_heatmap_with_contours, outcomes_by_ratio
+from plotting.figures import dose_grid_heatmap_with_contours, outcomes_by_ratio
 
 # which plot
 

@@ -10,8 +10,8 @@ from PIL import Image
 
 
 
-from ..params import PARAMS
-from ..functions import EqualResFreqBreakdownArray, EqualSelectionArray
+from utils.params import PARAMS
+from utils.functions import EqualResFreqBreakdownArray, EqualSelectionArray
 
 from .traces import get_RFB_diff_traces, get_eq_sel_traces, get_heatmap_lines, \
     get_strain_freq_traces, contour_at_0, get_multi_contour_traces, \

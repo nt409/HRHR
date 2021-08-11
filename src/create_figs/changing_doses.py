@@ -1,7 +1,7 @@
 import numpy as np
 
 from utils.functions import get_SR_by_doses
-from utils.plotting.figures import SR_by_dose_plot
+from plotting.figures import SR_by_dose_plot
 
 
 SR_by_dose = True

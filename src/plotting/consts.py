@@ -1,4 +1,4 @@
-from ..params import PARAMS
+from utils.params import PARAMS
 
 ATTRS_DICT = {
     str(PARAMS.S_ind): dict(name='Susceptible', colour='green', dash="solid"),

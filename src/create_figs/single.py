@@ -4,7 +4,7 @@ from utils.config import ConfigSingleRun
 
 from utils.config_classes import SingleConfig
 
-from utils.plotting.figures import yield_by_year, res_freqs_single_t_plot, \
+from plotting.figures import yield_by_year, res_freqs_single_t_plot, \
     single_year_plot, yield_res_freqs_plot, plot_frequencies, plot_frequencies_over_time
 
 

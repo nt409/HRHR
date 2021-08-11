@@ -1,5 +1,5 @@
 # proper/fast/prev_run
-run_type = "proper"
+run_type = "fast"
 
 baseline_dec = 1.11*10**(-2)
 

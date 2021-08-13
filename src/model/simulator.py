@@ -7,14 +7,20 @@ import os
 from tqdm import tqdm
 import itertools
 
+
+
+
 from model.params import PARAMS
+
 from model.utils import res_prop_calculator, yield_calculator, \
     SelectionFinder, FungicideStrategy, object_dump
 
 from model.ode_system import ODESystem
+
 from model.config_classes import SingleConfig
-from model.outputs import GridTacticOutput, SimOutput, \
-    SingleTacticOutput
+
+from model.outputs import SimOutput, SingleTacticOutput, \
+    GridTacticOutput
 
 
 
@@ -24,6 +30,9 @@ class Simulator(ABC):
     @abstractmethod
     def run(self):
         pass
+
+
+
 
 
 class SimulatorWithDisease(Simulator):

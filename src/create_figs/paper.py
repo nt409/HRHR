@@ -1,11 +1,11 @@
 from model.simulator import RunSingleTactic, RunGrid
 
+from model.utils import EqualResFreqBreakdownArray
 from model.config_classes import SingleConfig, GridConfig
 
 from plotting.figures import DiseaseProgressCurvesAll, DoseSpaceScenariosPlot, \
     DosesScatterPlot, YieldAndRfPlot, ParamScanPlotMeVsHobb, \
     ParamScanPlotHighLowDose, CombinedModelPlot
-
 
 from param_scan.fns.config import config_rand
 from param_scan.fns.post_process import PostProcess
@@ -14,8 +14,8 @@ from param_scan.fns.post_process import PostProcess
 
 model_output_overview = False
 rf_yield = False
-model_output_combined = True
-dose_space = False
+model_output_combined = False
+dose_space = True
 doses_scatter = False
 param_scan_hobb_vs_me = False
 param_scan_high_low_dose = False
@@ -63,10 +63,8 @@ if dose_space:
     ConfigGridRun.load_saved = True
     
     output = RunGrid().run(ConfigGridRun)
-
-    from model.utils import EqualResFreqBreakdownArray
+    
     x = EqualResFreqBreakdownArray(output)
-    print(vars(x).keys())
     
     DoseSpaceScenariosPlot(output, ConfigGridRun.config_string_img)
 

@@ -222,7 +222,7 @@ class SelectionFinder:
 
 
 
-class AbstractStratArray(ABC):
+class StrategyArray(ABC):
     @abstractmethod
     def _generate_array(self):
         pass
@@ -236,7 +236,7 @@ class AbstractStratArray(ABC):
 
 
 
-class EqualResFreqBreakdownArray(AbstractStratArray):
+class EqualResFreqBreakdownArray(StrategyArray):
     def __init__(self, grid_output) -> None:
         self.FYs = grid_output.FY
         self.end_freqs = grid_output.end_freqs_DA
@@ -289,7 +289,7 @@ class EqualResFreqBreakdownArray(AbstractStratArray):
 
 
 
-class EqualSelectionArray(AbstractStratArray):
+class EqualSelectionArray(StrategyArray):
     def __init__(self, grid_output) -> None:
 
         """

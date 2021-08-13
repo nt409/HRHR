@@ -10,17 +10,16 @@ from PIL import Image
 
 
 
-from model.params import PARAMS
-from model.utils import EqualResFreqBreakdownArray, EqualSelectionArray
+from model.strategy_arrays import EqualResFreqBreakdownArray, EqualSelectionArray
 
-from .traces import get_RFB_diff_traces, get_eq_sel_traces, get_heatmap_lines, \
+from plotting.traces import get_RFB_diff_traces, get_eq_sel_traces, get_heatmap_lines, \
     get_strain_freq_traces, contour_at_0, get_multi_contour_traces, \
     get_MS_RFB_traces, contour_at_single_level
 
-from .utils import get_text_annotation, get_arrow_annotation, standard_layout, \
+from plotting.utils import get_text_annotation, get_arrow_annotation, standard_layout, \
     grey_colorscale, my_colorbar, get_big_text_annotation
 
-from .consts import ATTRS_DICT, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT, \
+from plotting.consts import ATTRS_DICT, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT, \
         FULL_PAGE_WIDTH
 
 
@@ -1771,7 +1770,7 @@ class DoseSpaceScenariosPlot:
         
         minEqDoseELVec = np.asarray([float(FYs[i, i]) for i in range(FYs.shape[0])])
 
-        ind = np.where(minEqDoseELVec>0)
+        ind = np.where(minEqDoseELVec>1)
 
         min_val = x[int(ind[0][0])]
 

@@ -184,6 +184,7 @@ class ModelTimes:
                         self.params.T_GS39,
                         self.params.T_GS61,
                         self.params.T_GS87]
+
         
         self.seg_names = ["start", "spray_1", "spray_2", "yield"]
 
@@ -239,16 +240,17 @@ class ModelTimes:
 
 class SimulatorDiseaseFree(Simulator):
     def __init__(self, fungicide_params):
-        self.ode_sys = ODESystem(fungicide_params)
+        ode_sys = ODESystem(fungicide_params)
         self.yield_finder = yield_calculator
+        self.sol = ode(ode_sys.system).set_integrator('dopri5', nsteps=PARAMS.nstepz)
         
 
 
 
     def run(self):
+        sol = self.sol
+        
         y0 = [PARAMS.S_0] + [0]*(PARAMS.no_variables-1)
-
-        sol = ode(self.ode_sys.system).set_integrator('dopri5', nsteps=PARAMS.nstepz)
         
         t_not_yield, t_yield = self._get_dis_free_t_vecs()
 

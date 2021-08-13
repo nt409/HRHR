@@ -44,11 +44,6 @@ class Parameters:
         
         self.init_den = 1.09*10**(-2)/4.2
         
-        # inoculum
-        self.inoc_frac = 8
-        self.inoc_frac_integral = 0.06
-        # proportion of inoculum density explicitly from last year's epidemic
-        self.last_year_prop = 0
         
         self.T_emerge = 1212
         self.T_GS32 = 1456
@@ -63,8 +58,8 @@ class Parameters:
         
         self.yield_threshold = 95
         
-        self.JSON_path = 'HR_HR/Asexual_config/JSON/'
-        self.pickle_path = 'HR_HR/Asexual_output/Saved_pickles/Cluster_version/'
+        # self.JSON_path = 'HR_HR/Asexual_config/JSON/'
+        # self.pickle_path = 'HR_HR/Asexual_output/Saved_pickles/Cluster_version/'
         
         self.no_variables = 16
         
@@ -90,6 +85,32 @@ class Parameters:
         self.fung_2_ind = 15
 
 
+        
+        
+        
+        # kill
+        self.IRR_ind = 5
+        self.IRS_ind = 6
+        self.ISR_ind = 7
+        self.ISS_ind = 8
+        
+        self.R_ind = 9
+        
+        self.PRR_ind = 10
+        self.PRS_ind = 11
+        self.PSR_ind = 12
+        self.PSS_ind = 13
+
+        self.ER_ind = 1
+        self.ES_ind = 4
+
+        self.IR_ind = 5
+        self.IS_ind = 8
+
+        self.Fung1_ind = 14
+        self.Fung2_ind = 15
+
+        self.res_prop_calc_method = 'final_value'
 
 
 PARAMS = Parameters()

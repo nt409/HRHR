@@ -1,6 +1,5 @@
 from model.simulator import RunSingleTactic, RunGrid
 
-from model.utils import EqualResFreqBreakdownArray
 from model.config_classes import SingleConfig, GridConfig
 
 from plotting.figures import DiseaseProgressCurvesAll, DoseSpaceScenariosPlot, \
@@ -9,6 +8,8 @@ from plotting.figures import DiseaseProgressCurvesAll, DoseSpaceScenariosPlot, \
 
 from param_scan.fns.config import config_rand
 from param_scan.fns.post_process import PostProcess
+
+
 
 # which plots
 
@@ -57,21 +58,17 @@ if model_output_combined:
 
 
 if dose_space:
-    # ConfigGridRun = GridConfig(30, 10**(-7), 10**(-3), 51)
+    ConfigGridRun = GridConfig(30, 10**(-7), 10**(-3), 51)
 
     ConfigGridRun = GridConfig(30, 10**(-7), 10**(-3), 6)
-    ConfigGridRun.load_saved = True
-    
+    ConfigGridRun.load_saved = False
     output = RunGrid().run(ConfigGridRun)
-    
-    x = EqualResFreqBreakdownArray(output)
     
     DoseSpaceScenariosPlot(output, ConfigGridRun.config_string_img)
 
 
 if doses_scatter:
-    ConfigGridRun = GridConfig(30, 10**(-7), 10**(-3), 51)
-    
+    ConfigGridRun = GridConfig(30, 10**(-7), 10**(-3), 51)    
     output = RunGrid().run(ConfigGridRun)
     DosesScatterPlot(output, ConfigGridRun.config_string_img)
 

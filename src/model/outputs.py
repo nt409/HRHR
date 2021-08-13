@@ -204,7 +204,6 @@ class SingleTacticOutput:
 
     def delete_unnecessary_vars(self):
         delattr(self, "yield_thresh")
-        # delattr(self, "conf")
         delattr(self, "n_years")
         delattr(self, "df_yield")
         delattr(self, "strain_names")

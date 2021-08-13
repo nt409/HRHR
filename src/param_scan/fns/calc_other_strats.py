@@ -20,7 +20,7 @@ class OtherStratsDF:
         
         data = dict(
                 max_grid_EL = np.amax(FYs),
-                O_minEqDoseEL = self._get_first_non_zero_element(minEqDoseELVec),
+                O_minEqDoseEL = self._get_first_geq_2_element(minEqDoseELVec),
                 O_corner_00 = FYs[0, 0],
                 O_corner_10 = FYs[-1, 0],
                 O_corner_01 = FYs[0, -1],
@@ -33,8 +33,8 @@ class OtherStratsDF:
     
     
     @staticmethod
-    def _get_first_non_zero_element(vec):
-        filtered = list(filter(lambda x: x>0, vec))
+    def _get_first_geq_2_element(vec):
+        filtered = list(filter(lambda x: x>=2, vec))
 
         if not filtered:
             return "NA"

@@ -26,13 +26,9 @@ class RunAlongContourDFs:
         print(f"Running contour method: {strat_name}")
 
         if strat_name=="RFB":
-            level = 0
             strat_obj = EqualResFreqBreakdownArray(grid_output)
-            
         elif strat_name=="EqSel":
-            level = 0.5
             strat_obj = EqualSelectionArray(grid_output)
-            
         else:
             raise Exception(f"invalid strat_name: {strat_name}")
 
@@ -42,15 +38,13 @@ class RunAlongContourDFs:
 
         self.df = ThisStratDetailedDF(rand_pars, 
                                     n_cont_points, 
-                                    strat_name, 
-                                    level,
                                     strat_obj,
                                     max_grid_EL).df
         
         
         self.summary = ThisStratSummaryDF(self.df, 
-                                        strat_name,
-                                        level,
+                                        strat_obj.name,
+                                        strat_obj.level,
                                         max_grid_EL).df
 
 
@@ -63,17 +57,22 @@ class RunAlongContourDFs:
 
 
 class ThisStratDetailedDF:
-    def __init__(self, rand_pars, n_cont_points, strat_name, 
-                level, strat_obj, max_grid_EL) -> None:
+    def __init__(self, rand_pars, n_cont_points, strat_obj, max_grid_EL) -> None:
         
         self.rand_pars = rand_pars
         self.n_cont_points = n_cont_points
-        self.strat_name = strat_name
-        self.level = level
+
+        self.ds_ext_class = DoseSumExtremes
+        self.CDF_class = ContourDoseFinder
+        
+        self.strat_name = strat_obj.name
+        self.level = strat_obj.level
+
         self.strat_obj = strat_obj
         self.max_grid_EL = max_grid_EL
 
         self.df = self._get_df()
+        
 
 
     def _get_df(self):
@@ -95,12 +94,12 @@ class ThisStratDetailedDF:
             print("strategy not valid:", self.strat_name)
             return {}
         else:    
-            DS_extremes = DoseSumExtremes(self.strat_obj.array, self.level)
+            DS_extremes = self.ds_ext_class(self.strat_obj.array, self.level)
             
             if DS_extremes.min is None or DS_extremes.max is None:
                 return {}
             
-            cntr_out = ContourDoseFinder(self.rand_pars, self.strat_name,
+            cntr_out = self.CDF_class(self.rand_pars, self.strat_name,
                             DS_extremes, self.n_cont_points, self.level).doses_out
             return cntr_out
 

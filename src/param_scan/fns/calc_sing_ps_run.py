@@ -1,6 +1,6 @@
 import pandas as pd
 
-from utils.functions import RunGrid
+from model.simulator import RunGrid
 
 from .pars import RandomPars
 from .calc_method_contour import RunAlongContourDFs

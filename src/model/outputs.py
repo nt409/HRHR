@@ -1,15 +1,12 @@
 import numpy as np
-from math import floor
 
 
 
 
 class ODEStates:
-    def __init__(self, params, tvs) -> None:
+    def __init__(self, t) -> None:
 
-        self.params = params
-
-        self.t = self._get_t(tvs)
+        self.t = t
 
         n_points = len(self.t)
         
@@ -40,52 +37,38 @@ class ODEStates:
         self.fung_2 = np.zeros(n_points)
 
 
-    
- 
-    @staticmethod    
-    def _get_t(tvs):
-
-        out = np.concatenate([tvs[ii][:-1] if ii!=3 else tvs[ii]
-                                for ii in range(len(tvs))])
-        return out
-
-
-
     def update_y(self, y):
-        p = self.params
 
         ind = self.index
 
         length = y.shape[1]
 
-        self.S[ind:ind+length] = y[p.S_ind, :]
+        self.S[ind:ind+length] = y[0, :]
         
-        self.ERR[ind:ind+length] = y[p.ERR_ind, :]
-        self.ERS[ind:ind+length] = y[p.ERS_ind, :]
-        self.ESR[ind:ind+length] = y[p.ESR_ind, :]
-        self.ESS[ind:ind+length] = y[p.ESS_ind, :]
+        self.ERR[ind:ind+length] = y[1, :]
+        self.ERS[ind:ind+length] = y[2, :]
+        self.ESR[ind:ind+length] = y[3, :]
+        self.ESS[ind:ind+length] = y[4, :]
         
-        self.IRR[ind:ind+length] = y[p.IRR_ind, :]
-        self.IRS[ind:ind+length] = y[p.IRS_ind, :]
-        self.ISR[ind:ind+length] = y[p.ISR_ind, :]
-        self.ISS[ind:ind+length] = y[p.ISS_ind, :]
+        self.IRR[ind:ind+length] = y[5, :]
+        self.IRS[ind:ind+length] = y[6, :]
+        self.ISR[ind:ind+length] = y[7, :]
+        self.ISS[ind:ind+length] = y[8, :]
         
-        self.R[ind:ind+length] = y[p.R_ind, :]
+        self.R[ind:ind+length] = y[9, :]
         
-        self.PRR[ind:ind+length] = y[p.PRR_ind, :]
-        self.PRS[ind:ind+length] = y[p.PRS_ind, :]
-        self.PSR[ind:ind+length] = y[p.PSR_ind, :]
-        self.PSS[ind:ind+length] = y[p.PSS_ind, :]
+        self.PRR[ind:ind+length] = y[10, :]
+        self.PRS[ind:ind+length] = y[11, :]
+        self.PSR[ind:ind+length] = y[12, :]
+        self.PSS[ind:ind+length] = y[13, :]
 
-        self.fung_1[ind:ind+length] = y[p.fung_1_ind, :]
-        self.fung_2[ind:ind+length] = y[p.fung_2_ind, :]
+        self.fung_1[ind:ind+length] = y[14, :]
+        self.fung_2[ind:ind+length] = y[15, :]
 
         self.index = ind + length
     
-
-
-
-
+    def delete_unnecessary_vars(self):
+        delattr(self, "index")
 
 
 
@@ -97,86 +80,13 @@ class ODEStates:
 
 
 class SimOutput:
-    def __init__(self, params) -> None:
+    def __init__(self, t_vec) -> None:
+        self.states = ODEStates(t_vec)
 
-        self.params = params
-
-        self.seg_times = [self.params.T_emerge,
-                        self.params.T_GS32,
-                        self.params.T_GS39,
-                        self.params.T_GS61,
-                        self.params.T_GS87]
-        
-        self.seg_names = ["start", "spray_1", "spray_2", "yield"]
-
-        self.t_vecs = self._get_list_of_time_vecs()
-
-        self.states = ODEStates(params, self.t_vecs)
-
-
-
-
-    def _get_list_of_time_vecs(self):
-        
-        seg_ts = self.seg_times
-        
-        sum_ns = 0
-
-        list_of_tvs = []
-
-        for ii, segment in enumerate(self.seg_names):
-
-            if segment=="yield":
-                # makes sure total number of points is self.params.t_points
-                n = 3 + self.params.t_points - sum_ns
-
-            else:
-                # make n so that values are approx self.params.dt apart
-                n = 1 + (seg_ts[ii+1]-seg_ts[ii])/self.params.dt
-                n = floor(n)
-                sum_ns += n
-
-            time_vec = np.linspace(seg_ts[ii], seg_ts[ii+1], n)
-
-            if segment=="yield":
-                self.t_yield = time_vec
-
-            list_of_tvs.append(time_vec)
-
-        return list_of_tvs
-
-
-
-
-    def get_yield_contributing_y(self, y):
-        p = self.params
-
-        self.y_yield = (y[p.S_ind,:] + 
-                            y[p.ERR_ind,:] +
-                            y[p.ERS_ind,:] +
-                            y[p.ESR_ind,:] +
-                            y[p.ESS_ind,:])
-
-
-
-
-
-
-    def delete_unnecessary_vars(self):
-        delattr(self.states, "index")
-        delattr(self.states, "params")
-        
-        delattr(self, "params")
-        delattr(self, "seg_times")
-        delattr(self, "seg_names")
-        delattr(self, "t_vecs")
-        delattr(self, "t_yield")
-        delattr(self, "y_yield")
-
-
-
-
-
+        self.final_res_vec_dict = None
+        self.end_freqs = None
+        self.selection = None
+        self.yield_val = None
 
 
 
@@ -189,10 +99,9 @@ class SimOutput:
 
 
 class SingleTacticOutput:
-    def __init__(self, params, config, strain_names, n_years, df_yield) -> None:
+    def __init__(self, yield_thresh, res_props_in, strain_names, n_years, df_yield) -> None:
 
-        self.params = params
-        self.conf = config
+        self.yield_thresh = yield_thresh
         self.n_years = n_years
         self.df_yield = df_yield
         self.strain_names = strain_names
@@ -202,21 +111,21 @@ class SingleTacticOutput:
         
         self.yield_vec = np.zeros(n_years)
 
-        self.res_vec_dict = self._initialise_res_vec_dict(self.conf.res_props)
+        self.res_vec_dict = self._init_res_vec_dict(res_props_in)
 
-        self.selection_vec_dict = self._initialise_dict_of_vecs(['f1', 'f2'], n_years+1)
+        self.selection_vec_dict = self._init_dict_of_zeros_vecs(['f1', 'f2'], n_years+1)
         
         # post-sex from previous year, ready for start of season
-        self.start_freqs = self._initialise_dict_of_vecs(strain_names, n_years+1)
+        self.start_freqs = self._init_dict_of_zeros_vecs(strain_names, n_years+1)
 
         # end of season, pre-sex
-        self.end_freqs = self._initialise_dict_of_vecs(strain_names, n_years+1)
+        self.end_freqs = self._init_dict_of_zeros_vecs(strain_names, n_years+1)
 
         self.states_list = []
 
 
 
-    def _initialise_dict_of_vecs(self, keys, length):
+    def _init_dict_of_zeros_vecs(self, keys, length):
         out = {}
         
         for key in keys:
@@ -225,7 +134,7 @@ class SingleTacticOutput:
         return out
     
 
-    def _initialise_res_vec_dict(self, res_props):
+    def _init_res_vec_dict(self, res_props):
         out = {}
         keys = ['f1', 'f2']
         
@@ -288,14 +197,14 @@ class SingleTacticOutput:
         - is first time it has dropped below threshold
         """
         
-        if ((self.yield_vec[yr]<self.params.yield_threshold) and 
+        if ((self.yield_vec[yr]<self.yield_thresh) and 
                 (self.failure_year==0)):
             self.failure_year = yr+1
 
 
     def delete_unnecessary_vars(self):
-        delattr(self, "params")
-        delattr(self, "conf")
+        delattr(self, "yield_thresh")
+        # delattr(self, "conf")
         delattr(self, "n_years")
         delattr(self, "df_yield")
         delattr(self, "strain_names")

@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import itertools
 
-from utils.functions import EqualResFreqBreakdownArray, \
+from model.utils import EqualResFreqBreakdownArray, \
      EqualSelectionArray
 
 # TOC
@@ -22,29 +22,22 @@ class CheckStrategyUsingIVT_DF:
     def __init__(self, grid_output, strat_name) -> None:
         
         print(f"Running IVT method: {strat_name}")
-
-        self.FYs = grid_output['FY']
         
-        self.name = strat_name
-
         if strat_name=="EqSel":
-            self.level = 0.5
             strategy_class = EqualSelectionArray
-
         elif strat_name=="RFB":
-            self.level = 0
             strategy_class = EqualResFreqBreakdownArray
-
         else:
             raise Exception(f"invalid strat_name: {strat_name}")
 
         self.strategy_obj = strategy_class(grid_output)
+        self.FYs = grid_output['FY']
         
         self.check_if_gives_optimum()
 
         self.find_best_value_this_strat()
 
-        self.df = self.get_df(strat_name)
+        self.df = self.get_df()
 
 
 
@@ -55,14 +48,14 @@ class CheckStrategyUsingIVT_DF:
         opt_region = FYs!=np.amax(FYs)
         
         if not self.strategy_obj.is_valid:
-            self.strat_works = f"Strategy {self.name} is invalid"
+            self.strat_works = f"Strategy {self.strategy_obj.name} is invalid"
             return None
         
         strat_array = self.strategy_obj.array
 
         opt_strat = np.ma.masked_array(strat_array, mask=opt_region)
         
-        self.strat_works = ContourPassesThroughChecker(opt_strat, self.level).passes_through
+        self.strat_works = ContourPassesThroughChecker(opt_strat, self.strategy_obj.level).passes_through
 
 
 
@@ -70,7 +63,7 @@ class CheckStrategyUsingIVT_DF:
         FYs = self.FYs
 
         if not self.strategy_obj.is_valid:
-            self.best_value = f"Strategy {self.name} is invalid"
+            self.best_value = f"Strategy {self.strategy_obj.name} is invalid"
             return None
 
         strat_array = self.strategy_obj.array
@@ -82,7 +75,7 @@ class CheckStrategyUsingIVT_DF:
 
             opt_strat = np.ma.masked_array(strat_array, mask=opt_region)
 
-            worked = ContourPassesThroughChecker(opt_strat, self.level).passes_through
+            worked = ContourPassesThroughChecker(opt_strat, self.strategy_obj.level).passes_through
         
             if worked:
                 self.best_value = EL
@@ -91,7 +84,9 @@ class CheckStrategyUsingIVT_DF:
         self.best_value = EL
 
 
-    def get_df(self, strat_name):
+    def get_df(self):
+        strat_name = self.strategy_obj.name
+
         data = {f"I_{strat_name[0]}_best_region": self.strat_works,
                 f"I_{strat_name[0]}_best_value": self.best_value}
 

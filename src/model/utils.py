@@ -4,9 +4,10 @@ from scipy.integrate import simps
 import itertools
 import os
 import pickle
+from abc import ABC, abstractmethod
 
 
-from .params import PARAMS
+from model.params import PARAMS
 
 
 # * Utility functions
@@ -221,23 +222,34 @@ class SelectionFinder:
 
 
 
+class AbstractStratArray(ABC):
+    @abstractmethod
+    def _generate_array(self):
+        pass
+
+    @abstractmethod
+    def _check_valid(self):
+        pass
 
 
 
 
 
 
-
-class EqualResFreqBreakdownArray:
+class EqualResFreqBreakdownArray(AbstractStratArray):
     def __init__(self, grid_output) -> None:
         self.FYs = grid_output.FY
         self.end_freqs = grid_output.end_freqs_DA
-        self.array = self._generate_RFB_array()
-        self.is_valid = self._check_valid()
 
+        self.level = 0
+        self.name = "RFB"
+
+        self.array = self._generate_array()
+        self.is_valid = self._check_valid()
+        
     
         
-    def _generate_RFB_array(self):
+    def _generate_array(self):
         FYs = self.FYs
 
         out = np.ones(FYs.shape)
@@ -277,7 +289,7 @@ class EqualResFreqBreakdownArray:
 
 
 
-class EqualSelectionArray:
+class EqualSelectionArray(AbstractStratArray):
     def __init__(self, grid_output) -> None:
 
         """
@@ -292,20 +304,23 @@ class EqualSelectionArray:
 
         
         self.FYs = grid_output.FY
-
         self.start_freqs = grid_output.start_freqs_DA
-        
         self.end_freqs = grid_output.end_freqs_DA
 
-        self.array = self._generate_EqSel_array()
+        self.level = 0.5
+        self.name = "EqSel"        
 
+        self.array = self._generate_array()
         self.is_valid = self._check_valid()
+
+
+
         
 
 
 
 
-    def _generate_EqSel_array(self):
+    def _generate_array(self):
 
         start_freqs = self.start_freqs
         end_freqs = self.end_freqs

@@ -1,18 +1,18 @@
 import numpy as np
 from math import ceil, floor
-from scipy.integrate import simps, ode
+from scipy.integrate import ode
 import pickle
 import os
-import copy
 from tqdm import tqdm
 import itertools
 
-from .params import PARAMS
-from .utils import res_prop_calculator, yield_calculator, \
+from model.params import PARAMS
+from model.utils import res_prop_calculator, yield_calculator, \
     SelectionFinder, FungicideStrategy, object_dump
-from .ode_system import ODESystem
-from .config_classes import SingleConfig
-from .outputs import GridTacticOutput, SimOutput, SingleTacticOutput
+
+from model.ode_system import ODESystem
+from model.config_classes import SingleConfig
+from model.outputs import GridTacticOutput, ModelTimes, SimOutput, SingleTacticOutput
 
 
 
@@ -22,9 +22,17 @@ from .outputs import GridTacticOutput, SimOutput, SingleTacticOutput
 class Simulator:
     def __init__(self, fungicide_params):
         self.ode_sys = ODESystem(fungicide_params)
+        
+        self.sol = ode(self.ode_sys.system).set_integrator('dopri5', nsteps=PARAMS.nstepz)
+
         self.selection_finder = SelectionFinder
         self.res_prop_finder = res_prop_calculator
         self.yield_finder = yield_calculator
+
+        self.times = ModelTimes(PARAMS)
+        self.out = SimOutput(self.times.t)
+        
+
 
 
     def run(self, fung1_doses, fung2_doses, primary_inoc):
@@ -33,40 +41,26 @@ class Simulator:
         self.fung1_doses = fung1_doses
         self.fung2_doses = fung2_doses
 
-        self.output = SimOutput(PARAMS)
 
-        self._find_solution()
+        self._solve_ode()
         
-        
-        final_res_dict, end_freqs = self.res_prop_finder(self.output.states)
+        final_res_dict, end_freqs = self.res_prop_finder(self.out.states)
 
         selection = self.selection_finder(self.primary_inoc, final_res_dict).sel
 
-        self.output.final_res_vec_dict = final_res_dict
-        self.output.end_freqs = end_freqs
-        self.output.selection = selection
-        
-        self.output.delete_unnecessary_vars()
+        self.out.final_res_vec_dict = final_res_dict
+        self.out.end_freqs = end_freqs
+        self.out.selection = selection
 
-        return self.output
+        self.out.delete_unnecessary_vars()
 
-
-
-    def _find_solution(self):
-
-        sol = ode(self.ode_sys.system).set_integrator('dopri5', nsteps=PARAMS.nstepz)
-        
-        self._solve_ode(sol)
-
-        y_yield = self.output.y_yield
-        t_yield = self.output.t_yield
-
-        self.output.yield_val = self.yield_finder(y_yield, t_yield)
+        return self.out
 
 
 
 
-    def _solve_ode(self, sol):
+
+    def _solve_ode(self):
         """
         Solves the ODE in 4 stages:
         
@@ -78,8 +72,10 @@ class Simulator:
         """
         y0_new = None
         
-        list_of_tvs = self.output.t_vecs
-        segments = self.output.seg_names
+        list_of_tvs = self.times.t_vecs
+        segments = self.times.seg_names
+
+        sol = self.sol
 
         for time_vec, segment in zip(list_of_tvs, segments):
 
@@ -93,18 +89,17 @@ class Simulator:
                 # of next segment
 
                 y_array[:,-1] = sol.y
-
-                self.output.get_yield_contributing_y(y_array)
-
                 y_out = y_array
+
+                y_yield = self._get_yield_contributing_y(y_array)
+                t_yield = self.times.t_yield
+
+                self.out.yield_val = self.yield_finder(y_yield, t_yield)
 
             else:
                 y_out = y_array[:,:-1]
 
-            self.output.states.update_y(y_out)
-
-
-
+            self.out.states.update_y(y_out)
 
 
 
@@ -146,6 +141,78 @@ class Simulator:
                 raise RuntimeError('ode solver unsuccessful')
         
         return y_array
+    
+
+    def _get_yield_contributing_y(self, y):
+        """ Sum over S, ERR, ERS, ESR, ESS strains """
+        return (y[0,:]
+                    + y[1,:]
+                    + y[2,:]
+                    + y[3,:]
+                    + y[4,:])
+
+
+
+
+
+
+
+
+class ModelTimes:
+    def __init__(self, params) -> None:
+        self.params = params
+
+        self.seg_times = [self.params.T_emerge,
+                        self.params.T_GS32,
+                        self.params.T_GS39,
+                        self.params.T_GS61,
+                        self.params.T_GS87]
+        
+        self.seg_names = ["start", "spray_1", "spray_2", "yield"]
+
+        self.t_vecs = self._get_list_of_time_vecs()
+
+        self.t = self._get_t()
+
+
+    def _get_list_of_time_vecs(self):
+        
+        seg_ts = self.seg_times
+        
+        sum_ns = 0
+
+        list_of_tvs = []
+
+        for ii, segment in enumerate(self.seg_names):
+
+            if segment=="yield":
+                # makes sure total number of points is self.params.t_points
+                n = 3 + self.params.t_points - sum_ns
+
+            else:
+                # make n so that values are approx self.params.dt apart
+                n = 1 + (seg_ts[ii+1]-seg_ts[ii])/self.params.dt
+                n = floor(n)
+                sum_ns += n
+
+            time_vec = np.linspace(seg_ts[ii], seg_ts[ii+1], n)
+
+            if segment=="yield":
+                self.t_yield = time_vec
+
+            list_of_tvs.append(time_vec)
+
+        return list_of_tvs
+
+
+    def _get_t(self):
+        tvs = self.t_vecs
+
+        out = np.concatenate([tvs[ii][:-1] if ii!=3 else tvs[ii]
+                                for ii in range(len(tvs))])
+        return out
+
+
 
 
 
@@ -264,19 +331,21 @@ class RunSingleTactic:
 
         self.n_years = len(conf.fung1_doses['spray_1'])
 
-        self.output = SingleTacticOutput(PARAMS, conf,
+        self.out = SingleTacticOutput(PARAMS.yield_threshold, 
+                                            conf.res_props,
                                             self.PATHOGEN_STRAIN_NAMES,
-                                            self.n_years, self.dis_free_yield)
+                                            self.n_years, 
+                                            self.dis_free_yield)
 
         self._set_first_year_start_freqs(conf)
 
         self._loop_over_years(conf)
 
-        self.output.delete_unnecessary_vars()
+        self.out.delete_unnecessary_vars()
         
         self._save_run_if_was_single()
         
-        return self.output
+        return self.out
 
     
 
@@ -292,18 +361,18 @@ class RunSingleTactic:
                                                 conf.res_props['f1'], 
                                                 conf.res_props['f2'])
 
-        self.output.update_start_freqs(primary_inoculum, 0)
+        self.out.update_start_freqs(primary_inoculum, 0)
 
 
     
     def _loop_over_years(self, conf):
         for yr in range(self.n_years):
             # stop the solver after we drop below threshold
-            if not (yr>0 and self.output.yield_vec[yr-1]<self.yield_stopper):
+            if not (yr>0 and self.out.yield_vec[yr-1]<self.yield_stopper):
                 self._run_single_year(conf, yr)
         
-        if min(self.output.yield_vec)>PARAMS.yield_threshold:
-            self.output.failure_year = -1
+        if min(self.out.yield_vec)>PARAMS.yield_threshold:
+            self.out.failure_year = -1
 
 
 
@@ -317,7 +386,7 @@ class RunSingleTactic:
         
         sim_out = self.sim.run(fung1_doses, fung2_doses, model_inoc_in)
 
-        self.output.add_new_sim_output(sim_out, yr)
+        self.out.add_new_sim_output(sim_out, yr)
 
         self._set_next_year_start_freqs(conf, sim_out, yr+1)
     
@@ -338,7 +407,7 @@ class RunSingleTactic:
                                                     res_prop_2_end,
                                                     freqs_out)
 
-        self.output.update_start_freqs(next_year_vals, next_yr)
+        self.out.update_start_freqs(next_year_vals, next_yr)
 
 
 
@@ -356,7 +425,7 @@ class RunSingleTactic:
     def _get_initial_density(self, yr):
         out = {}
         for key in self.PATHOGEN_STRAIN_NAMES:
-            out[key] = PARAMS.init_den*self.output.start_freqs[key][yr]
+            out[key] = PARAMS.init_den*self.out.start_freqs[key][yr]
         return out
 
     
@@ -407,7 +476,7 @@ class RunSingleTactic:
 
     def _save_run_if_was_single(self):
         if "single" in self.filename:
-            object_dump(self.filename, self.output)
+            object_dump(self.filename, self.out)
 
 
 

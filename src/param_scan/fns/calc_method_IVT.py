@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import itertools
 
-from model.utils import EqualResFreqBreakdownArray, \
+from model.strategy_arrays import EqualResFreqBreakdownArray, \
      EqualSelectionArray
 
 # TOC
@@ -31,7 +31,7 @@ class CheckStrategyUsingIVT_DF:
             raise Exception(f"invalid strat_name: {strat_name}")
 
         self.strategy_obj = strategy_class(grid_output)
-        self.FYs = grid_output['FY']
+        self.FYs = grid_output.FY
         
         self.check_if_gives_optimum()
 

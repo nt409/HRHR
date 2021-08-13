@@ -87,10 +87,14 @@ class RandomPars:
                     pathogen_pars['rfs2'],
                     pathogen_pars['rfD'])
         
-        for ii, jj in [[1,0], [0,1], [1,1]]:
-            this_dose_yield = self._check_yield(fungicide_params, pathogen_pars, ii, jj)
+        
+        corners = [[1,0], [0,1], [1,1]]
 
-            if not this_dose_yield>95:
+        for ii, jj in corners:
+            this_dose_yield = self._get_yield_these_doses(fungicide_params,
+                                                pathogen_pars, ii, jj)
+
+            if this_dose_yield<=95:
                 return False
         
         return True
@@ -99,7 +103,7 @@ class RandomPars:
 
 
 
-    def _check_yield(self, fungicide_params, pathogen_pars, d1, d2):
+    def _get_yield_these_doses(self, fungicide_params, pathogen_pars, d1, d2):
 
         ConfigSingleRun = SingleConfig(1, None, None, d1, d1, d2, d2, primary_inoculum=self.inoc)
         
@@ -109,7 +113,7 @@ class RandomPars:
 
         this_run = RunSingleTactic(fungicide_params).run(ConfigSingleRun)
         
-        yield_out = this_run['yield_vec'][0]
+        yield_out = this_run.yield_vec[0]
 
         return yield_out
 
@@ -179,26 +183,28 @@ class RandomPars:
 
 
 
-    def _process_conf(self, Conf):
+    def _process_conf(self, conf):
 
-        Conf.sex_prop = self.sr_prop
+        conf.sex_prop = self.sr_prop
 
-        Conf.load_saved = self.config['load_saved']
-
-        Conf.add_string()
-
-        config_out = self._update_par_scan_conf_str(Conf)
+        conf.load_saved = self.config['load_saved']
         
+        conf.save = self.config['save']
+
+        conf.add_string()
+
+        config_out = self._update_par_scan_conf_str(conf)
+
         return config_out
 
 
 
     
-    def _update_par_scan_conf_str(self, Conf):
+    def _update_par_scan_conf_str(self, conf):
         
         rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2 = self.path_and_fung_pars
 
-        conf_str = Conf.config_string_img
+        conf_str = conf.config_string_img
         conf_str = conf_str.replace("grid", "param_scan")
 
         par_str = (f"_fung_pars={round(om_1,6)},{round(om_2,6)}," + 
@@ -208,13 +214,13 @@ class RandomPars:
         par_str = par_str.replace(".", ",")
         conf_str = conf_str.replace(".png", par_str + ".png")
         
-        Conf.config_string_img = conf_str
+        conf.config_string_img = conf_str
         
         saved_run_str = conf_str.replace(".png", ".pickle")
         
-        Conf.config_string = saved_run_str.replace("figures/", "saved_runs/")
+        conf.config_string = saved_run_str.replace("figures/", "saved_runs/")
 
-        return Conf
+        return conf
 
 
 

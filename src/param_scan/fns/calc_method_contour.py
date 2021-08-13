@@ -30,7 +30,7 @@ class RunAlongContourDFs:
 
         
         
-        max_grid_EL = np.amax(grid_output['FY'])
+        max_grid_EL = np.amax(grid_output.FY)
 
         self.df = ThisStratDetailedDF(rand_pars, 
                                     n_cont_points, 
@@ -70,34 +70,13 @@ class ThisStratDetailedDF:
 
 
     def _get_df(self):
-
-        cntr = self.strat_obj.find_contours()
+        
+        cntr = self.strat_obj.find_contours(self.rand_pars,
+                                            self.n_cont_points)
         out = self._find_df(cntr)
-        out['worked'] = max(out['EL'])>=self.max_grid_EL
-        out['max_grid_EL'] = self.max_grid_EL
+        
 
         return out
-
-
-
-
-    
-    # def _find_cntr(self):
-    #     contours = self.strat_obj.find_contours()
-    #     return contours
-        
-        # if not self.strat_obj.is_valid:
-        #     print("strategy not valid:", self.strat_name)
-        #     return {}
-        # else:    
-        #     DS_extremes = self.ds_ext_class(self.strat_obj.array, self.level)
-            
-        #     if DS_extremes.min is None or DS_extremes.max is None:
-        #         return {}
-            
-        #     cntr_out = self.CDF_class(self.rand_pars, self.strat_name,
-        #                     DS_extremes, self.n_cont_points, self.level).doses_out
-        #     return cntr_out
 
 
 
@@ -125,6 +104,9 @@ class ThisStratDetailedDF:
             df_this_run = df_this_run.append(data, ignore_index=True)
         
         
+        df_this_run['worked'] = max(df_this_run['EL'])>=self.max_grid_EL
+        df_this_run['max_grid_EL'] = self.max_grid_EL
+
         return df_this_run
 
 
@@ -139,7 +121,7 @@ class ThisStratDetailedDF:
                 
         sing_run = RunSingleTactic(rp.fung_parms).run(this_dose_conf)
         
-        EL = sing_run['failure_year']
+        EL = sing_run.failure_year
         
         return EL
 

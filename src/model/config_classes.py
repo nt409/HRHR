@@ -13,6 +13,8 @@ class BaselineConfig:
 
         self.load_saved = True
 
+        self.save = True
+
         self.folder_save_run = '../outputs/saved_runs/'
 
         self.sex_prop = 0
@@ -42,7 +44,6 @@ class BaselineConfig:
             f"Rps={rp1},_{rp2}_" + \
             f"PI={inoc_str}_" + \
             f"Sex={self.sex_prop}"
-            # f"0th={str(self.zeroth_season_reproduction)[0]}_" + \
 
 
 

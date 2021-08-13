@@ -36,7 +36,10 @@ class Simulator(ABC):
 
 
 class SimulatorWithDisease(Simulator):
+    """ Simulate a single season """
+
     def __init__(self, fungicide_params):
+        
         self.ode_sys = ODESystem(fungicide_params)
         
         self.sol = ode(self.ode_sys.system).set_integrator('dopri5',
@@ -239,6 +242,8 @@ class ModelTimes:
 
 
 class SimulatorDiseaseFree(Simulator):
+    """ Simulates a single season, but only returns the yield """
+
     def __init__(self, fungicide_params):
         ode_sys = ODESystem(fungicide_params)
         self.yield_finder = yield_calculator
@@ -248,6 +253,8 @@ class SimulatorDiseaseFree(Simulator):
 
 
     def run(self):
+        """ Get yield for a single dis-free season """
+
         sol = self.sol
         
         y0 = [PARAMS.S_0] + [0]*(PARAMS.no_variables-1)
@@ -313,6 +320,14 @@ class RunModel(ABC):
     @abstractmethod
     def run(self):
         pass
+    
+    @abstractmethod
+    def _load(self):
+        pass
+    
+    @abstractmethod
+    def _save(self):
+        pass
 
 
 
@@ -337,13 +352,13 @@ class RunSingleTactic(RunModel):
 
     def run(self, conf):
         """
-        Run HRHR model for one strategy
+        Run HRHR model for single tactic
         """
         
         self.filename = conf.config_string
 
         if conf.load_saved:
-            loaded_run = self._load_single_tactic()
+            loaded_run = self._load()
             if loaded_run is not None:
                 return loaded_run
 
@@ -362,7 +377,8 @@ class RunSingleTactic(RunModel):
 
         self.out.delete_unnecessary_vars()
         
-        self._save_run_if_was_single()
+        if conf.save:
+            self._save()
         
         return self.out
 
@@ -482,18 +498,19 @@ class RunSingleTactic(RunModel):
 
 
 
-    # load/save
+    # load/save single
 
-    def _load_single_tactic(self):
+    def _load(self):
         filename = self.filename
         
         if os.path.isfile(filename) and "single" in filename:
             loaded_run = pickle.load(open(filename, 'rb'))
             return loaded_run
+        else:
+            return None
 
 
-
-    def _save_run_if_was_single(self):
+    def _save(self):
         if "single" in self.filename:
             object_dump(self.filename, self.out)
 
@@ -528,35 +545,36 @@ class RunGrid(RunModel):
 
 
 
-    def run(self, Conf):
+    def run(self, conf):
 
-        self.filename = Conf.config_string
+        self.filename = conf.config_string
         
-        if Conf.load_saved:
-            loaded_run = self._load_multi_tactic(self.filename)
+        if conf.load_saved:
+            loaded_run = self._load()
             if loaded_run is not None:
                 return loaded_run
 
-        self.output = GridTacticOutput(Conf.n_doses, Conf.n_years)
+        self.output = GridTacticOutput(conf.n_doses, conf.n_years)
 
-        self._run_the_grid(Conf)
+        self._run_the_grid(conf)
 
-        self._save()
+        if conf.save:
+            self._save()
 
         return self.output
 
 
 
-    def _run_the_grid(self, Conf):
-        fs = self.fung_strat(Conf.strategy, Conf.n_years)
+    def _run_the_grid(self, conf):
+        fs = self.fung_strat(conf.strategy, conf.n_years)
         
-        for f1_ind in tqdm(range(Conf.n_doses)):
-            for f2_ind in range(Conf.n_doses):
+        for f1_ind in tqdm(range(conf.n_doses)):
+            for f2_ind in range(conf.n_doses):
 
-                Conf.fung1_doses, Conf.fung2_doses = fs.get_grid_doses(f1_ind,
-                                                        f2_ind, Conf.n_doses)
+                conf.fung1_doses, conf.fung2_doses = fs.get_grid_doses(f1_ind,
+                                                        f2_ind, conf.n_doses)
 
-                one_tact_output =  self.sing_tact.run(Conf)
+                one_tact_output =  self.sing_tact.run(conf)
                 
                 self._post_process(one_tact_output, f1_ind, f2_ind)
 
@@ -596,9 +614,11 @@ class RunGrid(RunModel):
 
 
 
+    # load/save single
 
-    @staticmethod
-    def _load_multi_tactic(filename):
+    def _load(self):
+        filename = self.filename
+
         if os.path.isfile(filename):
             loaded_run = pickle.load(open(filename, 'rb'))
             return loaded_run
@@ -629,12 +649,12 @@ class RunGrid(RunModel):
 def get_SR_by_doses(doses, freqs):
     outputs = {}
     for dose, rf in itertools.product(doses, freqs):
-        ConfigSingleRun = SingleConfig(1, rf, rf, dose, dose, dose, dose)
-        output = RunSingleTactic().run(ConfigSingleRun)
+        conf_single = SingleConfig(1, rf, rf, dose, dose, dose, dose)
+        output = RunSingleTactic().run(conf_single)
         outputs[f"dose={dose},rf={rf}"] = output
 
 
-    conf_str = ConfigSingleRun.config_string_img
+    conf_str = conf_single.config_string_img
     str_freqs = [str(round(f,2)) for f in freqs]
     str_doses = [str(round(d,2)) for d in doses]
 

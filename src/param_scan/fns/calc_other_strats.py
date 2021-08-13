@@ -8,7 +8,7 @@ import numpy as np
 
 class OtherStratsDF:
     def __init__(self, grid_output) -> None:
-        FYs = grid_output['FY']
+        FYs = grid_output.FY
         
         self.df = self._get_strategy_outcomes(FYs)
     

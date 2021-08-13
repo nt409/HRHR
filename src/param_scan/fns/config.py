@@ -19,6 +19,7 @@ baseline = {
         "SR": [0,1],
         
         "load_saved": False,
+        "save": False,
         "folder_save": "./param_scan/outputs",
         }
 
@@ -36,7 +37,7 @@ elif run_type == "fast":
         "grid_number": 5,
         "n_cont_points": 3,
         "n_years": 35,
-        "NIts": 1,   
+        "NIts": 2,
         }
 
 elif run_type == "prev_run":
@@ -56,7 +57,7 @@ def get_par_str(config):
     for key in config.keys():
         attribute = config[key]
 
-        if key in ["load_saved", "folder_save"]:
+        if key in ["load_saved", "save", "folder_save"]:
             continue
 
         if type(attribute)==float or type(attribute)==int:

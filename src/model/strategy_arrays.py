@@ -11,9 +11,9 @@ from model.simulator import RunSingleTactic
 
 def find_RFB_from_single_run(single_run):
     
-    fy = single_run['failure_year']
+    fy = single_run.failure_year
 
-    end_freqs = single_run['end_freqs']
+    end_freqs = single_run.end_freqs
 
     ef1 = end_freqs['RS']
     ef2 = end_freqs['SR']
@@ -46,10 +46,10 @@ def get_RFB(end_freqs_1, end_freqs_2, fy):
 # FY Sel Finder
 
 def find_FY_sel_from_single_run(single_run):
-    fy = single_run['failure_year']
+    fy = single_run.failure_year
     
-    start_freqs = single_run['start_freqs']
-    end_freqs = single_run['end_freqs']
+    start_freqs = single_run.start_freqs
+    end_freqs = single_run.end_freqs
 
     ef1 = end_freqs['RS'][0]
     sf1 = start_freqs['RS'][0]

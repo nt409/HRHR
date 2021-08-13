@@ -31,21 +31,21 @@ I_cols = pltly_clrs.n_colors("rgb(255,0,0)", "rgb(255,255,255)", 5, colortype="r
 
 
 ATTRS_DICT = {
-    'S': dict(color='limegreen', dash='solid', name='Susceptible', ind=PARAMS.S_ind),
-    'R': dict(color='rgb(100,100,100)', dash='solid', name='Removed', ind=PARAMS.R_ind),
+    'S': dict(color='limegreen', dash='solid', name='Susceptible'),
+    'R': dict(color='rgb(100,100,100)', dash='solid', name='Removed'),
 
-    'ERR': dict(color=E_cols[0], dash='dot', name='E (rr)', ind=PARAMS.ERR_ind),
-    'ERS': dict(color=E_cols[1], dash='dash', name='E (rs)', ind=PARAMS.ERS_ind),
-    'ESR': dict(color=E_cols[2], dash='dashdot', name='E (sr)', ind=PARAMS.ESR_ind),
-    'ESS': dict(color=E_cols[3], dash='solid', name='E (ss)', ind=PARAMS.ESS_ind),
+    'ERR': dict(color=E_cols[0], dash='dot', name='E (rr)'),
+    'ERS': dict(color=E_cols[1], dash='dash', name='E (rs)'),
+    'ESR': dict(color=E_cols[2], dash='dashdot', name='E (sr)'),
+    'ESS': dict(color=E_cols[3], dash='solid', name='E (ss)'),
 
-    'IRR': dict(color=I_cols[0], dash='dot', name='I (rr)', ind=PARAMS.IRR_ind),
-    'IRS': dict(color=I_cols[1], dash='dash', name='I (rs)', ind=PARAMS.IRS_ind),
-    'ISR': dict(color=I_cols[2], dash='dashdot', name='I (sr)', ind=PARAMS.ISR_ind),
-    'ISS': dict(color=I_cols[3], dash='solid', name='I (ss)', ind=PARAMS.ISS_ind),
+    'IRR': dict(color=I_cols[0], dash='dot', name='I (rr)'),
+    'IRS': dict(color=I_cols[1], dash='dash', name='I (rs)'),
+    'ISR': dict(color=I_cols[2], dash='dashdot', name='I (sr)'),
+    'ISS': dict(color=I_cols[3], dash='solid', name='I (ss)'),
 
-    'fung_1': dict(color='turquoise', dash='solid', name='Fungicide A', ind=PARAMS.fung_1_ind),
-    'fung_2': dict(color='magenta', dash='dot', name='Fungicide B', ind=PARAMS.fung_2_ind),
+    'fung_1': dict(color='turquoise', dash='solid', name='Fungicide A'),
+    'fung_2': dict(color='magenta', dash='dot', name='Fungicide B'),
 }
 
 

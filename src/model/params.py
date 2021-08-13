@@ -68,11 +68,11 @@ class Parameters:
         
         self.no_variables = 16
         
-        # self.S_ind = 0
-        # self.ERR_ind = 1
-        # self.ERS_ind = 2
-        # self.ESR_ind = 3
-        # self.ESS_ind = 4
+        self.S_ind = 0
+        self.ERR_ind = 1
+        self.ERS_ind = 2
+        self.ESR_ind = 3
+        self.ESS_ind = 4
         
         # self.IRR_ind = 5
         # self.IRS_ind = 6
@@ -86,8 +86,8 @@ class Parameters:
         # self.PSR_ind = 12
         # self.PSS_ind = 13
 
-        # self.fung_1_ind = 14
-        # self.fung_2_ind = 15
+        self.fung_1_ind = 14
+        self.fung_2_ind = 15
 
 
 PARAMS = Parameters()

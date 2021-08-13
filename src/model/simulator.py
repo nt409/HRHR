@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import numpy as np
 from math import ceil, floor
 from scipy.integrate import ode
@@ -12,35 +13,42 @@ from model.utils import res_prop_calculator, yield_calculator, \
 
 from model.ode_system import ODESystem
 from model.config_classes import SingleConfig
-from model.outputs import GridTacticOutput, ModelTimes, SimOutput, SingleTacticOutput
+from model.outputs import GridTacticOutput, SimOutput, \
+    SingleTacticOutput
 
 
 
 
 
+class Simulator(ABC):
+    @abstractmethod
+    def run(self):
+        pass
 
-class Simulator:
+
+class SimulatorWithDisease(Simulator):
     def __init__(self, fungicide_params):
         self.ode_sys = ODESystem(fungicide_params)
         
-        self.sol = ode(self.ode_sys.system).set_integrator('dopri5', nsteps=PARAMS.nstepz)
+        self.sol = ode(self.ode_sys.system).set_integrator('dopri5',
+                                                    nsteps=PARAMS.nstepz)
 
         self.selection_finder = SelectionFinder
         self.res_prop_finder = res_prop_calculator
         self.yield_finder = yield_calculator
 
         self.times = ModelTimes(PARAMS)
-        self.out = SimOutput(self.times.t)
         
 
 
 
     def run(self, fung1_doses, fung2_doses, primary_inoc):
 
+        self.out = SimOutput(self.times.t)
+
         self.primary_inoc = primary_inoc
         self.fung1_doses = fung1_doses
         self.fung2_doses = fung2_doses
-
 
         self._solve_ode()
         
@@ -52,7 +60,7 @@ class Simulator:
         self.out.end_freqs = end_freqs
         self.out.selection = selection
 
-        self.out.delete_unnecessary_vars()
+        self.out.states.delete_unnecessary_vars()
 
         return self.out
 
@@ -145,11 +153,11 @@ class Simulator:
 
     def _get_yield_contributing_y(self, y):
         """ Sum over S, ERR, ERS, ESR, ESS strains """
-        return (y[0,:]
-                    + y[1,:]
-                    + y[2,:]
-                    + y[3,:]
-                    + y[4,:])
+        return (y[PARAMS.S_ind,:]
+                    + y[PARAMS.ERR_ind,:]
+                    + y[PARAMS.ERS_ind,:]
+                    + y[PARAMS.ESR_ind,:]
+                    + y[PARAMS.ESS_ind,:])
 
 
 
@@ -220,7 +228,7 @@ class ModelTimes:
 
 
 
-class SimulatorDiseaseFree:
+class SimulatorDiseaseFree(Simulator):
     def __init__(self, fungicide_params):
         self.ode_sys = ODESystem(fungicide_params)
         self.yield_finder = yield_calculator
@@ -290,20 +298,20 @@ class SimulatorDiseaseFree:
 
 # * End of Sim cls
 
+class RunModel(ABC):
+    @abstractmethod
+    def run(self):
+        pass
 
 
 
 
 
 
-
-
-
-
-class RunSingleTactic:
+class RunSingleTactic(RunModel):
     def __init__(self, fcide_parms=None):
 
-        self.sim = Simulator(fcide_parms)
+        self.sim = SimulatorWithDisease(fcide_parms)
         
         df_sim = SimulatorDiseaseFree(fcide_parms)
 
@@ -502,7 +510,7 @@ class RunSingleTactic:
 
 
 
-class RunGrid:
+class RunGrid(RunModel):
     def __init__(self, fcide_parms=None):
         self.sing_tact = RunSingleTactic(fcide_parms)
         self.fung_strat = FungicideStrategy
@@ -522,7 +530,7 @@ class RunGrid:
 
         self._run_the_grid(Conf)
 
-        self._save_grid()
+        self._save()
 
         return self.output
 
@@ -539,14 +547,14 @@ class RunGrid:
 
                 one_tact_output =  self.sing_tact.run(Conf)
                 
-                self._post_process_multi(one_tact_output, f1_ind, f2_ind, Conf)
+                self._post_process(one_tact_output, f1_ind, f2_ind)
 
 
 
 
 
     
-    def _post_process_multi(self, data_this_dose, f1_ind, f2_ind, Conf):
+    def _post_process(self, data_this_dose, f1_ind, f2_ind):
 
         self.output.LTY[f1_ind,f2_ind] = self._lifetime_yield(data_this_dose.yield_vec, data_this_dose.failure_year)
 
@@ -588,13 +596,13 @@ class RunGrid:
 
 
 
-    def _save_grid(self):
+    def _save(self):
         object_dump(self.filename, self.output)
 
 
 
 
-# End of RunGrid class
+# End of RunGrid cls
 
 
 

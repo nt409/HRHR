@@ -20,6 +20,8 @@ Install any python modules required inside the environment:
 conda install -y -c conda-forge iris=2.4.0 -p /home/nt409/software/conda_envs/hrhr_env --copy
 ```
 
+## Using a conda env:
+
 To activate:
 ```bash
 source activate /home/nt409/software/conda_envs/hrhr_env
@@ -57,7 +59,7 @@ source activate /home/nt409/software/conda_envs/hrhr_env
 bash foldername/myjobname
 ```
 
-or just run locally:
+or just run individual python file locally:
 ```bash
 python -m foldername.myscriptname PARAM1
 ```
@@ -67,6 +69,12 @@ python -m foldername.myscriptname PARAM1
 ```bash
 sbatch foldername/myjobname
 ```
+
+e.g.
+```bash
+sbatch param_scan/scan.submit
+```
+
 
 To check progress:
 

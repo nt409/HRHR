@@ -24,7 +24,7 @@ def combine_PS_rand_outputs(config, seeds):
 
     for seed in seeds:
 
-        temporary = pd.read_csv(f"{folder}/par_scan/summary_seed={seed}_{par_str}.csv")
+        temporary = pd.read_csv(f"{folder}/par_scan/summary_df_seed={seed}_{par_str}.csv")
 
         df = df.append(temporary, ignore_index=True)
 

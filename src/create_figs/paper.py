@@ -33,10 +33,18 @@ def get_param_data(par_str):
 # plot
 
 if model_output_overview:
-    config_sing = SingleConfig(1, 2*10**(-1), 5*10**(-2), 1, 1, 0.5, 0.5)
+    # config_sing = SingleConfig(1, 2*10**(-1), 5*10**(-2), 1, 1, 0.5, 0.5)
+    config_sing = SingleConfig(1, None, None, 1, 1, 0.5, 0.5)
     config_sing.load_saved = False
+    
+    RR, RS, SR = (2*10**(-4), 2*10**(-1), 5*10**(-2))
+    config_sing.primary_inoculum = dict(RR = RR,
+            RS = RS,
+            SR = SR,
+            SS = 1 - RR - RS - SR)
+    
     # output = RunSingleTactic().run(config_sing)
-    output = RunSingleTactic(within_season_sex=0).run(config_sing)
+    output = RunSingleTactic(within_season_sex=1).run(config_sing)
     DiseaseProgressCurvesAll(output, config_sing.config_string_img)
 
 

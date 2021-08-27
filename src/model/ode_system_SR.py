@@ -19,7 +19,6 @@ class ODESystemWithinSeasonSex(BaseSystem):
         sum_I = sum([IRR, IRS, ISR, ISS])
         sum_P = sum([PRR, PRS, PSR, PSS])
 
-
         I_div = 0 if sum_I==0 else 1/sum_I
         P_div = 0 if sum_P==0 else 1/sum_P
 

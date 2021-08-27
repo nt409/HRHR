@@ -1,9 +1,9 @@
-outputs
-Old
-writing
-
 hrhr.egg-info/
 __pycache__/
 dist/
 *.py[cod]
+
+outputs/
+Old/
+writing/
 

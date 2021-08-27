@@ -1,14 +1,9 @@
-saved_runs
 outputs
-
-Old/
-
-writing/
+Old
+writing
 
 hrhr.egg-info/
-
 __pycache__/
-
 dist/
 *.py[cod]
 

@@ -16,7 +16,6 @@ class RandomPars:
     - pars
     - grid config
     - single config
-
     """
 
     def __init__(self, config, run_index) -> None:

@@ -1,5 +1,5 @@
 import numpy as np
-from math import exp, log10
+from math import exp, log10, floor
 from scipy.integrate import simps
 import os
 import pickle
@@ -77,10 +77,31 @@ def res_prop_calculator(solution):
     return res_props_out, strain_frequencies
 
 
+
+
 # * End of Simulatr functions
 
 
 
+# * ODESystem fns
+
+def growth(A, t):
+    if t>=PARAMS.T_emerge:
+        grw = PARAMS.r*(PARAMS.k-A)
+        return grw
+    else:
+        return 0
+
+
+def senescence(t):
+    if t>=PARAMS.T_GS61:
+        out = 0.005*((t-PARAMS.T_GS61)/(PARAMS.T_GS87-PARAMS.T_GS61)) + 0.1*exp(-0.02*(PARAMS.T_GS87-t))
+        return out
+    else:
+        return 0
+
+
+# * End of ODESystem fns
 
 
     
@@ -218,5 +239,66 @@ class SelectionFinder:
 # * End of SelFinder cls
 
 
+
+
+
+
+
+
+
+class ModelTimes:
+    def __init__(self, params) -> None:
+        self.params = params
+
+        self.seg_times = [self.params.T_emerge,
+                        self.params.T_GS32,
+                        self.params.T_GS39,
+                        self.params.T_GS61,
+                        self.params.T_GS87]
+
+        
+        self.seg_names = ["start", "spray_1", "spray_2", "yield"]
+
+        self.t_vecs = self._get_list_of_time_vecs()
+
+        self.t = self._get_t()
+
+
+    def _get_list_of_time_vecs(self):
+        
+        seg_ts = self.seg_times
+        
+        sum_ns = 0
+
+        list_of_tvs = []
+
+        for ii, segment in enumerate(self.seg_names):
+
+            if segment=="yield":
+                # makes sure total number of points is self.params.t_points
+                n = 3 + self.params.t_points - sum_ns
+
+            else:
+                # make n so that values are approx self.params.dt apart
+                n = 1 + (seg_ts[ii+1]-seg_ts[ii])/self.params.dt
+                n = floor(n)
+                sum_ns += n
+
+            time_vec = np.linspace(seg_ts[ii], seg_ts[ii+1], n)
+
+            if segment=="yield":
+                self.t_yield = time_vec
+
+            list_of_tvs.append(time_vec)
+
+        return list_of_tvs
+
+
+    def _get_t(self):
+        tvs = self.t_vecs
+
+        out = np.concatenate([tvs[ii][:-1] if ii!=3 else tvs[ii]
+                                for ii in range(len(tvs))])
+        return out
 
 

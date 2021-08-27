@@ -2,10 +2,10 @@ import pandas as pd
 
 from model.simulator import RunGrid
 
-from .pars import RandomPars
-from .calc_method_contour import RunAlongContourDFs
-from .calc_method_IVT import CheckStrategyUsingIVT_DF
-from .calc_other_strats import OtherStratsDF
+from param_scan.fns.pars import RandomPars
+from param_scan.fns.calc_method_contour import RunAlongContourDFs
+from param_scan.fns.calc_method_IVT import CheckStrategyUsingIVT_DF
+from param_scan.fns.calc_other_strats import OtherStratsDF
 
 
 

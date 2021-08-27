@@ -2,8 +2,8 @@
 Analyse the parameter scan output
 """
 
-from ..fns.config import config_rand
-from ..fns.post_process import PostProcess
+from param_scan.fns.config import config_rand
+from param_scan.fns.post_process import PostProcess
 
 
 def main(config):

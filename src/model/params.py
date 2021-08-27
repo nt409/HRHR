@@ -58,8 +58,6 @@ class Parameters:
         
         self.yield_threshold = 95
         
-        # self.JSON_path = 'HR_HR/Asexual_config/JSON/'
-        # self.pickle_path = 'HR_HR/Asexual_output/Saved_pickles/Cluster_version/'
         
         self.no_variables = 16
         
@@ -68,49 +66,10 @@ class Parameters:
         self.ERS_ind = 2
         self.ESR_ind = 3
         self.ESS_ind = 4
-        
-        # self.IRR_ind = 5
-        # self.IRS_ind = 6
-        # self.ISR_ind = 7
-        # self.ISS_ind = 8
-        
-        # self.R_ind = 9
-        
-        # self.PRR_ind = 10
-        # self.PRS_ind = 11
-        # self.PSR_ind = 12
-        # self.PSS_ind = 13
 
         self.fung_1_ind = 14
         self.fung_2_ind = 15
 
-
-        
-        
-        
-        # kill
-        self.IRR_ind = 5
-        self.IRS_ind = 6
-        self.ISR_ind = 7
-        self.ISS_ind = 8
-        
-        self.R_ind = 9
-        
-        self.PRR_ind = 10
-        self.PRS_ind = 11
-        self.PSR_ind = 12
-        self.PSS_ind = 13
-
-        self.ER_ind = 1
-        self.ES_ind = 4
-
-        self.IR_ind = 5
-        self.IS_ind = 8
-
-        self.Fung1_ind = 14
-        self.Fung2_ind = 15
-
-        self.res_prop_calc_method = 'final_value'
 
 
 PARAMS = Parameters()

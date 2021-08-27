@@ -246,28 +246,29 @@ class GridTacticOutput:
 
 
     def update_dicts_of_arrays(self, data, f1_ind, f2_ind):
+        mydata = vars(data)
+
         self.selection_DA = self._update_dict_array_this_dose(
-                                            self.selection_DA, data, 
-                                            f1_ind, f2_ind, "selection_vec_dict")
+                                            self.selection_DA, mydata["selection_vec_dict"], 
+                                            f1_ind, f2_ind)
 
         self.res_vec_DA = self._update_dict_array_this_dose(
-                                            self.res_vec_DA, data, 
-                                            f1_ind, f2_ind, "res_vec_dict")
+                                            self.res_vec_DA, mydata["res_vec_dict"], 
+                                            f1_ind, f2_ind)
 
         self.start_freqs_DA = self._update_dict_array_this_dose(
-                                            self.start_freqs_DA, data, 
-                                            f1_ind, f2_ind, "start_freqs")
+                                            self.start_freqs_DA, mydata["start_freqs"], 
+                                            f1_ind, f2_ind)
 
         self.end_freqs_DA = self._update_dict_array_this_dose(
-                                            self.end_freqs_DA, data, 
-                                            f1_ind, f2_ind, "end_freqs")
+                                            self.end_freqs_DA, mydata["end_freqs"],
+                                            f1_ind, f2_ind)
 
 
 
-    def _update_dict_array_this_dose(self, to_update, data, f1_ind, f2_ind, attr):
+    def _update_dict_array_this_dose(self, to_update, calculated, f1_ind, f2_ind):
         
         for key_ in to_update.keys():
-            calculated = vars(data)[attr]
             to_update[key_][f1_ind,f2_ind,:] = calculated[key_]
         
         return to_update

@@ -13,14 +13,16 @@ import itertools
 from model.params import PARAMS
 
 from model.utils import res_prop_calculator, yield_calculator, \
-    SelectionFinder, FungicideStrategy, object_dump
+    SelectionFinder, FungicideStrategy, object_dump, ModelTimes
 
 from model.ode_system import ODESystem
+from model.ode_system_SR import ODESystemWithinSeasonSex
 
 from model.config_classes import SingleConfig
 
 from model.outputs import SimOutput, SingleTacticOutput, \
     GridTacticOutput
+
 
 
 
@@ -36,15 +38,15 @@ class Simulator(ABC):
 
 
 class SimulatorWithDisease(Simulator):
-    """ Simulate a single season """
+    """Simulates a single season."""
 
-    def __init__(self, fungicide_params):
+    def __init__(self, fungicide_params, within_season_sex):
         
-        self.ode_sys = ODESystem(fungicide_params)
+        if within_season_sex:
+            self.ode_sys = ODESystemWithinSeasonSex(fungicide_params)
+        else:
+            self.ode_sys = ODESystem(fungicide_params)
         
-        self.sol = ode(self.ode_sys.system).set_integrator('dopri5',
-                                                    nsteps=PARAMS.nstepz)
-
         self.selection_finder = SelectionFinder
         self.res_prop_finder = res_prop_calculator
         self.yield_finder = yield_calculator
@@ -95,7 +97,8 @@ class SimulatorWithDisease(Simulator):
         list_of_tvs = self.times.t_vecs
         segments = self.times.seg_names
 
-        sol = self.sol
+        sol = ode(self.ode_sys.system).set_integrator('dopri5',
+                                                    nsteps=PARAMS.nstepz)
 
         for time_vec, segment in zip(list_of_tvs, segments):
 
@@ -178,84 +181,30 @@ class SimulatorWithDisease(Simulator):
 
 
 
-class ModelTimes:
-    def __init__(self, params) -> None:
-        self.params = params
-
-        self.seg_times = [self.params.T_emerge,
-                        self.params.T_GS32,
-                        self.params.T_GS39,
-                        self.params.T_GS61,
-                        self.params.T_GS87]
-
-        
-        self.seg_names = ["start", "spray_1", "spray_2", "yield"]
-
-        self.t_vecs = self._get_list_of_time_vecs()
-
-        self.t = self._get_t()
-
-
-    def _get_list_of_time_vecs(self):
-        
-        seg_ts = self.seg_times
-        
-        sum_ns = 0
-
-        list_of_tvs = []
-
-        for ii, segment in enumerate(self.seg_names):
-
-            if segment=="yield":
-                # makes sure total number of points is self.params.t_points
-                n = 3 + self.params.t_points - sum_ns
-
-            else:
-                # make n so that values are approx self.params.dt apart
-                n = 1 + (seg_ts[ii+1]-seg_ts[ii])/self.params.dt
-                n = floor(n)
-                sum_ns += n
-
-            time_vec = np.linspace(seg_ts[ii], seg_ts[ii+1], n)
-
-            if segment=="yield":
-                self.t_yield = time_vec
-
-            list_of_tvs.append(time_vec)
-
-        return list_of_tvs
-
-
-    def _get_t(self):
-        tvs = self.t_vecs
-
-        out = np.concatenate([tvs[ii][:-1] if ii!=3 else tvs[ii]
-                                for ii in range(len(tvs))])
-        return out
-
-
-
-
 
 
 
 
 
 class SimulatorDiseaseFree(Simulator):
-    """ Simulates a single season, but only returns the yield """
+    """Simulates a single season, but only returns the yield."""
 
-    def __init__(self, fungicide_params):
-        ode_sys = ODESystem(fungicide_params)
+    def __init__(self, fungicide_params, within_season_sex):
         self.yield_finder = yield_calculator
-        self.sol = ode(ode_sys.system).set_integrator('dopri5', nsteps=PARAMS.nstepz)
+        
+        if within_season_sex:
+            self.ode_sys = ODESystemWithinSeasonSex(fungicide_params)
+        else:
+            self.ode_sys = ODESystem(fungicide_params)
+        
         
 
 
 
     def run(self):
-        """ Get yield for a single dis-free season """
+        """Get yield for a single dis-free season."""
 
-        sol = self.sol
+        sol = ode(self.ode_sys.system).set_integrator('dopri5', nsteps=PARAMS.nstepz)
         
         y0 = [PARAMS.S_0] + [0]*(PARAMS.no_variables-1)
         
@@ -335,13 +284,10 @@ class RunModel(ABC):
 
 
 class RunSingleTactic(RunModel):
-    def __init__(self, fcide_parms=None):
+    def __init__(self, fcide_parms=None, within_season_sex=False):
 
-        self.sim = SimulatorWithDisease(fcide_parms)
-        
-        df_sim = SimulatorDiseaseFree(fcide_parms)
-
-        self.dis_free_yield = df_sim.run()
+        self.sim = SimulatorWithDisease(fcide_parms, within_season_sex)
+        self.df_sim = SimulatorDiseaseFree(fcide_parms, within_season_sex)
 
         self.yield_stopper = 95
 
@@ -351,9 +297,7 @@ class RunSingleTactic(RunModel):
 
 
     def run(self, conf):
-        """
-        Run HRHR model for single tactic
-        """
+        """Run HRHR model for single tactic."""
         
         self.filename = conf.config_string
 
@@ -362,6 +306,7 @@ class RunSingleTactic(RunModel):
             if loaded_run is not None:
                 return loaded_run
 
+        dis_free_yield = self.df_sim.run()
 
         self.n_years = len(conf.fung1_doses['spray_1'])
 
@@ -369,7 +314,7 @@ class RunSingleTactic(RunModel):
                                             conf.res_props,
                                             self.PATHOGEN_STRAIN_NAMES,
                                             self.n_years, 
-                                            self.dis_free_yield)
+                                            dis_free_yield)
 
         self._set_first_year_start_freqs(conf)
 
@@ -516,7 +461,7 @@ class RunSingleTactic(RunModel):
 
 
 
-# * End of RunSingleTactic
+# * End of RnSingleTactic
 
 
 
@@ -539,8 +484,8 @@ class RunSingleTactic(RunModel):
 
 
 class RunGrid(RunModel):
-    def __init__(self, fcide_parms=None):
-        self.sing_tact = RunSingleTactic(fcide_parms)
+    def __init__(self, fcide_parms=None, within_season_sex=False):
+        self.sing_tact = RunSingleTactic(fcide_parms, within_season_sex)
         self.fung_strat = FungicideStrategy
 
 

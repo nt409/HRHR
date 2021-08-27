@@ -1,7 +1,7 @@
 from tqdm import tqdm
 import numpy as np
 
-from .calc_sing_ps_run import SinglePSRun, ScanOutput
+from param_scan.fns.calc_sing_ps_run import SinglePSRun, ScanOutput
 
 
 

@@ -1,45 +1,18 @@
 from model.utils import Fungicide, growth, senescence
 from model.params import PARAMS
+from model.ode_system import BaseSystem
 
 
-
-class BaseSystem:
-    def __init__(self, fungicide_params) -> None:
-        if fungicide_params is None:
-            omega_1 = PARAMS.omega_1
-            omega_2 = PARAMS.omega_2
-            
-            theta_1 = PARAMS.theta_1
-            theta_2 = PARAMS.theta_2
-
-            delta_1 = PARAMS.delta_1
-            delta_2 = PARAMS.delta_2
-
-        else:
-            omega_1 = fungicide_params['omega_1']
-            omega_2 = fungicide_params['omega_2']
-            
-            theta_1 = fungicide_params['theta_1']
-            theta_2 = fungicide_params['theta_2']
-
-            delta_1 = fungicide_params['delta_1']
-            delta_2 = fungicide_params['delta_2']
-
-        self.fcide1 = Fungicide(omega_1, theta_1, delta_1)
-        self.fcide2 = Fungicide(omega_2, theta_2, delta_2)
-
-        self.growth_fn = growth
-        self.senescence_fn = senescence
-    
-
-
-class ODESystem(BaseSystem):
+class ODESystemWithinSeasonSex(BaseSystem):
     def __init__(self, fungicide_params) -> None:
         super().__init__(fungicide_params)
 
+    
+
+
 
     def system(self, t, y):
-        
+
         S,ER,ERS,ESR,ES,IR,IRS,ISR,IS,R,PR,PRS,PSR,PS,conc_1,conc_2 = y
 
         A = S + ER + ERS + ESR + ES + IR + IRS + ISR + IS + R

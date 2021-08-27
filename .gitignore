@@ -2,8 +2,10 @@ saved_runs
 outputs
 
 Old
+writing
 
 hrhr.egg-info/
+
 __pycache__/
 
 dist/

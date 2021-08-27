@@ -13,10 +13,10 @@ from param_scan.fns.post_process import PostProcess
 
 # which plots
 
-model_output_overview = False
+model_output_overview = True
 rf_yield = False
 model_output_combined = False
-dose_space = True
+dose_space = False
 doses_scatter = False
 param_scan_hobb_vs_me = False
 param_scan_high_low_dose = False
@@ -35,7 +35,8 @@ def get_param_data(par_str):
 if model_output_overview:
     config_sing = SingleConfig(1, 2*10**(-1), 5*10**(-2), 1, 1, 0.5, 0.5)
     config_sing.load_saved = False
-    output = RunSingleTactic().run(config_sing)
+    # output = RunSingleTactic().run(config_sing)
+    output = RunSingleTactic(within_season_sex=0).run(config_sing)
     DiseaseProgressCurvesAll(output, config_sing.config_string_img)
 
 
@@ -62,7 +63,8 @@ if dose_space:
 
     conf_grid = GridConfig(30, 10**(-7), 10**(-3), 6)
     conf_grid.load_saved = False
-    output = RunGrid().run(conf_grid)
+    # output = RunGrid().run(conf_grid)
+    output = RunGrid(within_season_sex=1).run(conf_grid)
     
     DoseSpaceScenariosPlot(output, conf_grid.config_string_img)
 

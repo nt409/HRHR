@@ -42,8 +42,8 @@ class SimulatorWithDisease(Simulator):
 
     def __init__(self, fungicide_params, within_season_sex):
         
-        if within_season_sex:
-            self.ode_sys = ODESystemWithinSeasonSex(fungicide_params)
+        if within_season_sex>0:
+            self.ode_sys = ODESystemWithinSeasonSex(fungicide_params, within_season_sex)
         else:
             self.ode_sys = ODESystem(fungicide_params)
         
@@ -189,13 +189,10 @@ class SimulatorWithDisease(Simulator):
 class SimulatorDiseaseFree(Simulator):
     """Simulates a single season, but only returns the yield."""
 
-    def __init__(self, fungicide_params, within_season_sex):
+    def __init__(self, fungicide_params):
         self.yield_finder = yield_calculator
         
-        if within_season_sex:
-            self.ode_sys = ODESystemWithinSeasonSex(fungicide_params)
-        else:
-            self.ode_sys = ODESystem(fungicide_params)
+        self.ode_sys = ODESystem(fungicide_params)
         
         
 
@@ -284,10 +281,10 @@ class RunModel(ABC):
 
 
 class RunSingleTactic(RunModel):
-    def __init__(self, fcide_parms=None, within_season_sex=False):
+    def __init__(self, fcide_parms=None, within_season_sex=0):
 
         self.sim = SimulatorWithDisease(fcide_parms, within_season_sex)
-        self.df_sim = SimulatorDiseaseFree(fcide_parms, within_season_sex)
+        self.df_sim = SimulatorDiseaseFree(fcide_parms)
 
         self.yield_stopper = 95
 
@@ -484,7 +481,7 @@ class RunSingleTactic(RunModel):
 
 
 class RunGrid(RunModel):
-    def __init__(self, fcide_parms=None, within_season_sex=False):
+    def __init__(self, fcide_parms=None, within_season_sex=0):
         self.sing_tact = RunSingleTactic(fcide_parms, within_season_sex)
         self.fung_strat = FungicideStrategy
 

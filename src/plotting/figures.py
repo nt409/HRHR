@@ -1181,7 +1181,7 @@ class DiseaseProgressCurvesAll:
 
         out = []
 
-        for key in ['F1', 'F2']:
+        for key in ['fung_1', 'fung_2']:
             out.append(self.get_DPC_trace(key))
 
         return out

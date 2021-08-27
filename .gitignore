@@ -1,7 +1,11 @@
-asexual_config
-
-asexual_output
-
 saved_runs
-
 outputs
+
+Old
+
+hrhr.egg-info/
+__pycache__/
+
+dist/
+*.py[cod]
+

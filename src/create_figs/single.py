@@ -1,11 +1,12 @@
 from model.simulator import RunSingleTactic
 
-from model.config import ConfigSingleRun
-
 from model.config_classes import SingleConfig
 
 from plotting.figures import yield_by_year, res_freqs_single_t_plot, \
     single_year_plot, yield_res_freqs_plot, plot_frequencies, plot_frequencies_over_time
+
+
+conf_sing = SingleConfig(20, 1e-5, 1e-5, 1, 1, 0.5, 0.5)
 
 
 # which plots
@@ -21,11 +22,11 @@ freq_time_plot = False
 bools = [res_freqs_single, freq_bar_plot]
 
 if any(bools):
-    output = RunSingleTactic().run(ConfigSingleRun)
+    output = RunSingleTactic().run(conf_sing)
 
 
 # plots
-conf_str = ConfigSingleRun.config_string_img
+conf_str = conf_sing.config_string_img
 
 if yield_single:
     rf1 = 10**(-4)

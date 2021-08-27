@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import numpy as np
-from math import ceil, floor
+from math import ceil
 from scipy.integrate import ode
 import pickle
 import os

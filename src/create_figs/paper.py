@@ -58,19 +58,19 @@ if model_output_combined:
 
 
 if dose_space:
-    ConfigGridRun = GridConfig(30, 10**(-7), 10**(-3), 51)
+    # conf_grid = GridConfig(30, 10**(-7), 10**(-3), 51)
 
-    ConfigGridRun = GridConfig(30, 10**(-7), 10**(-3), 6)
-    ConfigGridRun.load_saved = False
-    output = RunGrid().run(ConfigGridRun)
+    conf_grid = GridConfig(30, 10**(-7), 10**(-3), 6)
+    conf_grid.load_saved = False
+    output = RunGrid().run(conf_grid)
     
-    DoseSpaceScenariosPlot(output, ConfigGridRun.config_string_img)
+    DoseSpaceScenariosPlot(output, conf_grid.config_string_img)
 
 
 if doses_scatter:
-    ConfigGridRun = GridConfig(30, 10**(-7), 10**(-3), 51)    
-    output = RunGrid().run(ConfigGridRun)
-    DosesScatterPlot(output, ConfigGridRun.config_string_img)
+    conf_grid = GridConfig(30, 10**(-7), 10**(-3), 51)    
+    output = RunGrid().run(conf_grid)
+    DosesScatterPlot(output, conf_grid.config_string_img)
 
 
 if param_scan_hobb_vs_me:

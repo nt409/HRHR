@@ -2,14 +2,14 @@ from model.ode_system import BaseSystem
 
 
 class ODESystemWithinSeasonSex(BaseSystem):
-    def __init__(self, fungicide_params, sex_prop) -> None:
+    def __init__(self, fungicide_params, within_season_sex_prop) -> None:
         super().__init__(fungicide_params)
-        self.sex_prop = sex_prop
+        self.within_season_sex = within_season_sex_prop
 
 
     def system(self, t, y):
         pars = self.pars
-        eps = self.sex_prop
+        ws_prop = self.within_season_sex
 
         S,ERR,ERS,ESR,ESS,IRR,IRS,ISR,ISS,R,PRR,PRS,PSR,PSS,conc_1,conc_2 = y
 
@@ -32,25 +32,25 @@ class ODESystemWithinSeasonSex(BaseSystem):
                 + (ISS + PSS) * (self.fcide1.effect(conc_1)) * (self.fcide2.effect(conc_2))),
             
 
-            S*(pars.beta/A) * ((1-eps)*(IRR + PRR)
-                                + eps*(I_div*(IRS + IRR)*(ISR + IRR)
+            S*(pars.beta/A) * ((1-ws_prop)*(IRR + PRR)
+                                + ws_prop*(I_div*(IRS + IRR)*(ISR + IRR)
                                      + P_div*(PRS + PRR)*(PSR + PRR)))
                  - (self.senescence_fn(t)) * ERR  - pars.gamma * ERR,
             
-            S*(pars.beta/A) * ((1-eps)*(IRS + PRS) 
-                                + eps*(I_div*(IRS + IRR)*(IRS + ISS)
+            S*(pars.beta/A) * ((1-ws_prop)*(IRS + PRS) 
+                                + ws_prop*(I_div*(IRS + IRR)*(IRS + ISS)
                                      + P_div*(PRS + PRR)*(PRS + PSS))
                                     ) * (self.fcide2.effect(conc_2))
                  - (self.senescence_fn(t)) * ERS - pars.gamma * (self.fcide2.effect(conc_2)) * ERS,
             
-            S*(pars.beta/A) * ((1-eps)*(ISR + PSR) 
-                                + eps*(I_div*(ISS + ISR)*(ISR + IRR)
+            S*(pars.beta/A) * ((1-ws_prop)*(ISR + PSR) 
+                                + ws_prop*(I_div*(ISS + ISR)*(ISR + IRR)
                                      + P_div*(PSS + PSR)*(PSR + PRR))
                                     ) * (self.fcide1.effect(conc_1))
                  - (self.senescence_fn(t)) * ESR - pars.gamma * (self.fcide1.effect(conc_1)) * ESR,
             
-            S*(pars.beta/A) * ((1-eps)*(ISS + PSS) 
-                                + eps*(I_div*(ISS + ISR)*(ISS + IRS)
+            S*(pars.beta/A) * ((1-ws_prop)*(ISS + PSS) 
+                                + ws_prop*(I_div*(ISS + ISR)*(ISS + IRS)
                                      + P_div*(PSS + PSR)*(PSS + PRS))
                                     ) * (self.fcide1.effect(conc_1)) * (self.fcide2.effect(conc_2))
                  - (self.senescence_fn(t)) * ESS  - pars.gamma * (self.fcide1.effect(conc_1))*(self.fcide2.effect(conc_2)) * ESS,

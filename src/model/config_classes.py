@@ -8,7 +8,8 @@ class BaselineConfig:
         self.folder_runs = '../outputs/saved_runs/'
         self.folder_figs = '../outputs/figures/'
 
-        self.sex_prop = 0
+        self.bs_sex_prop = 0
+        self.ws_sex_prop = 0
         
         self.n_years = n_years
 
@@ -22,12 +23,13 @@ class BaselineConfig:
 
         inoc_str = "N" if self.primary_inoculum is None else "Y"
 
-        self.save_string = (f"Ny={self.n_years}_" + 
-                            f"Rps={self.res_props['f1']}," +
-                            f"_{self.res_props['f2']}_" + 
-                            f"PI={inoc_str}_" + 
-                            f"Sex={self.sex_prop}")
-
+        self.save_string = (f"Ny={self.n_years}_" 
+                            f"RPs={self.res_props['f1']},_{self.res_props['f2']}_"
+                            f"PI={inoc_str}_"
+                            f"BSS={self.bs_sex_prop}_"
+                            f"WSS={self.ws_sex_prop}"
+                            )
+        
 
 
     def get_conf_strings(self, filename):        

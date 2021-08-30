@@ -5,7 +5,7 @@ import numpy as np
 
 from model.simulator import RunGrid
 from param_scan.fns.pars import RandomPars
-from plotting.figures import DoseSpaceScenariosPlot
+from plotting.paper_figs import DoseSpaceScenariosPlot
 
 # TOC
 # combine_PS_rand_outputs

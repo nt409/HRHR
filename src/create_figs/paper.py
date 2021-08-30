@@ -1,25 +1,29 @@
+import pandas as pd
+
 from model.simulator import RunSingleTactic, RunGrid
 
 from model.config_classes import SingleConfig, GridConfig
 
-from plotting.figures import DiseaseProgressCurvesAll, DoseSpaceScenariosPlot, \
+from plotting.paper_figs import DiseaseProgressCurvesAll, DoseSpaceScenariosPlot, \
     DosesScatterPlot, YieldAndRfPlot, ParamScanPlotMeVsHobb, \
-    ParamScanPlotHighLowDose, CombinedModelPlot
+    ParamScanPlotHighLowDose, CombinedModelPlot, SR_grid
 
 from param_scan.fns.config import config_rand
 from param_scan.fns.post_process import PostProcess
 
+from sr_scan.get_df import get_sr_grid_df
 
 
 # which plots
 
-model_output_overview = True
+model_output_overview = False
 rf_yield = False
 model_output_combined = False
 dose_space = False
 doses_scatter = False
 param_scan_hobb_vs_me = False
 param_scan_high_low_dose = False
+sr_grid_scan = True
 
 
 
@@ -36,6 +40,7 @@ if model_output_overview:
     # config_sing = SingleConfig(1, 2*10**(-1), 5*10**(-2), 1, 1, 0.5, 0.5)
     config_sing = SingleConfig(1, None, None, 1, 1, 0.5, 0.5)
     config_sing.load_saved = False
+    config_sing.ws_sex_prop = 1
     
     RR, RS, SR = (2*10**(-4), 2*10**(-1), 5*10**(-2))
     config_sing.primary_inoculum = dict(RR = RR,
@@ -43,8 +48,9 @@ if model_output_overview:
             SR = SR,
             SS = 1 - RR - RS - SR)
     
-    # output = RunSingleTactic().run(config_sing)
-    output = RunSingleTactic(within_season_sex=1).run(config_sing)
+    config_sing.add_string()
+
+    output = RunSingleTactic().run(config_sing)
     DiseaseProgressCurvesAll(output, config_sing.config_string_img)
 
 
@@ -68,12 +74,9 @@ if model_output_combined:
 
 if dose_space:
     # conf_grid = GridConfig(30, 10**(-7), 10**(-3), 51)
-
     conf_grid = GridConfig(30, 10**(-7), 10**(-3), 6)
     conf_grid.load_saved = False
-    # output = RunGrid().run(conf_grid)
-    output = RunGrid(within_season_sex=1).run(conf_grid)
-    
+    output = RunGrid().run(conf_grid)
     DoseSpaceScenariosPlot(output, conf_grid.config_string_img)
 
 
@@ -93,3 +96,8 @@ if param_scan_high_low_dose:
     par_str = config_rand['par_str']
     data = get_param_data(par_str)
     ParamScanPlotHighLowDose(data, f"{par_str}.png")
+
+if sr_grid_scan:
+    data = get_sr_grid_df(10, 10)
+    SR_grid(data)
+

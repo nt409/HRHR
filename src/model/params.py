@@ -7,28 +7,16 @@ from math import ceil
 
 class Parameters:
     def __init__(self):
+        
+        # default fung params
         self.omega_1 = 1
         self.omega_2 = 1
-        
-        # partial resistance on 
-        # - asymptote (PR type 1)
-        # - curvature (PR type 2)
-        
-        # self.alpha_1 = 0
-        # self.alpha_1_C = 1
-        # self.alpha_2 = 0
-        # self.alpha_2_C = 1
         
         self.theta_1 = 9.6
         self.theta_2 = 9.6
         
-        # effect on latent period different?
-        # self.omega_1_L = 1
-        # self.omega_2_L = 1
-        
-        # self.theta_1_L = legal_dose*t1
-        # self.theta_2_L = legal_dose*t2
 
+        # pathosystem params
         self.r = 1.26*10**(-2)
         self.k = 1
         
@@ -60,15 +48,6 @@ class Parameters:
         
         
         self.no_variables = 16
-        
-        self.S_ind = 0
-        self.ERR_ind = 1
-        self.ERS_ind = 2
-        self.ESR_ind = 3
-        self.ESS_ind = 4
-
-        self.fung_1_ind = 14
-        self.fung_2_ind = 15
 
 
 

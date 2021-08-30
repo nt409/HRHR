@@ -40,10 +40,10 @@ class Simulator(ABC):
 class SimulatorWithDisease(Simulator):
     """Simulates a single season."""
 
-    def __init__(self, fungicide_params, within_season_sex):
+    def __init__(self, fungicide_params, within_season_sex_prop):
         
-        if within_season_sex>0:
-            self.ode_sys = ODESystemWithinSeasonSex(fungicide_params, within_season_sex)
+        if within_season_sex_prop>0:
+            self.ode_sys = ODESystemWithinSeasonSex(fungicide_params, within_season_sex_prop)
         else:
             self.ode_sys = ODESystem(fungicide_params)
         
@@ -281,13 +281,10 @@ class RunModel(ABC):
 
 
 class RunSingleTactic(RunModel):
-    def __init__(self, fcide_parms=None, within_season_sex=0):
-
-        self.sim = SimulatorWithDisease(fcide_parms, within_season_sex)
-        self.df_sim = SimulatorDiseaseFree(fcide_parms)
+    def __init__(self, fcide_parms=None):
+        self.fcide_parms = fcide_parms
 
         self.yield_stopper = 95
-
         self.PATHOGEN_STRAIN_NAMES = ['RR', 'RS', 'SR', 'SS']
 
 
@@ -298,12 +295,17 @@ class RunSingleTactic(RunModel):
         
         self.filename = conf.config_string
 
+
         if conf.load_saved:
             loaded_run = self._load()
             if loaded_run is not None:
                 return loaded_run
+        
+        self.sim = SimulatorWithDisease(self.fcide_parms, 
+                                within_season_sex_prop=conf.ws_sex_prop)
+        
+        dis_free_yield = SimulatorDiseaseFree(self.fcide_parms).run()
 
-        dis_free_yield = self.df_sim.run()
 
         self.n_years = len(conf.fung1_doses['spray_1'])
 
@@ -415,8 +417,7 @@ class RunSingleTactic(RunModel):
                 proportions=None,
                 ):
         
-        # is_mixed_sex = conf.is_mixed_sex
-        sex_prop = conf.sex_prop
+        bs_sex_prop = conf.bs_sex_prop
 
         sex = dict(
             RR = res_prop_1*res_prop_2,
@@ -432,7 +433,7 @@ class RunSingleTactic(RunModel):
             asex = proportions
             out = {}
             for key in sex.keys():
-                out[key] = sex_prop*sex[key] + (1 - sex_prop)*asex[key]
+                out[key] = bs_sex_prop*sex[key] + (1 - bs_sex_prop)*asex[key]
             
             return out
     
@@ -446,7 +447,8 @@ class RunSingleTactic(RunModel):
         filename = self.filename
         
         if os.path.isfile(filename) and "single" in filename:
-            loaded_run = pickle.load(open(filename, 'rb'))
+            with open(filename, 'rb') as f:
+                loaded_run = pickle.load(f)
             return loaded_run
         else:
             return None
@@ -481,8 +483,8 @@ class RunSingleTactic(RunModel):
 
 
 class RunGrid(RunModel):
-    def __init__(self, fcide_parms=None, within_season_sex=0):
-        self.sing_tact = RunSingleTactic(fcide_parms, within_season_sex)
+    def __init__(self, fcide_parms=None):
+        self.sing_tact = RunSingleTactic(fcide_parms)
         self.fung_strat = FungicideStrategy
 
 
@@ -562,7 +564,8 @@ class RunGrid(RunModel):
         filename = self.filename
 
         if os.path.isfile(filename):
-            loaded_run = pickle.load(open(filename, 'rb'))
+            with open(filename, 'rb') as f:
+                loaded_run = pickle.load(f)
             return loaded_run
         else:
             return None

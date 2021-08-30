@@ -104,13 +104,15 @@ class RandomPars:
 
     def _get_yield_these_doses(self, fungicide_params, pathogen_pars, d1, d2):
 
-        ConfigSingleRun = SingleConfig(1, None, None, d1, d1, d2, d2, primary_inoculum=self.inoc)
+        conf_single = SingleConfig(1, None, None, d1, d1, d2, d2, primary_inoculum=self.inoc)
         
-        ConfigSingleRun.sex_prop = pathogen_pars['sr_prop']
+        conf_single.bs_sex_prop = pathogen_pars['sr_prop']
 
-        ConfigSingleRun.load_saved = False
+        conf_single.load_saved = False
 
-        this_run = RunSingleTactic(fungicide_params).run(ConfigSingleRun)
+        conf_single.add_string()
+
+        this_run = RunSingleTactic(fungicide_params).run(conf_single)
         
         yield_out = this_run.yield_vec[0]
 
@@ -184,7 +186,7 @@ class RandomPars:
 
     def _process_conf(self, conf):
 
-        conf.sex_prop = self.sr_prop
+        conf.bs_sex_prop = self.sr_prop
 
         conf.load_saved = self.config['load_saved']
         

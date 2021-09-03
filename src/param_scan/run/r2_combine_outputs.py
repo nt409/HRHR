@@ -11,4 +11,7 @@ def main(config, seeds):
 
 if __name__=="__main__":
     seeds = list(range(32))
-    main(config_rand, seeds)
+    output_type = "par_df"
+    # output_type = "summary_df"
+
+    main(config_rand, seeds, output_type)

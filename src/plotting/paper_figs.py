@@ -1,5 +1,8 @@
 """Figures for the paper."""
 
+from __future__ import annotations
+from abc import ABC, abstractmethod
+import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
@@ -13,26 +16,31 @@ from model.strategy_arrays import EqualResFreqBreakdownArray, EqualSelectionArra
 
 from plotting.traces import contour_at_0, contour_at_single_level
 
-from plotting.utils import get_text_annotation, get_arrow_annotation, standard_layout, \
+from plotting.utils import get_text_annotation, get_arrow_annotation, grey_colorscale_discrete, invisible_colorbar, my_colorbar_subplot, standard_layout, \
     grey_colorscale, my_colorbar, get_big_text_annotation
 
-from plotting.consts import ATTRS_DICT, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT, \
+from plotting.consts import ATTRS_DICT, LABEL_COLOR, NULL_HEATMAP_COLOUR, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT, \
         FULL_PAGE_WIDTH
 
 
 # Paper Figs
-
-class BasicFig:
+class BasicFig(ABC):
     def __init__(self) -> None:
+        pass
+
+    @abstractmethod 
+    def _generate_figure(self):
+        pass
+
+    @abstractmethod 
+    def _sort_layout(self):
         pass
 
     def _save_and_show(self, fig):
         fig.show()
         
-        print(f"""
-        saving figure to:
-        {self.filename}
-        """)
+        print("saving figure to:")
+        print(self.filename)
 
         fig.write_image(self.filename)
 
@@ -40,207 +48,14 @@ class BasicFig:
 
 
 
-class DiseaseProgressCurvesAll(BasicFig):
-    def __init__(self, data, conf_str) -> None:
 
-        self.width = FULL_PAGE_WIDTH
 
-        self.height = 650
 
-        self.xx = data.states_list[0].t
-        
-        self.states_list = data.states_list
 
-        fig = self._generate_figure()
 
-        self.filename = conf_str.replace("/single/", "/paper_figs/model_overview_")
 
-        self._save_and_show(fig)
 
-
-
-
-    def _generate_figure(self):
-
-        traces_dict = self.get_model_output_overview_traces()
-
-        ugly_fig = self.add_traces_to_layout_model_output_overview(traces_dict)
-
-        fig = self._sort_layout(ugly_fig)
-
-        return fig
-        
-    
-
-
-
-
-    def get_model_output_overview_traces(self):
-        S_R_traces = self.get_S_R_traces()
-        E_traces = self.get_E_traces()
-        I_traces = self.get_I_traces()
-        F_traces = self.get_F_traces()
-
-        out = dict(S_R = S_R_traces,
-                    E = E_traces,
-                    I = I_traces,
-                    F = F_traces)
-
-        return out
-    
-
-
-
-    def get_S_R_traces(self):
-        
-        out = []
-
-        for key in ['S', 'R']:
-            out.append(self.get_DPC_trace(key))
-        return out
-    
-    
-
-    def get_E_traces(self):
-        
-        out = []
-
-        for key in ['ERR', 'ERS', 'ESR', 'ESS']:
-            out.append(self.get_DPC_trace(key))
-
-        return out
-    
-
-
-    
-    def get_I_traces(self):
-        
-        out = []
-
-        for key in ['IRR', 'IRS', 'ISR', 'ISS']:
-            out.append(self.get_DPC_trace(key))
-
-        return out
-    
-
-
-    def get_F_traces(self):
-
-        out = []
-
-        for key in ['fung_1', 'fung_2']:
-            out.append(self.get_DPC_trace(key))
-
-        return out
-
-
-
-    def get_DPC_trace(self, key):
-        clr = ATTRS_DICT[key]['color']
-        dash = ATTRS_DICT[key]['dash']
-        name = ATTRS_DICT[key]['name']
-        # ind = ATTRS_DICT[key]['ind']
-
-        yy = vars(self.states_list[0])[key]
-
-        return go.Scatter(x=self.xx,
-                    y=yy,
-                    line=dict(color=clr, dash=dash),
-                    name=name
-                    )
-
-
-
-
-
-
-    def add_traces_to_layout_model_output_overview(self, data_dict):
-        fig = make_subplots(rows=2, cols=2, horizontal_spacing=0.2)
-
-        self.add_traces(fig, data_dict['S_R'], 1, 1)
-        self.add_traces(fig, data_dict['E'], 1, 2)
-        self.add_traces(fig, data_dict['I'], 2, 1)
-        self.add_traces(fig, data_dict['F'], 2, 2)
-
-        return fig
-
-
-
-    def _sort_layout(self, fig):
-        fig = self.update_axes(fig)
-
-
-        fig.update_layout(standard_layout(False, self.width, self.height))
-        
-        fig = self.add_corner_text_labels(fig)
-
-        fig = self.sort_legend(fig)
-
-        return fig
-
-
-    def sort_legend(self, fig):
-        fig.update_layout(showlegend=True, legend=dict(font=dict(size=16)))
-        return fig
-
-
-
-    def add_corner_text_labels(self, fig):
-        top_row = 1.08
-        bottom_row = 0.5
-        
-        left = 0.01
-        middle = 0.58
-
-        c1 = get_big_text_annotation(left, top_row, 'A')
-        c2 = get_big_text_annotation(middle, top_row, 'B')
-        c3 = get_big_text_annotation(left, bottom_row, 'C')
-        c4 = get_big_text_annotation(middle, bottom_row, 'D')
-        
-        annotz = [c1, c2, c3, c4]
-
-        fig.update_layout(annotations=annotz)
-        return fig
-
-
-
-
-    def add_traces(self, fig, traces, row, col):
-        for trace in traces:
-            fig.add_trace(trace, row, col)
-
-        return fig
-
-
-
-
-    def update_axes(self, fig):
-        fig.update_xaxes(row=1, col=1, showgrid=False)
-        fig.update_xaxes(row=1, col=2, showgrid=False)
-        
-        fig.update_xaxes(title="Time (degree-days)", row=2, col=1, showgrid=False)
-        fig.update_xaxes(title="Time (degree-days)", row=2, col=2, showgrid=False)
-        
-        fig.update_yaxes(title="L.A.I.", row=1, col=1)
-        fig.update_yaxes(title="L.A.I.", row=1, col=2)
-        fig.update_yaxes(title="L.A.I.", row=2, col=1)
-        fig.update_yaxes(title="Concentration", row=2, col=2)
-
-        return fig
-    
-
-
-
-
-
-
-
-
-
-
-
-
-class CombinedModelPlot:
+class CombinedModelPlot(BasicFig):
     def __init__(self, data, conf_str) -> None:
 
         self.width = FULL_PAGE_WIDTH
@@ -256,8 +71,10 @@ class CombinedModelPlot:
         self.xx = data.states_list[self.DPC_year].t
 
         fig = self._generate_figure()
+        
+        self.filename = conf_str.replace("/single/", "/paper_figs/model_overview_combined_")
 
-        self._save_and_show(fig, conf_str)
+        self._save_and_show(fig)
 
 
 
@@ -555,15 +372,6 @@ class CombinedModelPlot:
     
 
 
-    def _save_and_show(self, fig, conf_str):
-        fig.show()
-        filename = conf_str.replace("/single/", "/paper_figs/model_overview_combined_")
-        
-        print("saving figure to: \n", filename)
-
-        fig.write_image(filename)
-
-
 # End of CombinedModelPlot
 
 
@@ -580,13 +388,17 @@ class CombinedModelPlot:
 
 
 class DoseSpaceScenariosPlot(BasicFig):
-    def __init__(self, data, conf_str) -> None:
+    def __init__(self, data, contour_data, conf_str) -> None:
 
         self.width = FULL_PAGE_WIDTH
 
-        self.height = 650
+        self.height = 720
 
         self.data = data
+
+        self.contour_data = contour_data
+
+        self.cbar_attrs = dict(x=[0.375, 1.005], y=[0.21, 0.79], len=0.46)
 
         fig = self._generate_figure()
 
@@ -597,40 +409,80 @@ class DoseSpaceScenariosPlot(BasicFig):
 
 
     def _generate_figure(self):
-        traces = self._get_traces()
 
-        ugly_fig = self._add_traces_to_figure(traces)
+        fig = make_subplots(rows=2, cols=2, horizontal_spacing=0.25)
 
-        fig = self._sort_layout(ugly_fig)
+        EL_traces = self._get_EL_traces()
+        
+        ESFY_traces = self._get_ESFY_traces()
+        ERFB_traces = self._get_ERFB_traces()
+        cont_traces = self._get_contour_traces()
+
+        fig.add_traces(EL_traces, rows=1, cols=1)
+        fig.add_traces(ESFY_traces, rows=1, cols=2)
+        fig.add_traces(ERFB_traces, rows=2, cols=1)
+        fig.add_traces(cont_traces, rows=2, cols=2)
+
+        fig = self._sort_layout(fig)
 
         return fig
 
 
 
-    def _get_traces(self):        
+    def _get_EL_traces(self):        
         traces = []
 
         traces.append(self.get_ERFB_legend_entry())
-        traces.append(self.get_EqSel_legend_entry())
+        traces.append(self.get_ESFY_legend_entry())
 
-        traces.append(self.get_FY_heatmap())
+        traces.append(self.get_FY_trace())
         
-        traces.append(self.get_ERFB_contour())
-        traces.append(self.get_EqSel_contour())
-        
-        traces.append(self.get_full_dose_point())
-        traces.append(self.get_min_dose_point())
-        
+        traces.append(self.get_ERFB_contour_single())
+        traces.append(self.get_ESFY_contour_single())
 
         return traces
 
+    def _get_ERFB_traces(self):
+        traces = []
+        traces.append(self.get_grey_heatmap())
+        traces.append(self.get_ERFB_trace())
+        traces.append(self.get_ERFB_contour_single())
+        return traces    
+    
+    def _get_ESFY_traces(self):
+        traces = []
+        traces.append(self.get_grey_heatmap())
+        traces.append(self.get_ESFY_trace())
+        traces.append(self.get_ESFY_contour_single())
+        return traces
+    
+    def _get_contour_traces(self):
+        traces = []
+        traces.append(self.get_ERFB_cont_trace())
+        traces.append(self.get_ESFY_cont_trace())
+        return traces
 
-    def get_EqSel_legend_entry(self):
+    def get_ERFB_cont_trace(self):
+        x = self.contour_data['ERFB']['DS']
+        y = self.contour_data['ERFB']['FY']
+        return go.Scatter(x=x, y=y, mode="lines", line=dict(color="black"), showlegend=False)
+
+    def get_ESFY_cont_trace(self):
+        x = self.contour_data['ESFY']['DS']
+        y = self.contour_data['ESFY']['FY']
+        return go.Scatter(x=x, y=y, mode="lines", line=dict(color="blue", dash="dot"), showlegend=False)
+
+
+
+
+
+
+    def get_ESFY_legend_entry(self):
         return go.Scatter(x=[1], 
                     y=[1],
                     mode="lines",
                     line=dict(color="blue", dash="dot"),
-                    name="ES contour"
+                    name=u"\u0394<sub>SFY</sub>=0.5 contour"
                     )
 
 
@@ -639,12 +491,12 @@ class DoseSpaceScenariosPlot(BasicFig):
                     y=[1],
                     mode="lines",
                     line=dict(color="black", dash="solid"),
-                    name="ERFB contour"
+                    name=u"\u0394<sub>RFB</sub>=0 contour"
                     )
 
 
 
-    def get_FY_heatmap(self):
+    def get_FY_trace(self):
         FYs = np.transpose(self.data.FY)
 
         xheat = np.linspace(0, 1, FYs.shape[0])
@@ -654,14 +506,64 @@ class DoseSpaceScenariosPlot(BasicFig):
             x = xheat,
             y = yheat,
             z = FYs,
-            colorscale = grey_colorscale(FYs),
-            colorbar = my_colorbar(TITLE_MAP["FY"])
+            colorscale = grey_colorscale_discrete(FYs),
+            colorbar = my_colorbar_subplot("E.L.", self.cbar_attrs['x'][0], self.cbar_attrs['y'][1], self.cbar_attrs['len'])
+            )
+
+        return heatmap
+    
+
+    def get_ERFB_trace(self):
+        z = EqualResFreqBreakdownArray(self.data).array
+        z_transpose = np.transpose(z)
+
+        xheat = np.linspace(0, 1, z.shape[0])
+        yheat = np.linspace(0, 1, z.shape[1])
+
+        heatmap = go.Heatmap(
+            x = xheat,
+            y = yheat,
+            z = z_transpose,
+            # colorscale = grey_colorscale_discrete(FYs),
+            colorbar = my_colorbar_subplot(u"\u0394<sub>RFB", self.cbar_attrs['x'][0], self.cbar_attrs['y'][0], self.cbar_attrs['len'])
             )
 
         return heatmap
 
 
-    def get_ERFB_contour(self):
+    def get_ESFY_trace(self):
+        z = EqualSelectionArray(self.data).array
+        z_transpose = np.transpose(z)
+
+        xheat = np.linspace(0, 1, z.shape[0])
+        yheat = np.linspace(0, 1, z.shape[1])
+
+        heatmap = go.Heatmap(
+            x = xheat,
+            y = yheat,
+            z = z_transpose,
+            # colorscale = grey_colorscale_discrete(FYs),
+            colorbar = my_colorbar_subplot(u"\u0394<sub>SFY", self.cbar_attrs['x'][1], self.cbar_attrs['y'][1], self.cbar_attrs['len'])
+            )
+
+        return heatmap
+
+
+    def get_grey_heatmap(self):
+        z = [[0,0], [0,0]]
+        x = np.linspace(0,1,2)
+        y = np.linspace(0,1,2)
+
+        grey_map = go.Heatmap(
+            x = x,
+            y = y,
+            z = z,
+            colorscale = [[0, NULL_HEATMAP_COLOUR],[1, NULL_HEATMAP_COLOUR]],
+            colorbar = invisible_colorbar(self.cbar_attrs['x'][0], self.cbar_attrs['y'][0])
+            )
+        return grey_map
+
+    def get_ERFB_contour_single(self):
         z = EqualResFreqBreakdownArray(self.data).array
 
         x = np.linspace(0, 1, z.shape[0])
@@ -674,9 +576,7 @@ class DoseSpaceScenariosPlot(BasicFig):
 
         return out
 
-
-
-    def get_EqSel_contour(self):
+    def get_ESFY_contour_single(self):
         z = EqualSelectionArray(self.data).array
 
         x = np.linspace(0, 1, z.shape[0])
@@ -691,72 +591,60 @@ class DoseSpaceScenariosPlot(BasicFig):
 
 
 
-    @staticmethod
-    def get_full_dose_point():
-        out = go.Scatter(x=[1],
-                y=[1],
-                marker=dict(color='red', size=16),
-                marker_symbol='circle',
-                mode='markers',
-                name="Full dose",
-                )
-
-        return out
-
-
-
-    def get_min_dose_point(self):
-        FYs = np.transpose(self.data.FY)
-
-        x = np.linspace(0, 1, FYs.shape[0])
-        
-        minEqDoseELVec = np.asarray([float(FYs[i, i]) for i in range(FYs.shape[0])])
-
-        ind = np.where(minEqDoseELVec>1)
-
-        min_val = x[int(ind[0][0])]
-
-        out = go.Scatter(x=[min_val],
-                y=[min_val],
-                marker=dict(color='green', size=16),
-                mode='markers',
-                marker_symbol='square',
-                name="Min. dose",
-                )
-
-        return out
-
-
-
-
-    def _add_traces_to_figure(self, traces):
-        fig = go.Figure(data=traces, layout=standard_layout(True, self.width, self.height))
-        return fig
-
 
 
     def _sort_layout(self, fig):
-        fig = self._update_axes(fig)
-        fig = self._update_legend(fig)
+        fig.update_layout(standard_layout(True, self.width, self.height))
+
+        fig.update_layout(legend=dict(
+                        x=0,
+                        y=1.05,
+                        xanchor="left", 
+                        yanchor="bottom",
+                        
+                        orientation="h",
+                        font=dict(
+                            color=LABEL_COLOR
+                        )
+                        ))
+
+        fig.update_yaxes(title="Dose (fungicide B)", row=1, col=1, range=[0,1], showgrid=False, zeroline=False)
+        
+        fig.update_xaxes(title="Dose (fungicide A)", row=2, col=1, range=[0,1], showgrid=False, zeroline=False)
+        fig.update_yaxes(title="Dose (fungicide B)", row=2, col=1, range=[0,1], showgrid=False, zeroline=False)
+        
+        fig.update_xaxes(title="Dose (fungicide A)", row=1, col=2, range=[0,1], showgrid=False, zeroline=False)
+        fig.update_yaxes(title="",                   row=1, col=2, range=[0,1], showgrid=False, zeroline=False, showticklabels=False)
+
+        fig.update_xaxes(title="Dose sum",       row=2, col=2, range=[0.3,2], showgrid=False, zeroline=False)
+        fig.update_yaxes(title="Effective life", row=2, col=2, showgrid=False, zeroline=False)
+        
+
+        top_row = 1.07
+        bottom_row = 0.49
+        
+        left = -0.04
+        middle = 0.59
+
+
+        annotz = [dict(text="", x=self.cbar_attrs['x'][0]+0.014, y=0.24, xref="paper", yref="paper",
+                        ay=0, ax=30, arrowsize=2, arrowwidth=4, arrowhead=0, arrowcolor="black"),
+                  dict(text="", x=self.cbar_attrs['x'][1]+0.014, y=0.77, xref="paper", yref="paper",
+                        ay=0, ax=30, arrowsize=2, arrowwidth=4, arrowhead=0, arrowcolor="blue"),
+                  get_big_text_annotation(left, top_row, 'A'),
+                  get_big_text_annotation(middle, top_row, 'B'),
+                  get_big_text_annotation(left, bottom_row, 'C'),
+                  get_big_text_annotation(middle, bottom_row, 'D'),
+                    ]
+
+        fig.update_layout(annotations=annotz)
         return fig
+    
     
 
 
-    @staticmethod
-    def _update_axes(fig):
-        eps = 0.04
-        fig.update_xaxes(title="Dose (fungicide A)", range=[0-eps,1+eps], showgrid=False, zeroline=False)
-        fig.update_yaxes(title="Dose (fungicide B)", range=[0-eps,1+eps], showgrid=False, zeroline=False)
-        return fig
-    
 
 
-
-    @staticmethod
-    def _update_legend(fig):
-        fig.update_layout(legend=dict(x=1.2, y=0.95))
-        return fig
-    
 
 
 
@@ -857,207 +745,15 @@ class DosesScatterPlot(BasicFig):
 
 
     def _sort_layout(self, fig):
-        fig = self._update_axes(fig)
-        return fig
-    
-
-
-    @staticmethod
-    def _update_axes(fig):
         fig.update_xaxes(title=r"$\Delta_{RFB}$")
         fig.update_yaxes(title="Effective life")
         return fig
-
-
-
-
-
-
-class YieldAndRfPlot(BasicFig):
-    def __init__(self, data, conf_str) -> None:
-
-        self.width = FULL_PAGE_WIDTH
-
-        self.height = 620
-
-        self.data = data
-
-        fig = self._generate_figure()
-
-        self._save_and_show(fig, conf_str)
-
-
-
-    def _generate_figure(self):
-        trace_dict = self.get_trace_dict()
-
-        ugly_fig = self._add_traces_to_figure(trace_dict)
-
-        fig = self._sort_layout(ugly_fig)
-
-        return fig
-
-
-
-    def get_trace_dict(self):        
-        
-
-        yield_traces = self.get_yield_traces()
-        
-        RF_traces = self.get_RF_traces()
-        
-        traces = {"yield": yield_traces, "RF": RF_traces}
-
-        return traces
-
-
-
-
-
-    def get_yield_traces(self):
-        out = []
-
-        yy = self.data.yield_vec
-        
-        xx = list(range(1,1+len(yy)))
-
-        line = go.Scatter(x=xx, y=yy, name="Yield")
-        
-        Y_LOW = yy[-1]-2
-
-        self.yield_lower_lim = Y_LOW
-        
-        X_END = 0.5 + xx[-1]
-                
-        shape = go.Scatter(x=[0, 0, X_END, X_END],
-                            y=[Y_LOW, 95, 95, Y_LOW],
-                            fill="toself",
-                            mode="lines",
-                            showlegend=False,
-                            line=dict(width=0, color="rgb(150,150,150)"))
-        
-        out.append(shape)
-        out.append(line)
-
-        return out
     
 
 
 
 
-    def get_RF_traces(self):
-        out = []
-        
-        y1 = self.data.res_vec_dict['f1']
-        y2 = self.data.res_vec_dict['f2']
-        
-        xx = list(range(len(y1)))
 
-        for data, name, dash in zip([y1, y2], ['A', 'B'], ['dot', 'solid']):
-            line = go.Scatter(x=xx, 
-                y=data,
-                name=f"<br>Resistance<br>frequency<br>(fungicide {name})",
-                line=dict(dash=dash))
-            out.append(line)
-
-        return out
-
-
-    def _add_traces_to_figure(self, trace_dict):
-        fig = make_subplots(rows=2, cols=1, shared_xaxes=True)
-        
-        fig = self._add_yield_traces(fig, trace_dict['yield'])
-
-        fig = self._add_RF_traces(fig, trace_dict['RF'])
-        
-        return fig
-
-
-
-    @staticmethod
-    def _add_yield_traces(fig, traces):
-        for trace in traces:
-            fig.add_trace(trace, row=1, col=1)
-        return fig
-    
-
-
-    @staticmethod
-    def _add_RF_traces(fig, traces):
-        for trace in traces:
-            fig.add_trace(trace, row=2, col=1)
-        return fig
-
-
-
-
-
-
-    def _sort_layout(self, fig):
-        fig = self._update_layout(fig)
-        fig = self._update_axes(fig)
-        return fig
-    
-    
-    
-    def _update_layout(self, fig):
-        fig.update_layout(standard_layout(True, self.width, self.height))
-        
-        text = self.get_unacceptable_yield_annotation()
-        corners = self._get_corner_text_labels()
-        annotz = corners + text
-        
-        fig.update_layout(annotations=annotz)
-        return fig
-
-
-    def get_unacceptable_yield_annotation(self):
-        return [dict(
-            xref="x1",
-            yref="y1",
-            xanchor="left",
-            x= 1,
-            y= 2 + 0.5*(95+self.yield_lower_lim),
-            text="Unacceptable yield",
-            showarrow=False,
-            )]
-
-
-
-    @staticmethod
-    def _update_axes(fig):
-        fig.update_xaxes(title="Time (years)", row=2, col=1, showgrid=False, zeroline=False)
-        
-        fig.update_yaxes(title="Yield<br>(% of disease free)", row=1, col=1)
-        
-        fig.update_yaxes(title="Resistance<br>frequency", row=2, col=1)
-
-        return fig
-
-
-
-    def _get_corner_text_labels(self):
-        top_row = 1.08
-        bottom_row = 0.52
-        
-        left = 0.02
-
-        cA = get_big_text_annotation(left, top_row, 'A')
-        cB = get_big_text_annotation(left, bottom_row, 'B')
-        
-        out = [cA, cB]
-        return out
-    
-    
-    
-    
-    def _save_and_show(self, fig, conf_str):
-        fig.show()
-        filename = conf_str.replace("/single/", "/paper_figs/yield_rf_")
-        
-        print("saving figure to: \n", filename)
-
-        fig.write_image(filename)
 
 
 
@@ -1066,25 +762,33 @@ class YieldAndRfPlot(BasicFig):
 
 
 class ParamScanPlotMeVsHobb(BasicFig):
-    def __init__(self, data, conf_str) -> None:
+    def __init__(self, data, par_data, conf_str) -> None:
 
         self.width = FULL_PAGE_WIDTH
 
         self.height = 800
 
+        data = data.set_index("run")
+        par_data = par_data.set_index("run")
+
+        data = pd.concat([data, par_data])
+
         self.data = self._process_data(data)
 
         fig = self._generate_figure()
+        
+        self.filename = f"../outputs/figures/paper_figs/param_scan_hobb_me_{conf_str}"
 
-        self._save_and_show(fig, conf_str)
+        self._save_and_show(fig)
     
 
 
 
     def _process_data(self, data):
 
-        req_cols = data[['run', 'RFB_maxContEL', 'EqSel_maxContEL',
-                                 "best_value_RFB", "best_value_EqSel",
+
+        req_cols = data[['run', 'c_R_maxContEL', 'c_E_maxContEL',
+                                 "I_R_best_value", "I_E_best_value",
                                  "RS", "SR",
                                  "RR", "sr_prop",
                                 #  "delta_1", "delta_2",
@@ -1106,10 +810,10 @@ class ParamScanPlotMeVsHobb(BasicFig):
     @staticmethod
     def _get_success_metric(x):
 
-        bv_ES = np.asarray(x['best_value_EqSel'])
-        ES_EL = np.asarray(x['EqSel_maxContEL'])
-        bv_RFB = np.asarray(x['best_value_RFB'])
-        RBF_EL = np.asarray(x['RFB_maxContEL'])
+        bv_ES = np.asarray(x['I_E_best_value'])
+        ES_EL = np.asarray(x['c_E_maxContEL'])
+        bv_RFB = np.asarray(x['I_R_best_value'])
+        RBF_EL = np.asarray(x['c_R_maxContEL'])
 
         out = [100*max(bv_ES[i], ES_EL[i]) / max(bv_RFB[i], RBF_EL[i]) for i in range(len(bv_ES))]
 
@@ -1165,8 +869,8 @@ class ParamScanPlotMeVsHobb(BasicFig):
 
 
     def _sort_layout(self, fig):
+        fig.update_layout(standard_layout(False, self.width, self.height))
         fig = self._update_axes(fig)
-        fig = self._update_layout(fig)
         fig = self._add_corner_text_labels(fig)
         return fig
 
@@ -1184,9 +888,6 @@ class ParamScanPlotMeVsHobb(BasicFig):
         return fig
 
     
-    def _update_layout(self, fig):
-        fig.update_layout(standard_layout(False, self.width, self.height))
-        return fig
 
 
     def _add_corner_text_labels(self, fig):
@@ -1207,15 +908,7 @@ class ParamScanPlotMeVsHobb(BasicFig):
         return fig
     
     
-    
-    
-    def _save_and_show(self, fig, conf_str):
-        fig.show()
-        filename = f"../outputs/figures/paper_figs/param_scan_hobb_me_{conf_str}"
-        
-        print("saving figure to: \n", filename)
 
-        fig.write_image(filename)
 
 
 
@@ -1266,7 +959,7 @@ class ParamScanPlotHighLowDose(BasicFig):
              - x['min_dose_sums'])
             , axis=1)
         
-        print(complete['meanMixStrength'])
+        # print(complete['meanMixStrength'])
 
         complete['IRFMetric'] = complete.apply(lambda x: log10(x['RS']) - log10(x['SR']), axis=1)
         
@@ -1295,9 +988,9 @@ class ParamScanPlotHighLowDose(BasicFig):
 
         data = self.data
         
-        # y = data['minMixStrength']
+        y = data['minMixStrength']
         # y = data['maxMixStrength']
-        y = data['meanMixStrength']
+        # y = data['meanMixStrength']
         
         x1 = data['IRFMetric']
         # x1 = [log10(x) for x in data['SR']]
@@ -1352,10 +1045,16 @@ class ParamScanPlotHighLowDose(BasicFig):
     def _add_traces_to_figure(self, trace_dict):
         fig = make_subplots(rows=2, cols=2, vertical_spacing=0.3)
         
-        self.add_traces_each_subplot(fig, 1, 1, trace_dict['IRFMetric'])
-        self.add_traces_each_subplot(fig, 2, 1, trace_dict['DecayMetric'])
-        self.add_traces_each_subplot(fig, 1, 2, trace_dict['RR'])
-        self.add_traces_each_subplot(fig, 2, 2, trace_dict['sr_prop'])
+        
+        fig.add_traces(trace_dict['IRFMetric'], rows=1, cols=1)
+        fig.add_traces(trace_dict['DecayMetric'], rows=1, cols=2)
+        fig.add_traces(trace_dict['RR'], rows=1, cols=2)
+        fig.add_traces(trace_dict['sr_prop'], rows=2, cols=2)
+
+        # self.add_traces_each_subplot(fig, 1, 1, trace_dict['IRFMetric'])
+        # self.add_traces_each_subplot(fig, 1, 2, trace_dict['DecayMetric'])
+        # self.add_traces_each_subplot(fig, 1, 2, trace_dict['RR'])
+        # self.add_traces_each_subplot(fig, 2, 2, trace_dict['sr_prop'])
         
         return fig
 
@@ -1363,15 +1062,15 @@ class ParamScanPlotHighLowDose(BasicFig):
 
 
 
-    @staticmethod
-    def add_traces_each_subplot(fig, row, col, traces):
-        for trace in traces:
-            fig.add_trace(trace, row=row, col=col)
-        return fig
+    # @staticmethod
+    # def add_traces_each_subplot(fig, row, col, traces):
+    #     for trace in traces:
+    #         fig.add_trace(trace, row=row, col=col)
+    #     return fig
 
     def _sort_layout(self, fig):
+        fig.update_layout(standard_layout(False, self.width, self.height))
         fig = self._update_axes(fig)
-        fig = self._update_layout(fig)
         fig = self._add_corner_text_labels(fig)
         return fig
     
@@ -1389,10 +1088,6 @@ class ParamScanPlotHighLowDose(BasicFig):
 
         return fig
 
-    
-    def _update_layout(self, fig):
-        fig.update_layout(standard_layout(False, self.width, self.height))
-        return fig
 
 
     def _add_corner_text_labels(self, fig):
@@ -1423,17 +1118,18 @@ class ParamScanPlotHighLowDose(BasicFig):
 
 
 class SR_grid(BasicFig):
-    def __init__(self, data) -> None:
+    def __init__(self, data1, data2, filestr) -> None:
 
         self.width = FULL_PAGE_WIDTH
 
-        self.height = 780
+        self.height = 450
 
-        self.data = data
+        self.data1 = data1
+        self.data2 = data2
 
         fig = self._generate_figure()
 
-        self.filename = "../outputs/figures/paper_figs/sr_grid.png"
+        self.filename = f"../outputs/figures/paper_figs/sr_grid_{filestr}.png"
 
         self._save_and_show(fig)
 
@@ -1441,19 +1137,24 @@ class SR_grid(BasicFig):
 
     def _generate_figure(self):
         
-        trc = self.get_trace()
+        trcs1 = self.get_trace(self.data1)
+        trcs2 = self.get_trace(self.data2)
         
-        fig = go.Figure(trc)
+        fig = make_subplots(rows=1, cols=2, horizontal_spacing=0.1, shared_yaxes=True, shared_xaxes=True)
         
-        self._update_layout(fig)
+        for trc in trcs1:
+            fig.add_trace(trc, 1, 1)
+        
+        for trc in trcs2:
+            fig.add_trace(trc, 1, 2)
+        
+        self._sort_layout(fig)
         
         return fig
 
 
 
-    def get_trace(self):
-        data = self.data
-        print(self.data)
+    def get_trace(self, data):
 
         data = data.sort_values(['bs', 'ws'])
         
@@ -1468,9 +1169,7 @@ class SR_grid(BasicFig):
             x = x,
             y = y,
             z = z_transpose,
-            # colorscale = grey_colorscale(FYs),
-            # colorbar = my_colorbar("$EL_l$ / ($EL_l$ + $EL_f$)")
-            colorbar = my_colorbar("EL<sub>full</sub> / (EL<sub>low</sub> + EL<sub>full</sub>)")
+            coloraxis = "coloraxis",
             )
         
 
@@ -1482,11 +1181,35 @@ class SR_grid(BasicFig):
 
 
 
-    def _update_layout(self, fig):
+    def _sort_layout(self, fig):
         fig.update_layout(standard_layout(False, self.width, self.height))
-        fig.update_xaxes(title="Between season sexual reproduction proportion", range=[0,1])
-        fig.update_yaxes(title="Within season sexual reproduction proportion", range=[0,1])
+        fig.update_layout(
+            coloraxis=dict(colorbar=
+                my_colorbar("EL<sub>full</sub> / (EL<sub>low</sub> + EL<sub>full</sub>)")),
+            )
 
+        fig.update_xaxes(range=[0,1])
+        fig.update_yaxes(range=[0,1], row=1, col=1,
+                title=dict(text="Within season<br>sexual reproduction proportion",
+                            font=dict(size=18, color="black")),
+                            )
+
+        
+        top_row = 1.1
+        left = 0.07
+        middle = 0.67
+
+        c1 = get_big_text_annotation(left, top_row, 'A: Default')
+        c2 = get_big_text_annotation(middle, top_row, 'B: Lower efficacy')
+        text = get_big_text_annotation(0.5, -0.12, 'Between season sexual reproduction proportion')
+        
+        c1['font']['size'] = 16
+        c2['font']['size'] = 16
+        text['font'] = dict(size=18, color="black")
+        
+        annotz = [c1, c2, text]
+
+        fig.update_layout(annotations=annotz)
         return fig
 
 

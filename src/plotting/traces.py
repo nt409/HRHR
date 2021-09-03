@@ -334,7 +334,7 @@ def contour_at_0(x, y, z, color, dash):
                     contours_coloring='lines',
                     colorscale=[color]*2,
                     line=dict(width=2, dash=dash),
-                    colorbar=invisible_colorbar(0.42),
+                    colorbar=invisible_colorbar(0.42, None),
                     )
 
 
@@ -346,7 +346,7 @@ def contour_at_single_level(x, y, z, level, color, dash):
                     contours_coloring='lines',
                     colorscale=[color]*2,
                     line=dict(width=2, dash=dash),
-                    colorbar=invisible_colorbar(0.42),
+                    colorbar=invisible_colorbar(0.42, None),
                     )
 
 
@@ -368,7 +368,7 @@ def _multi_contours(x, y, z, cont_list, colors):
                     contours_coloring='lines',
                     colorscale=[color]*2,
                     line=dict(width=2, dash="solid"),
-                    colorbar=invisible_colorbar(0.42),
+                    colorbar=invisible_colorbar(0.42, None),
                     ))
     return out
 

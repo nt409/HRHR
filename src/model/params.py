@@ -48,6 +48,15 @@ class Parameters:
         
         
         self.no_variables = 16
+        
+        self.S_ind = 0
+        self.ERR_ind = 1
+        self.ERS_ind = 2
+        self.ESR_ind = 3
+        self.ESS_ind = 4
+
+        self.fung_1_ind = 14
+        self.fung_2_ind = 15
 
 
 

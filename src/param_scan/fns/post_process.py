@@ -14,7 +14,7 @@ from plotting.paper_figs import DoseSpaceScenariosPlot
 
 
 
-def combine_PS_rand_outputs(config, seeds):
+def combine_PS_rand_outputs(config, seeds, output_type):
 
     df = pd.DataFrame()
     
@@ -24,7 +24,7 @@ def combine_PS_rand_outputs(config, seeds):
 
     for seed in seeds:
 
-        temporary = pd.read_csv(f"{folder}/par_scan/summary_df_seed={seed}_{par_str}.csv")
+        temporary = pd.read_csv(f"{folder}/par_scan/{output_type}_seed={seed}_{par_str}.csv")
 
         df = df.append(temporary, ignore_index=True)
 
@@ -39,11 +39,15 @@ def combine_PS_rand_outputs(config, seeds):
 
 class PostProcess:
 
-    def __init__(self, folder, par_str):
-        df_in = pd.read_csv(f"{folder}/combined/output_summary_{par_str}.csv")
-        self.df = df_in.drop(["Unnamed: 0"], axis=1)
+    def __init__(self, par_str):
+        self.folder = "./param_scan/outputs"
 
-        self.folder = folder
+        df_in = pd.read_csv(f"{self.folder}/combined/output_summary_{par_str}.csv")
+        self.df = df_in.drop(["Unnamed: 0"], axis=1)
+        # print(self.df.columns)
+        # exit()
+        self.par_df = pd.read_csv(f"{self.folder}/combined/output_summary_{par_str}.csv")
+
         self.par_str = par_str
         
 
@@ -75,14 +79,14 @@ class PostProcess:
 
         # df = df[df['min_corner']>0]
 
-        eq_sel_df = self._get_non_null_df(df, "EqSel_worked_geq")
+        eq_sel_df = self._get_non_null_df(df, "c_E_worked_geq")
 
-        self.filtered_dataframe_outcome(df, "RFB_maxCont%")
+        self.filtered_dataframe_outcome(df, "c_R_maxCont%")
         self.filtered_dataframe_outcome(df, "fullDose%")
-        self.filtered_dataframe_outcome(df, "minEqDose%")
+        # self.filtered_dataframe_outcome(df, "minEqDose%")
 
-        self.filtered_dataframe_outcome(eq_sel_df, "EqSel_maxCont%")
-        self.filtered_dataframe_outcome(eq_sel_df, "EqSel_lowDoseMax%")
+        self.filtered_dataframe_outcome(eq_sel_df, "c_E_maxCont%")
+        self.filtered_dataframe_outcome(eq_sel_df, "c_E_lowDoseMaxEL%")
 
         self.check_IVT_method(df, "RFB")
         self.check_IVT_method(eq_sel_df, "EqSel")
@@ -194,14 +198,14 @@ class PostProcess:
         print(fail[['RFB_diff_from_opt',
                     'run',
                     'max_grid_EL',
-                    'RFB_maxContEL',
-                    'best_value_RFB',
+                    'c_R_maxContEL',
+                    'I_R_best_value',
                     ]].to_string())
 
         
     @staticmethod
     def _get_failed_runs(df):
-        return df[df['RFB_maxCont%']<100]
+        return df[df['c_R_maxCont%']<100]
 
     
 
@@ -210,7 +214,7 @@ class PostProcess:
     def which_runs_worked_max_cont(self):
         df = copy.copy(self.max_along_contour_df)
 
-        failed = df[df['RFB_maxCont%']<100]
+        failed = df[df['c_R_maxCont%']<100]
 
         runs_that_failed = failed["run"].unique()
 
@@ -253,7 +257,7 @@ class PostProcess:
 
         my_df = copy.copy(self.df)
 
-        my_df['high_better_than_low'] = my_df['RFB_highDoseMaxEL'] >= my_df['RFB_lowDoseMaxEL']
+        my_df['high_better_than_low'] = my_df['c_R_highDoseMaxEL'] >= my_df['c_R_lowDoseMaxEL']
 
         # strats = ["minEqDose", "fullDose"]
         
@@ -396,14 +400,14 @@ class MaxAlongContourDF:
 
         data = pd.DataFrame(data)
         
-        data['maxAlongContour'] = data['RFB_maxContEL'] >= data['max_grid_EL']
+        data['maxAlongContour'] = data['c_R_maxContEL'] >= data['max_grid_EL']
 
-        strats = ["RFB_maxCont", "EqSel_maxCont", "minEqDose", "fullDose", "EqSel_lowDoseMax"]
+        strats = ["c_R_maxCont", "c_E_maxCont", "O_fullDose", "c_E_lowDoseMax"]
         
         for string in strats:
             data.loc[:, string + "%"] = 100*data[string + "EL"]/data["max_grid_EL"]
             
-        data['min_corner'] = data[["corner_01", "corner_10"]].min(axis=1)
+        data['min_corner'] = data[["O_corner_01", "O_corner_10"]].min(axis=1)
 
         data['RFB_diff_from_opt'] = data.apply(self.get_diff_from_opt_RFB, axis=1)
 
@@ -413,10 +417,10 @@ class MaxAlongContourDF:
 
 
     def get_diff_from_opt_RFB(self, data):
-        return data['max_grid_EL'] - max(data['RFB_maxContEL'], data['best_value_RFB'])
+        return data['max_grid_EL'] - max(data['c_R_maxContEL'], data['I_R_best_value'])
     
     def get_diff_from_opt_EqSel(self, data):
-        return data['max_grid_EL'] - max(data['EqSel_maxContEL'], data['best_value_EqSel'])
+        return data['max_grid_EL'] - max(data['c_E_maxContEL'], data['I_E_best_value'])
     
 
 
@@ -424,10 +428,10 @@ class MaxAlongContourDF:
     def _tidy_df(self, df):
 
         # avoid the "-1" case where has never failed:
-        if df[df["fullDoseEL"]<=0].shape[0]:
-            n_never_fail = df[df["fullDoseEL"]<=0].shape[0]
+        if df[df["O_fullDoseEL"]<=0].shape[0]:
+            n_never_fail = df[df["O_fullDoseEL"]<=0].shape[0]
             print(f"{n_never_fail} runs never failed - need longer n_years. Filtering them out for now.")
-            df = df[df["fullDoseEL"]>0]
+            df = df[df["O_fullDoseEL"]>0]
         
         return df
 

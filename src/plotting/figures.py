@@ -18,7 +18,7 @@ from plotting.utils import get_text_annotation, get_arrow_annotation, standard_l
 from plotting.consts import ATTRS_DICT, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT, \
         FULL_PAGE_WIDTH
 
-
+from plotting.paper_figs import BasicFig
 
 # TOC
 # Single Tactic
@@ -27,7 +27,7 @@ from plotting.consts import ATTRS_DICT, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT, \
 # Grid of tactics
 # Dose space
 # RF Ratio
-# Paper Figs
+# Old Paper Figs
 
 
 
@@ -1087,4 +1087,382 @@ def outcomes_by_ratio(data, conf_str):
 
 # End of RF Ratio
 
+
+
+
+# Old Paper Figs
+
+
+class DiseaseProgressCurvesAll(BasicFig):
+    def __init__(self, data, conf_str) -> None:
+
+        self.width = FULL_PAGE_WIDTH
+
+        self.height = 650
+
+        self.xx = data.states_list[0].t
+        
+        self.states_list = data.states_list
+
+        fig = self._generate_figure()
+
+        self.filename = conf_str.replace("/single/", "/paper_figs/model_overview_")
+
+        self._save_and_show(fig)
+
+
+
+
+    def _generate_figure(self):
+
+        traces_dict = self.get_model_output_overview_traces()
+
+        ugly_fig = self.add_traces_to_layout_model_output_overview(traces_dict)
+
+        fig = self._sort_layout(ugly_fig)
+
+        return fig
+        
+    
+
+
+
+
+    def get_model_output_overview_traces(self):
+        S_R_traces = self.get_S_R_traces()
+        E_traces = self.get_E_traces()
+        I_traces = self.get_I_traces()
+        F_traces = self.get_F_traces()
+
+        out = dict(S_R = S_R_traces,
+                    E = E_traces,
+                    I = I_traces,
+                    F = F_traces)
+
+        return out
+    
+
+
+
+    def get_S_R_traces(self):
+        
+        out = []
+
+        for key in ['S', 'R']:
+            out.append(self.get_DPC_trace(key))
+        return out
+    
+    
+
+    def get_E_traces(self):
+        
+        out = []
+
+        for key in ['ERR', 'ERS', 'ESR', 'ESS']:
+            out.append(self.get_DPC_trace(key))
+
+        return out
+    
+
+
+    
+    def get_I_traces(self):
+        
+        out = []
+
+        for key in ['IRR', 'IRS', 'ISR', 'ISS']:
+            out.append(self.get_DPC_trace(key))
+
+        return out
+    
+
+
+    def get_F_traces(self):
+
+        out = []
+
+        for key in ['fung_1', 'fung_2']:
+            out.append(self.get_DPC_trace(key))
+
+        return out
+
+
+
+    def get_DPC_trace(self, key):
+        clr = ATTRS_DICT[key]['color']
+        dash = ATTRS_DICT[key]['dash']
+        name = ATTRS_DICT[key]['name']
+        # ind = ATTRS_DICT[key]['ind']
+
+        yy = vars(self.states_list[0])[key]
+
+        return go.Scatter(x=self.xx,
+                    y=yy,
+                    line=dict(color=clr, dash=dash),
+                    name=name
+                    )
+
+
+
+
+
+
+    def add_traces_to_layout_model_output_overview(self, data_dict):
+        fig = make_subplots(rows=2, cols=2, horizontal_spacing=0.2)
+
+        self.add_traces(fig, data_dict['S_R'], 1, 1)
+        self.add_traces(fig, data_dict['E'], 1, 2)
+        self.add_traces(fig, data_dict['I'], 2, 1)
+        self.add_traces(fig, data_dict['F'], 2, 2)
+
+        return fig
+
+
+
+    def _sort_layout(self, fig):
+        fig = self.update_axes(fig)
+
+        fig.update_layout(standard_layout(False, self.width, self.height))
+        
+        fig = self.add_corner_text_labels(fig)
+
+        fig = self.sort_legend(fig)
+
+        return fig
+
+
+    def sort_legend(self, fig):
+        fig.update_layout(showlegend=True, legend=dict(font=dict(size=16)))
+        return fig
+
+
+
+    def add_corner_text_labels(self, fig):
+        top_row = 1.08
+        bottom_row = 0.5
+        
+        left = 0.01
+        middle = 0.58
+
+        c1 = get_big_text_annotation(left, top_row, 'A')
+        c2 = get_big_text_annotation(middle, top_row, 'B')
+        c3 = get_big_text_annotation(left, bottom_row, 'C')
+        c4 = get_big_text_annotation(middle, bottom_row, 'D')
+        
+        annotz = [c1, c2, c3, c4]
+
+        fig.update_layout(annotations=annotz)
+        return fig
+
+
+
+
+    def add_traces(self, fig, traces, row, col):
+        for trace in traces:
+            fig.add_trace(trace, row, col)
+
+        return fig
+
+
+
+
+    def update_axes(self, fig):
+        fig.update_xaxes(row=1, col=1, showgrid=False)
+        fig.update_xaxes(row=1, col=2, showgrid=False)
+        
+        fig.update_xaxes(title="Time (degree-days)", row=2, col=1, showgrid=False)
+        fig.update_xaxes(title="Time (degree-days)", row=2, col=2, showgrid=False)
+        
+        fig.update_yaxes(title="L.A.I.", row=1, col=1)
+        fig.update_yaxes(title="L.A.I.", row=1, col=2)
+        fig.update_yaxes(title="L.A.I.", row=2, col=1)
+        fig.update_yaxes(title="Concentration", row=2, col=2)
+
+        return fig
+    
+
+
+
+
+
+
+
+
+
+class YieldAndRfPlot(BasicFig):
+    def __init__(self, data, conf_str) -> None:
+
+        self.width = FULL_PAGE_WIDTH
+
+        self.height = 620
+
+        self.data = data
+
+        fig = self._generate_figure()
+
+        self.filename = conf_str.replace("/single/", "/paper_figs/yield_rf_")
+
+        self._save_and_show(fig)
+
+
+
+    def _generate_figure(self):
+        trace_dict = self.get_trace_dict()
+
+        ugly_fig = self._add_traces_to_figure(trace_dict)
+
+        fig = self._sort_layout(ugly_fig)
+
+        return fig
+
+
+
+    def get_trace_dict(self):        
+        
+
+        yield_traces = self.get_yield_traces()
+        
+        RF_traces = self.get_RF_traces()
+        
+        traces = {"yield": yield_traces, "RF": RF_traces}
+
+        return traces
+
+
+
+
+
+    def get_yield_traces(self):
+        out = []
+
+        yy = self.data.yield_vec
+        
+        xx = list(range(1,1+len(yy)))
+
+        line = go.Scatter(x=xx, y=yy, name="Yield")
+        
+        Y_LOW = yy[-1]-2
+
+        self.yield_lower_lim = Y_LOW
+        
+        X_END = 0.5 + xx[-1]
+                
+        shape = go.Scatter(x=[0, 0, X_END, X_END],
+                            y=[Y_LOW, 95, 95, Y_LOW],
+                            fill="toself",
+                            mode="lines",
+                            showlegend=False,
+                            line=dict(width=0, color="rgb(150,150,150)"))
+        
+        out.append(shape)
+        out.append(line)
+
+        return out
+    
+
+
+
+
+    def get_RF_traces(self):
+        out = []
+        
+        y1 = self.data.res_vec_dict['f1']
+        y2 = self.data.res_vec_dict['f2']
+        
+        xx = list(range(len(y1)))
+
+        for data, name, dash in zip([y1, y2], ['A', 'B'], ['dot', 'solid']):
+            line = go.Scatter(x=xx, 
+                y=data,
+                name=f"<br>Resistance<br>frequency<br>(fungicide {name})",
+                line=dict(dash=dash))
+            out.append(line)
+
+        return out
+
+
+    def _add_traces_to_figure(self, trace_dict):
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True)
+        
+        fig = self._add_yield_traces(fig, trace_dict['yield'])
+
+        fig = self._add_RF_traces(fig, trace_dict['RF'])
+        
+        return fig
+
+
+
+    @staticmethod
+    def _add_yield_traces(fig, traces):
+        for trace in traces:
+            fig.add_trace(trace, row=1, col=1)
+        return fig
+    
+
+
+    @staticmethod
+    def _add_RF_traces(fig, traces):
+        for trace in traces:
+            fig.add_trace(trace, row=2, col=1)
+        return fig
+
+
+
+
+
+
+    def _sort_layout(self, fig):
+        fig = self._update_layout(fig)
+        fig = self._update_axes(fig)
+        return fig
+    
+    
+    
+    def _update_layout(self, fig):
+        fig.update_layout(standard_layout(True, self.width, self.height))
+        
+        text = self.get_unacceptable_yield_annotation()
+        corners = self._get_corner_text_labels()
+        annotz = corners + text
+        
+        fig.update_layout(annotations=annotz)
+        return fig
+
+
+    def get_unacceptable_yield_annotation(self):
+        return [dict(
+            xref="x1",
+            yref="y1",
+            xanchor="left",
+            x= 1,
+            y= 2 + 0.5*(95+self.yield_lower_lim),
+            text="Unacceptable yield",
+            showarrow=False,
+            )]
+
+
+
+    @staticmethod
+    def _update_axes(fig):
+        fig.update_xaxes(title="Time (years)", row=2, col=1, showgrid=False, zeroline=False)
+        
+        fig.update_yaxes(title="Yield<br>(% of disease free)", row=1, col=1)
+        
+        fig.update_yaxes(title="Resistance<br>frequency", row=2, col=1)
+
+        return fig
+
+
+
+    def _get_corner_text_labels(self):
+        top_row = 1.08
+        bottom_row = 0.52
+        
+        left = 0.02
+
+        cA = get_big_text_annotation(left, top_row, 'A')
+        cB = get_big_text_annotation(left, bottom_row, 'B')
+        
+        out = [cA, cB]
+        return out
 

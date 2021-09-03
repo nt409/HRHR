@@ -8,8 +8,10 @@ from model.simulator import RunSingleTactic
 from model.config_classes import SingleConfig
 
 
-def get_sr_grid_df(n_doses, n_sex_props, save=True):
-    filename = f"./sr_scan/outputs/sr_grid_{n_doses}_{n_sex_props}.csv"
+def get_sr_grid_df(n_doses, n_sex_props, fcide_pars=None, save=True):
+    fp = fcide_pars
+    fcide_str = "default" if fp is None else f"{fp['theta_1']}_{fp['omega_1']}"
+    filename = f"./sr_scan/outputs/sr_grid_{n_doses}_{n_sex_props}_{fcide_str}.csv"
     
     if os.path.isfile(filename):
         loaded_df = pd.read_csv(filename)
@@ -24,24 +26,23 @@ def get_sr_grid_df(n_doses, n_sex_props, save=True):
 
     for d, ws, bs in tqdm(itertools.product(doses, sex_props, sex_props)):
         config_sing = SingleConfig(30, 1e-5, 1e-5, d, d, d, d)
-        config_sing.load_saved = True
-        # config_sing.load_saved = False
+        config_sing.load_saved = False
 
         config_sing.ws_sex_prop = ws
         config_sing.bs_sex_prop = bs
         config_sing.add_string()
 
-        output = RunSingleTactic().run(config_sing)
+        output = RunSingleTactic(fcide_pars).run(config_sing)
 
         data = dict(ws=ws, bs=bs, d=d, EL=output.failure_year)
 
         df = df.append(data, ignore_index=True)
     
-    
     res = process_sr_grid(df)
     
     if save:
         print(f"Saving df to: {filename}")
+        res = res.reset_index()
         res.to_csv(filename)
     
     return res
@@ -82,7 +83,7 @@ def get_low_dose_EL(df):
     limit = min_d + (1/3)*(1-min_d)
 
     out = valid.loc[valid.d<=limit]
-    out = out.loc[out.EL==out.EL.max(), :]
+    out = out.loc[out.EL==out.EL.max(), :].iloc[0]
 
     out['min_valid_d'] = min_d
     out['thresh_d'] = limit

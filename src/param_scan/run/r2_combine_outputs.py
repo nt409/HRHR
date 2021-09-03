@@ -5,8 +5,8 @@ from param_scan.fns.post_process import combine_PS_rand_outputs
 
 
 
-def main(config, seeds):
-    combine_PS_rand_outputs(config, seeds)
+def main(config, seeds, output_type):
+    combine_PS_rand_outputs(config, seeds, output_type)
 
 
 if __name__=="__main__":

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import warnings
 import numpy as np
 from math import ceil
 from scipy.integrate import ode
@@ -352,6 +353,8 @@ class RunSingleTactic(RunModel):
         
         if min(self.out.yield_vec)>PARAMS.yield_threshold:
             self.out.failure_year = -1
+            warnings.warn(("Strategy doesn't fail in the allocated number of years,"
+                                f"try increasing self.n_years from {self.n_years}"))
 
 
 

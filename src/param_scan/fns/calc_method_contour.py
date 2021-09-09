@@ -103,7 +103,6 @@ class ThisStratDetailedDF:
 
             df_this_run = df_this_run.append(data, ignore_index=True)
         
-        
         df_this_run['worked'] = max(df_this_run['EL'])>=self.max_grid_EL
         df_this_run['max_grid_EL'] = self.max_grid_EL
 

@@ -1,3 +1,4 @@
+from sr_scan.sf_ratio import get_sf_ratio_data
 from model.params import PARAMS
 from plotting.paper_figs import SR_grid
 from sr_scan.get_df import get_sr_grid_df
@@ -24,4 +25,7 @@ fcide_pars = dict(theta_1=8, theta_2=8,
 
 low_df = get_sr_grid_df(n_doses, n_sp, fcide_pars)
 
-SR_grid(def_df, low_df, filestr)
+    
+sf_ratio_data = get_sf_ratio_data(n_doses)
+
+SR_grid(def_df, low_df, sf_ratio_data, filestr)

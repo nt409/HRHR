@@ -12,13 +12,15 @@ from plotting.traces import get_RFB_diff_traces, get_eq_sel_traces, get_heatmap_
     get_strain_freq_traces, contour_at_0, get_multi_contour_traces, \
     get_MS_RFB_traces, contour_at_single_level
 
-from plotting.utils import get_text_annotation, get_arrow_annotation, standard_layout, \
+from plotting.utils import get_text_annotation, get_arrow_annotation, grey_colorscale_discrete, my_colorbar_subplot, standard_layout, \
     grey_colorscale, my_colorbar, get_big_text_annotation
 
-from plotting.consts import ATTRS_DICT, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT, \
+from plotting.consts import ATTRS_DICT, LABEL_COLOR, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT, \
         FULL_PAGE_WIDTH
 
 from plotting.paper_figs import BasicFig
+
+from model.strategy_arrays import EqualResFreqBreakdownArray, EqualSelectionArray
 
 # TOC
 # Single Tactic
@@ -1465,4 +1467,147 @@ class YieldAndRfPlot(BasicFig):
         
         out = [cA, cB]
         return out
+
+
+
+
+
+
+
+
+
+class DoseSpaceScenarioSingle(BasicFig):
+    def __init__(self, data, conf_str) -> None:
+
+        self.width = FULL_PAGE_WIDTH
+
+        self.height = 750
+
+        self.data = data
+
+        fig = self._generate_figure()
+
+        self.filename = conf_str.replace("/grid/", "/paper_figs/dose_space_scenario_single")
+
+        self._save_and_show(fig)
+
+
+
+    def _generate_figure(self):
+
+        fig = go.Figure()
+
+        EL_SS_traces = self._get_DSS_EL_traces(self.data, 0, 1, showlegend=True)
+
+        fig.add_traces(EL_SS_traces)
+
+        fig = self._sort_layout(fig)
+
+        return fig
+
+
+
+    def _get_DSS_EL_traces(self, data, cbar_x, cbar_y, showlegend=False):  
+        traces = []
+
+        if showlegend:
+            traces.append(self._get_DSS_ERFB_legend_entry())
+            traces.append(self._get_DSS_ESFY_legend_entry())
+
+        traces.append(self._get_DSS_FY_trace(data, cbar_x, cbar_y))
+        
+        traces.append(self._get_DSS_ERFB_contour_single(data))
+        traces.append(self._get_DSS_ESFY_contour_single(data))
+
+        return traces
+
+
+    def _get_DSS_ESFY_legend_entry(self):
+        return go.Scatter(x=[1], 
+                    y=[1],
+                    mode="lines",
+                    line=dict(color="blue", dash="dot"),
+                    name=u"\u0394<sub>SFY</sub>=0.5 contour"
+                    )
+
+
+    def _get_DSS_ERFB_legend_entry(self):
+        return go.Scatter(x=[1], 
+                    y=[1],
+                    mode="lines",
+                    line=dict(color="black", dash="solid"),
+                    name=u"\u0394<sub>RFB</sub>=0 contour"
+                    )
+
+
+
+    def _get_DSS_FY_trace(self, data, cbar_x, cbar_y):
+        FYs = np.transpose(data.FY)
+
+        xheat = np.linspace(0, 1, FYs.shape[0])
+        yheat = np.linspace(0, 1, FYs.shape[1])
+
+        heatmap = go.Heatmap(
+            x = xheat,
+            y = yheat,
+            z = FYs,
+            colorscale = grey_colorscale_discrete(FYs),
+            colorbar = my_colorbar("EL"),
+            )
+
+        return heatmap
+
+
+
+    def _get_DSS_ERFB_contour_single(self, data):
+        z = EqualResFreqBreakdownArray(data).array
+
+        x = np.linspace(0, 1, z.shape[0])
+        y = np.linspace(0, 1, z.shape[1])
+
+        z_transpose = np.transpose(z)
+
+        out = contour_at_0(x, y, z_transpose, 'black', 'solid')
+        out['name'] = "Delta RFB"
+
+        return out
+
+    def _get_DSS_ESFY_contour_single(self, data):
+        z = EqualSelectionArray(data).array
+
+        x = np.linspace(0, 1, z.shape[0])
+        y = np.linspace(0, 1, z.shape[1])
+
+        z_transpose = np.transpose(z)
+
+        out = contour_at_single_level(x, y, z_transpose, 0.5, 'blue', 'dot')
+        out['name'] = "Equal Selection"
+
+        return out
+
+
+
+
+
+    def _sort_layout(self, fig):
+        fig.update_layout(standard_layout(True, self.width, self.height))
+
+        fig.update_layout(legend=dict(
+                        x=0,
+                        y=1.065,
+                        xanchor="left", 
+                        yanchor="bottom",
+                        
+                        orientation="h",
+                        font=dict(
+                            color=LABEL_COLOR
+                        )
+                        ))
+
+        fig.update_xaxes(title="Dose (fungicide A)", range=[0,1], showgrid=False, zeroline=False)
+        fig.update_xaxes(title="Dose (fungicide A)", range=[0,1], showgrid=False, zeroline=False)
+        
+        return fig
+    
+    
 

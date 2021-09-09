@@ -13,7 +13,8 @@ def get_sr_grid_df(n_doses, n_sex_props, fcide_pars=None, save=True):
     fcide_str = "default" if fp is None else f"{fp['theta_1']}_{fp['omega_1']}"
     filename = f"./sr_scan/outputs/sr_grid_{n_doses}_{n_sex_props}_{fcide_str}.csv"
     
-    if os.path.isfile(filename):
+    # if os.path.isfile(filename):
+    if False:
         loaded_df = pd.read_csv(filename)
         return loaded_df
 
@@ -25,7 +26,9 @@ def get_sr_grid_df(n_doses, n_sex_props, fcide_pars=None, save=True):
     df = pd.DataFrame()
 
     for d, ws, bs in tqdm(itertools.product(doses, sex_props, sex_props)):
-        config_sing = SingleConfig(30, 1e-5, 1e-5, d, d, d, d)
+        config_sing = SingleConfig(30, None, None, d, d, d, d)
+        rf = 1e-5
+        config_sing.primary_inoculum = dict(RR=rf**2, RS=rf, SR=rf, SS=1-2*rf-rf**2)
         config_sing.load_saved = False
 
         config_sing.ws_sex_prop = ws

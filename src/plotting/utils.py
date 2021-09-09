@@ -52,6 +52,28 @@ def grey_colorscale_discrete(z):
         out.append([vals[ii], cols[ii+1]])
     
     return out
+    
+def grey_colorscale_discrete_N(max_N):
+    out = []
+
+    n_cols = int(max_N-1)
+    
+    all_cols = get_N_colors(n_cols)
+
+    # last color doesn't matter
+    cols = [NULL_HEATMAP_COLOUR, NULL_HEATMAP_COLOUR, NULL_HEATMAP_COLOUR] + all_cols + ["white"]
+    
+    vals = [0, 0.5/max_N] + list(np.linspace(0.5/max_N, 1 - 0.5/max_N, n_cols)) + [1]
+    
+    # cols = [NULL_HEATMAP_COLOUR, NULL_HEATMAP_COLOUR] + pltly_clr_scale + ["red"]*5
+    # len_vals = int(max_N) - 1
+    # vals = [0, 1/max_N] + list(np.linspace(1/max_N, 1, n_cols))
+
+    for ii in range(len(vals)):
+        out.append([vals[ii], cols[ii]])
+        out.append([vals[ii], cols[ii+1]])
+    
+    return out
 
 
 
@@ -130,7 +152,10 @@ def get_text_annotation(x, y, text):
         )
 
 
-def get_big_text_annotation(x, y, text):
+def get_big_text_annotation(x, y, text, xanchor=None):
+    if xanchor is None:
+        xanchor = "center"
+
     return dict(
             x=x,
             y=y,
@@ -141,7 +166,7 @@ def get_big_text_annotation(x, y, text):
             xref='paper',
             yref='paper',
 
-            xanchor="center",
+            xanchor=xanchor,
             yanchor="top",
 
             font=dict(

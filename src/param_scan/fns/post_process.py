@@ -1,3 +1,4 @@
+from param_scan.fns.calc_method_contour import RunAlongContourDFs
 import pandas as pd
 import copy
 import numpy as np
@@ -5,12 +6,12 @@ import numpy as np
 
 from model.simulator import RunGrid
 from param_scan.fns.pars import RandomPars
-from plotting.paper_figs import DoseSpaceScenariosPlot
+from plotting.figures import DoseSpaceScenarioSingle
 
 # TOC
 # combine_PS_rand_outputs
 # PostProcess
-# MaxAlongContourDF
+# ProcessedDF
 
 
 
@@ -42,11 +43,13 @@ class PostProcess:
     def __init__(self, par_str):
         self.folder = "./param_scan/outputs"
 
-        df_in = pd.read_csv(f"{self.folder}/combined/output_summary_{par_str}.csv")
+        df_in = pd.read_csv(f"{self.folder}/combined/output_summary_df_{par_str}.csv")
+
         self.df = df_in.drop(["Unnamed: 0"], axis=1)
-        # print(self.df.columns)
-        # exit()
-        self.par_df = pd.read_csv(f"{self.folder}/combined/output_summary_{par_str}.csv")
+        
+        self.par_df = pd.read_csv(f"{self.folder}/combined/output_par_df_{par_str}.csv")
+
+        self.processed_df = ProcessedDF(self.folder, self.par_df, self.df).df
 
         self.par_str = par_str
         
@@ -56,58 +59,34 @@ class PostProcess:
 
 
 
-
-    def get_maximum_along_contour_df(self):
-        self.max_along_contour_df = MaxAlongContourDF(self.folder, self.df).df
-
-
     
 
 
+    def analyse_processed_df(self):
+
+        df = copy.copy(self.processed_df)
+
+        out = pd.DataFrame()
+
+        for strat in ["c_R_maxCont%", "c_E_maxCont%", "c_E_lowDoseMax%"]:
+
+            row = self.get_outcome_row_this_strat(df, strat)
+            out = out.append(row, ignore_index=True)
+        
+        return out
 
 
 
 
-
-
-
-
-
-    def analyse_max_contour_df(self):
-
-        df = copy.copy(self.max_along_contour_df)
-
-        # df = df[df['min_corner']>0]
-
-        eq_sel_df = self._get_non_null_df(df, "c_E_worked_geq")
-
-        self.filtered_dataframe_outcome(df, "c_R_maxCont%")
-        self.filtered_dataframe_outcome(df, "fullDose%")
-        # self.filtered_dataframe_outcome(df, "minEqDose%")
-
-        self.filtered_dataframe_outcome(eq_sel_df, "c_E_maxCont%")
-        self.filtered_dataframe_outcome(eq_sel_df, "c_E_lowDoseMaxEL%")
-
-        self.check_IVT_method(df, "RFB")
-        self.check_IVT_method(eq_sel_df, "EqSel")
-
-
-
-
-
-    def _get_non_null_df(self, df_in, col_to_check_if_null):
-        invalid_runs = df_in[col_to_check_if_null].isnull()
-        return df_in[~invalid_runs]
-
-
-
-    def filtered_dataframe_outcome(self, df, strategy):
+    def get_outcome_row_this_strat(self, df, strategy):
 
         mean = df[strategy].mean()
 
-        conditional_mean = df[df[strategy]<100][strategy].mean()
+        conditional_mean_less_than = df[df[strategy]<100][strategy].mean()
+        
+        conditional_mean_leq = df[df[strategy]<=100][strategy].mean()
 
-        worked = df[df[strategy]>=100].shape[0]
+        geq = df[df[strategy]>=100].shape[0]
         greater = df[df[strategy]>100].shape[0]
         lesser = df[df[strategy]<100].shape[0]
         equal = df[df[strategy]==100].shape[0]
@@ -116,113 +95,36 @@ class PostProcess:
 
         sum_total = sum([greater, lesser, equal])
 
-        out = dict(worked=worked, 
+        out = dict(
+                    geq=geq, 
                     greater=greater,
                     lesser=lesser,
                     equal=equal,
                     total=total,
                     sum_total=sum_total,
-                    work_pc=round(100*worked/sum_total,1),
+                    work_pc=round(100*geq/sum_total,1),
                     mean=round(mean,1),
-                    conditional_mean=round(conditional_mean,1),
+                    conditional_mean_less_than=round(conditional_mean_less_than,1),
+                    conditional_mean_leq=round(conditional_mean_leq,1),
                     strategy=strategy
                     )
         
-        print(out)
-
         return out
 
 
 
-    def check_IVT_method(self, df, method):
-
-        # if False: # method=="EqSel":
-        #     IVT_true = df[f'best_region_{method}']=="True"
-        #     IVT_false = df[f'best_region_{method}']=="False"
-        #     IVT_NA = df[f'best_region_{method}'].isin(["True", "False"])
-        # else:
-        
-        IVT_true = df[f'best_region_{method}']==True
-        IVT_false = df[f'best_region_{method}']==False
-        IVT_NA = df[f'best_region_{method}'].isin([True, False])
-
-        opt_true = (df[f'{method}_worked_geq']==True)
-        opt_false = (df[f'{method}_worked_geq']==False)
-        opt_NA = (df[f'{method}_worked_geq'].isnull())
-
-        out = dict(
-            IVT_method_T = df[IVT_true].shape[0],
-            IVT_method_F = df[IVT_false].shape[0],
-            IVT_method_NA = df[~IVT_NA].shape[0],
-            
-            opt_method_T = df[opt_true].shape[0],
-            opt_method_F = df[opt_false].shape[0],
-            opt_method_NA = df[opt_NA].shape[0],
-
-            both_succeeded = df[(opt_true & IVT_true)].shape[0],
-            both_failed = df[(~opt_true & ~IVT_true)].shape[0],
-            
-            either_succeeded = df[(opt_true | IVT_true)].shape[0],
-            opt_but_not_IVT = df[(opt_true & ~IVT_true)].shape[0],
-            IVT_but_not_opt = df[(~opt_true & IVT_true)].shape[0],
-            method = method,
-            )
-
-        failed = df[((~opt_true) & (~IVT_true))]
-        
-        failed_runs = failed[[f'max_grid_EL', f'{method}_maxContEL', f'best_value_{method}', 
-                    f'{method}_diff_from_opt', 'run']].sort_values(by=[f'{method}_diff_from_opt', 'run'])
-
-        print("\n")
-        print(out)
-        print("\n")
-        print(f"Testing {method}; these runs failed on both methods:")
-        print("\n")        
-        
-        print(failed_runs)
 
 
 
-
-
-
-    def analyse_failed(self):
-
-        df = copy.copy(self.max_along_contour_df)
-
-        fail = self._get_failed_runs(df)
-
-        print("\n")
-        print("These runs failed:\n")
-
-        print(fail[['RFB_diff_from_opt',
-                    'run',
-                    'max_grid_EL',
-                    'c_R_maxContEL',
-                    'I_R_best_value',
-                    ]].to_string())
-
-        
-    @staticmethod
-    def _get_failed_runs(df):
-        return df[df['c_R_maxCont%']<100]
-
-    
-
-
-
-    def which_runs_worked_max_cont(self):
-        df = copy.copy(self.max_along_contour_df)
+    def get_failed_pars(self):
+        df = self.processed_df
 
         failed = df[df['c_R_maxCont%']<100]
 
         runs_that_failed = failed["run"].unique()
-
         failed_pars = self.get_params_for_specific_runs(runs_that_failed)
 
-        n_fail = failed_pars.shape[0]
-
-        failed_pars.to_csv(f"{self.folder}/par_scan/failed_{n_fail}.csv")
+        return failed_pars
 
     
 
@@ -232,11 +134,9 @@ class PostProcess:
 
     def get_params_for_specific_runs(self, which_runs):
 
-        par_df = copy.copy(self.df)
-
         out = pd.DataFrame()
         for rr in which_runs:
-            this_run = par_df[par_df["run"]==rr].iloc[0,:]
+            this_run = self.processed_df[self.processed_df["run"]==rr].iloc[0,:]
             out = out.append(this_run, ignore_index=True)
         
         return out
@@ -307,7 +207,7 @@ class PostProcess:
   
     
     
-    def re_run(self, NDoses, run_indices):
+    def re_run_grid(self, NDoses, run_indices):
 
         df_test = self.get_params_for_specific_runs(run_indices)
 
@@ -317,13 +217,13 @@ class PostProcess:
            
             print("\nRe-running run:", df_test.iloc[int(ii),:].run, "\n")
 
-            grid_config, fung_params = self._get_grid_config_and_fung_pars(pars, NDoses)
+            rp = self._get_RPs(pars, NDoses)
+            
+            grid_output = RunGrid(rp.fung_parms).run(rp.grid_conf)
 
-            grid_output = RunGrid(fung_params).run(grid_config)
+            conf_str = rp.grid_conf.config_string_img
 
-            conf_str = grid_config.config_string_img
-
-            FY = grid_output['FY']
+            FY = grid_output.FY
             opt_region = FY == np.amax(FY)
                 
             n_opt_doses = opt_region.sum()
@@ -331,38 +231,81 @@ class PostProcess:
             print(f"Number of optimal dose combos: {n_opt_doses}")
 
             # plot output
-            # dose_grid_heatmap(grid_output, grid_config, "FY", conf_str)
-            
-            # eq_RFB_contours(grid_output, grid_config, title=f"Run={str(pars.run)}")
-            DoseSpaceScenariosPlot(grid_output, conf_str)
+            DoseSpaceScenarioSingle(grid_output, conf_str)
 
+
+
+
+
+    def re_run_cont(self, NDoses, N_cont_doses, run_indices):
+
+        df_test = self.get_params_for_specific_runs(run_indices)
+
+        out = pd.DataFrame()
+
+        for ii in range(df_test.shape[0]):
+
+            pars = df_test.iloc[int(ii),:]
+
+            this_run_ind = int(df_test.iloc[int(ii),:].run)
+
+            print(f"\nRe-running run: {this_run_ind} \n")
+
+            rp = self._get_RPs(pars, NDoses)
+
+            grid_output = RunGrid(rp.fung_parms).run(rp.grid_conf)
+           
+            RFB_dfs = RunAlongContourDFs(rp, grid_output, N_cont_doses, "RFB")
+
+
+            data = dict(run=this_run_ind,
+                    c_R_maxContEL = RFB_dfs.summary.c_R_maxContEL,
+                    max_grid_EL = np.amax(grid_output.FY)
+                    )
+
+            out = out.append(data, ignore_index=True)
+            
+            # plot output
+            # conf_str = rp.grid_conf.config_string_img
+            # DoseSpaceScenarioSingle(grid_output, conf_str)
+
+
+        for col in ["c_R_maxContEL", "max_grid_EL"]:
+            out[col] = out[col].astype("int")
+
+        out["worked"] = out["c_R_maxContEL"] >= out["max_grid_EL"]
+
+
+        ind_str = ",".join([str(rr) for rr in run_indices])
+        filename = f"{self.folder}/par_scan/re_run_{NDoses}_{N_cont_doses}_{ind_str}.csv"
+        print(f"Saving re-run to: {filename}")
+        print(out)
+        out.to_csv(filename, index=False)
 
 
 
 
 
     @staticmethod
-    def _get_grid_config_and_fung_pars(pars, NDoses):
+    def _get_RPs(pars, NDoses):
 
-        config = {'load_saved': True, 'n_years': 35}
+        config = {'load_saved': True, 'save': True, 'n_years': 35}
 
         RP = RandomPars(config, None)
 
         RP.get_inoc_dict(pars["RS"], pars["SR"], pars["RR"])
         
-        fung_params = RP.get_fung_parms_dict(pars["omega_1"], pars["omega_2"], 
-                                pars["delta_1"], pars["delta_2"])
+        RP.fung_parms = RP.get_fung_parms_dict(pars["omega_1"], pars["omega_2"], 
+                                pars["delta_1"], pars["delta_2"], pars["theta_1"])
         
         RP.sr_prop = pars["sr_prop"]
 
         RP.path_and_fung_pars = (pars["RS"], pars["SR"], pars["RR"], pars["omega_1"],
                     pars["omega_2"], pars["delta_1"], pars["delta_2"])
 
-        grid_config = RP.get_grid_conf(NDoses)
+        RP.get_grid_conf(NDoses)
 
-        return grid_config, fung_params
-
-
+        return RP
 
 
 
@@ -375,44 +318,86 @@ class PostProcess:
 
 
 
-class MaxAlongContourDF:
 
-    def __init__(self, folder, df_input):
+
+class ProcessedDF:
+    """
+    Performs some basic operations on the data and returns a dataframe with
+    parameters and interesting output info only.
+    """
+
+    def __init__(self, folder, par_df, df_input):
         self.folder = folder
-        self.get_and_save(df_input)
-    
-
-
-    def get_and_save(self, df_input):
-        df_inter = self._get_intermediate_df(df_input)
-
-        self.df = self._tidy_df(df_inter)
         
-        self._save_df()
+        df_inter = self._process_df(par_df, df_input)
+
+        self.df = self._check_if_never_failed(df_inter)
+        
+        # self._save_df()
 
 
 
 
+    def _process_df(self, par_df, data_in):
 
-    def _get_intermediate_df(self, data):
+        par_df.drop(["Unnamed: 0"], axis=1, inplace=True)
 
-        data.fillna(0)
+        good_cols = [
+                    "run",
+                    "c_R_maxContEL",
+                    "c_E_maxContEL",
+                    "c_E_lowDoseMaxEL",
+                    "c_R_lowDoseMaxEL",
+                    "c_R_medDoseMaxEL",
+                    "c_R_highDoseMaxEL",
+                    "max_grid_EL",
+                    "O_corner_01",
+                    "O_corner_10",
+                    "O_fullDoseEL",
+                    "I_R_best_value",
+                    "I_E_best_value",
+                    "c_R_min_opt_dist_from_contour",
+                    "c_E_min_opt_dist_from_contour",
+                    ]
 
-        data = pd.DataFrame(data)
+        data_use = data_in.loc[:, good_cols]
+
+
+        left = par_df.set_index(["run"], drop=False)
+        right = data_use.set_index(["run"])
+
+        data = left.join(right)
+        
         
         data['maxAlongContour'] = data['c_R_maxContEL'] >= data['max_grid_EL']
 
-        strats = ["c_R_maxCont", "c_E_maxCont", "O_fullDose", "c_E_lowDoseMax"]
+        strats = ["c_R_maxCont", "c_E_maxCont", "c_E_lowDoseMax"]
         
         for string in strats:
             data.loc[:, string + "%"] = 100*data[string + "EL"]/data["max_grid_EL"]
             
         data['min_corner'] = data[["O_corner_01", "O_corner_10"]].min(axis=1)
 
-        data['RFB_diff_from_opt'] = data.apply(self.get_diff_from_opt_RFB, axis=1)
+        data['ERFB_diff_from_opt'] = data.apply(self.get_diff_from_opt_RFB, axis=1)
 
-        data['EqSel_diff_from_opt'] = data.apply(self.get_diff_from_opt_EqSel, axis=1)
-        
+        data['ESFY_diff_from_opt'] = data.apply(self.get_diff_from_opt_EqSel, axis=1)
+
+        integer_cols = [
+                        'run',
+                        'min_corner',
+                        'ERFB_diff_from_opt',
+                        'ESFY_diff_from_opt',
+                        'max_grid_EL',
+                        'c_R_maxContEL',
+                        'I_R_best_value',
+                        'c_E_maxContEL',
+                        'I_E_best_value',
+                        'c_E_lowDoseMaxEL',
+                        ]
+
+        for col in integer_cols:
+            data[col] = data[col].astype("int")
+
         return data
 
 
@@ -425,7 +410,7 @@ class MaxAlongContourDF:
 
 
 
-    def _tidy_df(self, df):
+    def _check_if_never_failed(self, df):
 
         # avoid the "-1" case where has never failed:
         if df[df["O_fullDoseEL"]<=0].shape[0]:
@@ -440,12 +425,14 @@ class MaxAlongContourDF:
 
 
     def _save_df(self):
-        df_out = self.df
+
+        df = self.df
         
-        filename = f"{self.folder}/par_scan/max_along_contour_{len(df_out)}.csv"
+        filename = f"{self.folder}/par_scan/processed_{len(df)}.csv"
 
-        print(f"Saving maximum along contour csv to: \n{filename}")
+        print(f"Saving processed data to: \n{filename}")
 
-        df_out.to_csv(filename)
+        df.to_csv(filename)
+
 
 

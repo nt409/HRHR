@@ -4,7 +4,7 @@ import pickle
 from model.strategy_arrays import EqualResFreqBreakdownArray, EqualSelectionArray
 from model.simulator import RunGrid, RunSingleTactic
 from model.config_classes import GridConfig, SingleConfig
-from plotting.paper_figs import DoseSpaceScenariosPlot
+from plotting.paper_figs import DoseSpaceOverview
 
 
 
@@ -93,4 +93,4 @@ if __name__=="__main__":
 
     contour_data = get_contour_data(100, rf1, rf2)
 
-    DoseSpaceScenariosPlot(output, contour_data, conf_grid.config_string_img)
+    DoseSpaceOverview(output, contour_data, conf_grid.config_string_img)

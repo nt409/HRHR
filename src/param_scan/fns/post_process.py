@@ -11,30 +11,10 @@ from plotting.paper_figs import DoseSpaceScenarioSingle
 from param_scan.fns.recalc_contour import RunAlongContourDFsReCalc
 
 # TOC
-# combine_PS_rand_outputs
 # PostProcess
 # ProcessedDF
 
 
-
-def combine_PS_rand_outputs(config, seeds, output_type):
-
-    df = pd.DataFrame()
-    
-    par_str = config['par_str']
-
-    folder = config['folder_save']
-
-    for seed in seeds:
-
-        temporary = pd.read_csv(f"{folder}/par_scan/{output_type}_seed={seed}_{par_str}.csv")
-
-        df = df.append(temporary, ignore_index=True)
-
-    
-    combined_filename = f"{folder}/combined/output_{output_type}_{par_str}.csv"
-    print(f"saving combined output to {combined_filename}")
-    df.to_csv(combined_filename)
 
 
 

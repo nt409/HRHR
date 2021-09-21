@@ -2,13 +2,14 @@
 Scan over: 
 - IRFs
 - fung asymptote
+- fung curvature
 - fung decay rate
 - partial res
-- levels of SR
+- levels of between-season SR
 
 Process
-- run on cluster,
-- one seed for each chunk, 
+- run on cluster
+- one seed for each chunk
 - compile into one df using r2_combine_outputs.py
 """
 

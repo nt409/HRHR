@@ -131,7 +131,11 @@ def invisible_colorbar(x,y):
                 ))
 
 
-def get_text_annotation(x, y, text):
+def get_text_annotation(x, y, text, xanchor=None, yanchor=None):
+
+    xanchor = "center" if xanchor is None else xanchor
+    yanchor = "top" if yanchor is None else yanchor
+
     return dict(
             x=x,
             y=y,
@@ -142,8 +146,8 @@ def get_text_annotation(x, y, text):
             xref='paper',
             yref='paper',
 
-            xanchor="center",
-            yanchor="top",
+            xanchor=xanchor,
+            yanchor=yanchor,
 
             font=dict(
                     size=14,

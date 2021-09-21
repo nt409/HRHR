@@ -41,7 +41,7 @@ class ParameterScan:
         
         scan_output = ScanOutput()
 
-        N_ITS = self.config["NIts"]
+        N_ITS = self.config["n_iterations"]
 
         for r_ind in tqdm(range(N_ITS)):
 

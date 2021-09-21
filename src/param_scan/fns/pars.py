@@ -37,30 +37,31 @@ class RandomPars:
 
         while pars_are_valid is False:
         
-            rfs1_power = np.random.uniform(low=conf["RFS1"][0], high=conf["RFS1"][1])
-            rfs2_power = np.random.uniform(low=conf["RFS2"][0], high=conf["RFS2"][1]) 
-            rfD_power = np.random.uniform(low=conf["RFD"][0], high=conf["RFD"][1])
+            rfs1_power = np.random.uniform(low=conf["RF_single"][0], high=conf["RF_single"][1])
+            rfs2_power = np.random.uniform(low=conf["RF_single"][0], high=conf["RF_single"][1]) 
+            rfD_power = np.random.uniform(low=conf["RF_double"][0], high=conf["RF_double"][1])
             
             rfs1 = 10**(rfs1_power)
             rfs2 = 10**(rfs2_power)
             rfD = 10**(rfD_power)
 
-            om_1 = np.random.uniform(low=conf["asym1"][0], high=conf["asym1"][1])
-            om_2 = np.random.uniform(low=conf["asym2"][0], high=conf["asym2"][1])
+            om_1 = np.random.uniform(low=conf["omega"][0], high=conf["omega"][1])
+            om_2 = np.random.uniform(low=conf["omega"][0], high=conf["omega"][1])
             
-            delt_1 = np.random.uniform(low=conf["dec_rate1"][0], high=conf["dec_rate1"][1])
-            delt_2 = np.random.uniform(low=conf["dec_rate2"][0], high=conf["dec_rate2"][1])
+            delt_1 = np.random.uniform(low=conf["decay_rate"][0], high=conf["decay_rate"][1])
+            delt_2 = np.random.uniform(low=conf["decay_rate"][0], high=conf["decay_rate"][1])
             
-            theta_val = conf["theta"]
+            theta_1 = np.random.uniform(low=conf["theta"][0], high=conf["theta"][1])
+            theta_2 = np.random.uniform(low=conf["theta"][0], high=conf["theta"][1])
             
             sr_prop = np.random.uniform(low=conf["SR"][0], high=conf["SR"][1])
 
-            fungicide_params = self.get_fung_parms_dict(om_1, om_2, delt_1, delt_2, theta_val)
+            fungicide_params = self.get_fung_parms_dict(om_1, om_2, delt_1, delt_2, theta_1, theta_2)
 
             pathogen_pars = dict(rfs1=rfs1,
-                rfs2=rfs2,
-                rfD=rfD, 
-                sr_prop=sr_prop)
+                                rfs2=rfs2,
+                                rfD=rfD, 
+                                sr_prop=sr_prop)
 
             pars_are_valid = self._check_validity(fungicide_params, pathogen_pars)
 
@@ -69,7 +70,7 @@ class RandomPars:
         
         self.fung_parms = fungicide_params
 
-        self.path_and_fung_pars = rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2
+        self.path_and_fung_pars = rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2, theta_1, theta_2
 
         self.sr_prop = sr_prop
 
@@ -130,11 +131,11 @@ class RandomPars:
 
     
 
-    def get_fung_parms_dict(self, omega_1, omega_2, delta_1, delta_2, theta):
+    def get_fung_parms_dict(self, omega_1, omega_2, delta_1, delta_2, theta_1, theta_2):
         return dict(omega_1 = omega_1,
                     omega_2 = omega_2,
-                    theta_1 = theta,
-                    theta_2 = theta,
+                    theta_1 = theta_1,
+                    theta_2 = theta_2,
                     delta_1 = delta_1,
                     delta_2 = delta_2)
 
@@ -203,14 +204,15 @@ class RandomPars:
     
     def _update_par_scan_conf_str(self, conf):
         
-        rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2 = self.path_and_fung_pars
+        rfs1, rfs2, rfD, om_1, om_2, delt_1, delt_2, thet_1, thet_2 = self.path_and_fung_pars
 
         conf_str = conf.config_string_img
         conf_str = conf_str.replace("grid", "param_scan")
 
-        par_str = (f"_fung_pars={round(om_1,6)},{round(om_2,6)}," + 
-                    f"{round(delt_1,6)},{round(delt_2,6)}," +
-                    f"rf1={round(rfs1,10)},rf2={round(rfs2,10)},rfd={round(rfD,15)}")
+        par_str = (f"_fung_pars={round(om_1,3)},{round(om_2,3)},"
+                f"{round(delt_1,3)},{round(delt_2,3)},"
+                f"{round(thet_1,2)},{round(thet_2,2)},"
+                f"rf1={round(rfs1,10)},rf2={round(rfs2,10)},rfd={round(rfD,15)}")
         
         par_str = par_str.replace(".", ",")
         conf_str = conf_str.replace(".png", par_str + ".png")

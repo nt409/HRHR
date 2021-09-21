@@ -346,6 +346,7 @@ class RunSingleTactic(RunModel):
 
     
     def _loop_over_years(self, conf):
+
         for yr in range(self.n_years):
             # stop the solver after we drop below threshold
             if not (yr>0 and self.out.yield_vec[yr-1]<self.yield_stopper):
@@ -353,8 +354,11 @@ class RunSingleTactic(RunModel):
         
         if min(self.out.yield_vec)>PARAMS.yield_threshold:
             self.out.failure_year = -1
-            warnings.warn(("Strategy doesn't fail in the allocated number of years,"
-                                f"try increasing self.n_years from {self.n_years}"))
+
+            # is a problem if wanted to see output of N>1 years
+            if self.n_years>1:
+                warnings.warn(("Strategy doesn't fail in the allocated number of years,"
+                                    f"try increasing self.n_years from {self.n_years}"))
 
 
 

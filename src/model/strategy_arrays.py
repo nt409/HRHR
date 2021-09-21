@@ -298,7 +298,7 @@ class ContourDoseFinder:
                 print("this run didn't get close to the contour?? ...")
                 print("contour level:", self.model_cont_quant)
                 print("dose sum:", self.dose_sum)
-                print(DS_bds)
+                print(vars(DS_bds))
 
 
         return dict(x=x_list, y=y_list, cont_vals=cont_vals)

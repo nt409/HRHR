@@ -13,8 +13,8 @@ def get_sr_grid_df(n_doses, n_sex_props, fcide_pars=None, save=True):
     fcide_str = "default" if fp is None else f"{fp['theta_1']}_{fp['omega_1']}"
     filename = f"./sr_scan/outputs/sr_grid_{n_doses}_{n_sex_props}_{fcide_str}.csv"
     
-    # if os.path.isfile(filename):
-    if False:
+    if os.path.isfile(filename):
+    # if False:
         loaded_df = pd.read_csv(filename)
         return loaded_df
 

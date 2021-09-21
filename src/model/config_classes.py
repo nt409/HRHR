@@ -32,12 +32,12 @@ class BaselineConfig:
                             f"BSS={self.bs_sex_prop}_"
                             f"WSS={self.ws_sex_prop}"
                             )
-        
 
 
     def get_conf_strings(self, filename):        
-        self.config_string = f"{self.folder_runs}{filename.replace('.', ',')}.pickle"
-        self.config_string_img = f"{self.folder_figs}{filename.replace('.', ',')}.png"
+        comma_free_name = filename.replace('.', ',')
+        self.config_string = f"{self.folder_runs}{comma_free_name}.pickle"
+        self.config_string_img = f"{self.folder_figs}{comma_free_name}.png"
 
 
 

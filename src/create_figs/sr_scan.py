@@ -1,6 +1,6 @@
 from sr_scan.sf_ratio import get_sf_ratio_data
 from model.params import PARAMS
-from plotting.paper_figs import SR_grid
+from plotting.paper_figs import SRPlot
 from sr_scan.get_df import get_sr_grid_df
 
 
@@ -28,4 +28,4 @@ low_df = get_sr_grid_df(n_doses, n_sp, fcide_pars)
     
 sf_ratio_data = get_sf_ratio_data(n_doses)
 
-SR_grid(def_df, low_df, sf_ratio_data, filestr)
+SRPlot(def_df, low_df, sf_ratio_data, filestr)

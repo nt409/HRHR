@@ -1,8 +1,13 @@
+"""
+Very similar to that used in the scan but have an upper limit on max dose sum
+since we are searching in a more specific region of dose space
+"""
+
 import pandas as pd
 import numpy as np
 
 from model.simulator import RunSingleTactic
-from model.strategy_arrays import EqualResFreqBreakdownArray, \
+from model.strategy_arrays import ContourDoseFinder, DoseSumExtremes, EqualResFreqBreakdownArray, \
     EqualSelectionArray
 
 
@@ -15,9 +20,9 @@ from model.strategy_arrays import EqualResFreqBreakdownArray, \
 
 
 
-class RunAlongContourDFs:
+class RunAlongContourDFsReCalc:
     def __init__(self, rand_pars, grid_output,
-                        n_cont_points, strat_name) -> None:
+                        n_cont_points, DS_lim, strat_name) -> None:
         
         print(f"Running contour method: {strat_name}")
 
@@ -28,17 +33,18 @@ class RunAlongContourDFs:
         else:
             raise Exception(f"Invalid strat_name: {strat_name}")
 
-        
+        self.DS_lim = DS_lim
         
         max_grid_EL = np.amax(grid_output.FY)
 
-        self.df = ThisStratDetailedDF(rand_pars, 
-                                    n_cont_points, 
+        self.df = ThisStratDetailedDFReCalc(rand_pars, 
+                                    n_cont_points,
+                                    DS_lim,
                                     strat_obj,
                                     max_grid_EL).df
         
         
-        self.summary = ThisStratSummaryDF(self.df, 
+        self.summary = ThisStratSummaryDFReCalc(self.df, 
                                         strat_obj.name,
                                         strat_obj.level,
                                         max_grid_EL).df
@@ -53,17 +59,19 @@ class RunAlongContourDFs:
 
 
 
-class ThisStratDetailedDF:
-    def __init__(self, rand_pars, n_cont_points, strat_obj, max_grid_EL) -> None:
+class ThisStratDetailedDFReCalc:
+    def __init__(self, rand_pars, n_cont_points, DS_lim, strat_obj, max_grid_EL) -> None:
         
         self.rand_pars = rand_pars
         self.n_cont_points = n_cont_points
 
         self.strat_name = strat_obj.name
         self.level = strat_obj.level
+        self.array = strat_obj.array
 
-        self.strat_obj = strat_obj
         self.max_grid_EL = max_grid_EL
+        
+        self.DS_lim = DS_lim
 
         self.df = self._get_df()
         
@@ -71,8 +79,23 @@ class ThisStratDetailedDF:
 
     def _get_df(self):
         
-        cntr = self.strat_obj.find_contours(self.rand_pars,
-                                            self.n_cont_points)
+        DS_extremes = DoseSumExtremes(self.array, self.level)
+
+        if ((DS_extremes.min is None) or 
+                (DS_extremes.max is None)):
+            return {}
+
+        DS_extremes.min = max(DS_extremes.min, self.DS_lim[0])
+        DS_extremes.max = min(DS_extremes.max, self.DS_lim[1])
+
+        cf = ContourDoseFinder(self.rand_pars,
+                            self.strat_name,
+                            DS_extremes, 
+                            self.n_cont_points,
+                            self.level)
+        
+        cntr = cf.get_doses_on_contour()
+
         out = self._find_df(cntr)
         
 
@@ -140,7 +163,7 @@ class ThisStratDetailedDF:
 
 
 
-class ThisStratSummaryDF:
+class ThisStratSummaryDFReCalc:
 
     def __init__(self, df, strat_name, level, max_grid_EL) -> None:
         self.df = df

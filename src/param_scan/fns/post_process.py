@@ -1,4 +1,5 @@
-from param_scan.fns.calc_method_contour import RunAlongContourDFs
+from model.strategy_arrays import EqualResFreqBreakdownArray
+from param_scan.fns.calc_method_IVT import CheckStrategyUsingIVT_DF
 import pandas as pd
 import copy
 import numpy as np
@@ -6,7 +7,8 @@ import numpy as np
 
 from model.simulator import RunGrid
 from param_scan.fns.pars import RandomPars
-from plotting.figures import DoseSpaceScenarioSingle
+from plotting.paper_figs import DoseSpaceScenarioSingle
+from param_scan.fns.recalc_contour import RunAlongContourDFsReCalc
 
 # TOC
 # combine_PS_rand_outputs
@@ -73,6 +75,9 @@ class PostProcess:
             row = self.get_outcome_row_this_strat(df, strat)
             out = out.append(row, ignore_index=True)
         
+        filename = f"{self.folder}/par_scan/paper/outcome_{df.shape[0]}.csv"
+        print(f"Saving outcome data to: \n{filename}")
+        out.to_csv(filename, index=False)
         return out
 
 
@@ -155,51 +160,35 @@ class PostProcess:
 
     def check_high_or_low_dose(self):
 
-        my_df = copy.copy(self.df)
+        df = copy.copy(self.processed_df)
 
-        my_df['high_better_than_low'] = my_df['c_R_highDoseMaxEL'] >= my_df['c_R_lowDoseMaxEL']
+        res = df.loc[:,[
+                        # "run",
+                        "c_R_lowDoseMaxEL",
+                        "c_R_medDoseMaxEL",
+                        "c_R_highDoseMaxEL",
+                        "max_grid_EL",
+                        ]]
 
-        # strats = ["minEqDose", "fullDose"]
+        res["low_opt"] = res["c_R_lowDoseMaxEL"] >= res["max_grid_EL"]
+        res["med_opt"] = res["c_R_medDoseMaxEL"] >= res["max_grid_EL"]
+        res["high_opt"] = res["c_R_highDoseMaxEL"] >= res["max_grid_EL"]
         
-        # for string in strats:
-        #     my_df[string + "%"] = 100*my_df[string + "EL"]/my_df["max_grid_EL"]
+        out = pd.DataFrame()
+
+        for row in ["low", "med", "high"]:
+            data = dict(count = sum(res[row+"_opt"]),
+                        pc = 100*sum(res[row+"_opt"])/res.shape[0],
+                        dose = row)
+
+            out = out.append(data, ignore_index=True)
+
+        print(out)
+
         
-        grouped = my_df.groupby(["run"]).first()
-
-        df_out = pd.DataFrame(grouped)
-
-        df_out = df_out.reset_index()
-        
-        df_out = df_out.sort_values(['high_better_than_low', 'sr_prop'])
-
-        
-        sex_and_high_eff = df_out[((df_out['sr_prop']>0.9)
-                            & (df_out['omega_1']>0.9) 
-                            & (df_out['omega_2']>0.9) 
-                            # & (df_out['delta_1']>0.01)
-                            # & (df_out['delta_2']>0.01)  
-                            # & (df_out['RS']<0.00001)
-                            # & (df_out['SR']<0.00001)
-                            )]
-        
-        # sex_and_high_eff = df_out[(df_out['sr_prop']>0.6)]
-        
-        print("\n")
-        print("worked/total:",sex_and_high_eff['high_better_than_low'].sum(), sex_and_high_eff.shape[0])
-        print("\n")
-        print(sex_and_high_eff[['high_better_than_low', 'sr_prop',
-                'omega_1', 'omega_2', 'delta_1', 'delta_2',
-                'RR'
-                ]].sort_values(['high_better_than_low', 'sr_prop']))
-
-
-        # print(df_out.loc[~df_out['high_better_than_low']]['sr_prop'].mean())
-                
-        filename = f"{self.folder}/par_scan/high_or_low_dose_{len(df_out)}.csv"
-
+        filename = f"{self.folder}/par_scan/paper/high_or_low_dose_{res.shape[0]}.csv"
         print(f"Saving high or low dose csv to: \n{filename}")
-        
-        df_out.to_csv(filename)
+        out.to_csv(filename)
 
 
 
@@ -207,7 +196,7 @@ class PostProcess:
   
     
     
-    def re_run_grid(self, NDoses, run_indices):
+    def re_run_grid(self, NDoses, run_indices, plot=True):
 
         df_test = self.get_params_for_specific_runs(run_indices)
 
@@ -215,7 +204,9 @@ class PostProcess:
 
             pars = df_test.iloc[int(ii),:]
            
-            print("\nRe-running run:", df_test.iloc[int(ii),:].run, "\n")
+            this_run_ind = int(df_test.iloc[int(ii),:].run)
+
+            print(f"\nRe-running run: {this_run_ind} \n")
 
             rp = self._get_RPs(pars, NDoses)
             
@@ -230,14 +221,17 @@ class PostProcess:
 
             print(f"Number of optimal dose combos: {n_opt_doses}")
 
-            # plot output
-            DoseSpaceScenarioSingle(grid_output, conf_str)
+            if plot:
+                conf_str = conf_str.replace("param_scan/", f"param_scan/run={this_run_ind}_")
+                DoseSpaceScenarioSingle(grid_output, conf_str)
+        
+        # return last one calculated
+        return grid_output
 
 
 
 
-
-    def re_run_cont(self, NDoses, N_cont_doses, run_indices):
+    def re_run_cont(self, NDoses, N_cont_doses, DS_lim, run_indices):
 
         df_test = self.get_params_for_specific_runs(run_indices)
 
@@ -254,30 +248,99 @@ class PostProcess:
             rp = self._get_RPs(pars, NDoses)
 
             grid_output = RunGrid(rp.fung_parms).run(rp.grid_conf)
-           
-            RFB_dfs = RunAlongContourDFs(rp, grid_output, N_cont_doses, "RFB")
 
+            RFB_dfs = RunAlongContourDFsReCalc(rp, grid_output, N_cont_doses, DS_lim, "RFB")
 
             data = dict(run=this_run_ind,
-                    c_R_maxContEL = RFB_dfs.summary.c_R_maxContEL,
-                    max_grid_EL = np.amax(grid_output.FY)
-                    )
-
-            out = out.append(data, ignore_index=True)
+                    c_R_maxContEL=RFB_dfs.summary.c_R_maxContEL,
+                    max_grid_EL=np.amax(grid_output.FY))
             
+            out = out.append(data, ignore_index=True)
+
             # plot output
-            # conf_str = rp.grid_conf.config_string_img
-            # DoseSpaceScenarioSingle(grid_output, conf_str)
+            conf_str = rp.grid_conf.config_string_img
+            conf_str = conf_str.replace("param_scan/", f"param_scan/run={this_run_ind}_")
 
+            DoseSpaceScenarioSingle(grid_output, conf_str)
 
-        for col in ["c_R_maxContEL", "max_grid_EL"]:
+        for col in ["c_R_maxContEL", "max_grid_EL", "run"]:
             out[col] = out[col].astype("int")
-
         out["worked"] = out["c_R_maxContEL"] >= out["max_grid_EL"]
 
 
         ind_str = ",".join([str(rr) for rr in run_indices])
-        filename = f"{self.folder}/par_scan/re_run_{NDoses}_{N_cont_doses}_{ind_str}.csv"
+        filename = f"{self.folder}/par_scan/re_run/cont_{NDoses}_{N_cont_doses}_{ind_str}.csv"
+        print(f"Saving re-run to: {filename}")
+        print(out)
+        out.to_csv(filename, index=False)
+
+
+
+    def re_run_IVT(self, NDoses, run_indices):
+
+        df_test = self.get_params_for_specific_runs(run_indices)
+
+        out = pd.DataFrame()
+
+        for ii in range(df_test.shape[0]):
+
+            pars = df_test.iloc[int(ii),:]
+
+            this_run_ind = int(df_test.iloc[int(ii),:].run)
+
+            print(f"\nRe-running run: {this_run_ind} \n")
+
+            rp = self._get_RPs(pars, NDoses)
+
+            grid_output = RunGrid(rp.fung_parms).run(rp.grid_conf)
+
+            ##
+            # print(pars)
+            # exit()
+
+            mask = np.where(grid_output.FY==12)
+
+
+
+            # for ii in range(len(mask[0])):
+            #     print("\n", ii)
+            #     yy = grid_output.yield_array[mask[0][ii], mask[1][ii], 11]
+            #     print(yy)
+
+            #     # print(grid_output.start_freqs_DA["SR"][mask[0][ii], mask[1][ii],12] > grid_output.start_freqs_DA["RS"][mask[0][ii], mask[1][ii],12])
+            #     print(grid_output.start_freqs_DA["SR"][mask[0][ii], mask[1][ii],12])
+            #     print(grid_output.start_freqs_DA["RS"][mask[0][ii], mask[1][ii],12])
+            #     print(grid_output.start_freqs_DA["RR"][mask[0][ii], mask[1][ii],12])
+            #     # print(grid_output.end_freqs_DA["SR"][mask[0][ii], mask[1][ii],12] > grid_output.start_freqs_DA["RS"][mask[0][ii], mask[1][ii],12])
+
+            
+            # z = EqualResFreqBreakdownArray(grid_output).array
+            # print(z[mask])
+            # ##
+            # exit()
+
+
+
+            x = CheckStrategyUsingIVT_DF(grid_output, "RFB")
+
+            data = dict(run=this_run_ind,
+                    IVT_bv=x.best_value,
+                    max_grid_EL=np.amax(grid_output.FY))
+
+            out = out.append(data, ignore_index=True)
+
+            # plot output
+            conf_str = rp.grid_conf.config_string_img
+            conf_str = conf_str.replace("param_scan/", f"param_scan/run={this_run_ind}_")
+
+            DoseSpaceScenarioSingle(grid_output, conf_str)
+
+        for col in ["IVT_bv", "max_grid_EL", "run"]:
+            out[col] = out[col].astype("int")
+        out["worked"] = out["IVT_bv"] >= out["max_grid_EL"]
+
+        ind_str = ",".join([str(rr) for rr in run_indices])
+        filename = f"{self.folder}/par_scan/re_run/IVT_{NDoses}_{ind_str}.csv"
         print(f"Saving re-run to: {filename}")
         print(out)
         out.to_csv(filename, index=False)
@@ -296,12 +359,15 @@ class PostProcess:
         RP.get_inoc_dict(pars["RS"], pars["SR"], pars["RR"])
         
         RP.fung_parms = RP.get_fung_parms_dict(pars["omega_1"], pars["omega_2"], 
-                                pars["delta_1"], pars["delta_2"], pars["theta_1"])
+                                pars["delta_1"], pars["delta_2"], 
+                                pars["theta_1"], pars["theta_2"])
         
         RP.sr_prop = pars["sr_prop"]
 
-        RP.path_and_fung_pars = (pars["RS"], pars["SR"], pars["RR"], pars["omega_1"],
-                    pars["omega_2"], pars["delta_1"], pars["delta_2"])
+        RP.path_and_fung_pars = (pars["RS"], pars["SR"], pars["RR"], 
+                    pars["omega_1"], pars["omega_2"], 
+                    pars["delta_1"], pars["delta_2"], 
+                    pars["theta_1"], pars["theta_2"])
 
         RP.get_grid_conf(NDoses)
 

@@ -6,21 +6,21 @@ I_cols = pltly_clrs.n_colors("rgb(255,0,0)", "rgb(255,255,255)", 5, colortype="r
 
 
 ATTRS_DICT = {
-    'S': dict(color='limegreen', dash='solid', name='Susceptible'),
-    'R': dict(color='rgb(100,100,100)', dash='solid', name='Removed'),
+    'S': dict(color='limegreen', dash='solid', name='Susceptible', legendgrp="S"),
+    'R': dict(color='rgb(100,100,100)', dash='solid', name='Removed', legendgrp="S"),
+    
+    'ERR': dict(color=E_cols[0], dash='dot', name='Exposed (rr)', legendgrp="E"),
+    'ERS': dict(color=E_cols[1], dash='dash', name='Exposed (rs)', legendgrp="E"),
+    'ESR': dict(color=E_cols[2], dash='dashdot', name='Exposed (sr)', legendgrp="E"),
+    'ESS': dict(color=E_cols[3], dash='solid', name='Exposed (ss)', legendgrp="E"),
 
-    'ERR': dict(color=E_cols[0], dash='dot', name='E (rr)'),
-    'ERS': dict(color=E_cols[1], dash='dash', name='E (rs)'),
-    'ESR': dict(color=E_cols[2], dash='dashdot', name='E (sr)'),
-    'ESS': dict(color=E_cols[3], dash='solid', name='E (ss)'),
+    'IRR': dict(color=I_cols[0], dash='dot', name='Infectious (rr)', legendgrp="I"),
+    'IRS': dict(color=I_cols[1], dash='dash', name='Infectious (rs)', legendgrp="I"),
+    'ISR': dict(color=I_cols[2], dash='dashdot', name='Infectious (sr)', legendgrp="I"),
+    'ISS': dict(color=I_cols[3], dash='solid', name='Infectious (ss)', legendgrp="I"),
 
-    'IRR': dict(color=I_cols[0], dash='dot', name='I (rr)'),
-    'IRS': dict(color=I_cols[1], dash='dash', name='I (rs)'),
-    'ISR': dict(color=I_cols[2], dash='dashdot', name='I (sr)'),
-    'ISS': dict(color=I_cols[3], dash='solid', name='I (ss)'),
-
-    'fung_1': dict(color='turquoise', dash='solid', name='Fungicide A'),
-    'fung_2': dict(color='magenta', dash='dot', name='Fungicide B'),
+    'fung_1': dict(color='turquoise', dash='solid', name='Fungicide <i>A</i>', legendgrp="F"),
+    'fung_2': dict(color='magenta', dash='dot', name='Fungicide <i>B</i>', legendgrp="F"),
 }
 
 

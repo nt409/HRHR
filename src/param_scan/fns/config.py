@@ -4,17 +4,14 @@ run_type = "proper"
 baseline_dec = 1.11*10**(-2)
 
 baseline = {
-        "RFS1": [-8,-2],
-        "RFS2": [-8,-2],
-        "RFD": [-15,-3],
+        "RF_single": [-10,-3],
+        "RF_double": [-15,-4],
 
-        "asym1": [0.4, 1],
-        "asym2": [0.4, 1],
+        "omega": [0, 1],
         
-        "theta": 12,
+        "theta": [0, 12],
 
-        "dec_rate1": [(1/3)*baseline_dec, 3*baseline_dec],
-        "dec_rate2": [(1/3)*baseline_dec, 3*baseline_dec],
+        "decay_rate": [(1/3)*baseline_dec, 3*baseline_dec],
 
         "SR": [0,1],
         
@@ -27,17 +24,17 @@ baseline = {
 if run_type == "proper":
     run_pars = {
         "grid_number": 51,
-        "n_cont_points": 71,
-        "n_years": 40,
-        "NIts": 15,
+        "n_cont_points": 100,
+        "n_years": 45,
+        "n_iterations": 5,
         }
 
 elif run_type == "fast":
     run_pars = {
         "grid_number": 5,
         "n_cont_points": 3,
-        "n_years": 35,
-        "NIts": 2,
+        "n_years": 45,
+        "n_iterations": 2,
         }
 
 elif run_type == "prev_run":
@@ -45,7 +42,7 @@ elif run_type == "prev_run":
         "grid_number": 51,
         "n_cont_points": 5,
         "n_years": 35,
-        "NIts": 5,   
+        "n_iterations": 5,   
         }
 
 
@@ -61,11 +58,21 @@ def get_par_str(config):
             continue
 
         if type(attribute)==float or type(attribute)==int:
-            string += f"{str(key)[:2]}={attribute}"
-        else:
-            string += f"{str(key)[:2]}=L{attribute[0]},U{attribute[1]}"
+            if "n_" in str(key)[:3]:
+                key_str = str(key)[2:6]
+            else:
+                key_str = str(key)[:3]
 
+            string += f"{key_str}={attribute}_"
+        else:
+            string += f"{str(key)[:3]}_bd={attribute[0]},{attribute[1]}_"
+
+    string = string.replace("0.", "")
     string = string.replace(".", ",")
+    string = string.replace("__", "_")
+
+    if string[-1]=="_":
+        string = string[:-1]
 
     return string
 

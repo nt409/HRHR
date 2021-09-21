@@ -9,6 +9,7 @@ from param_scan.fns.post_process import PostProcess
 def main(config):
     
     PP = PostProcess(config['par_str'])
+    PP.check_high_or_low_dose()
     # do something
 
 

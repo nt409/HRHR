@@ -160,8 +160,6 @@ class FungicideStrategy:
             raise Exception(f"Invalid strategy named: {self.my_strategy}")
 
 
-
-
     def _get_mixed_doses(self):        
         # did half 0.5*
         # but Hobbelen paper just says it means twice as much

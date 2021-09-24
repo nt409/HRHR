@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import numpy as np
 
-from .consts import NULL_HEATMAP_COLOUR, PLOT_WIDTH, PLOT_HEIGHT, LABEL_COLOR
+from .consts import LIGHT_GREY_TEXT, NULL_HEATMAP_COLOUR, PLOT_WIDTH, PLOT_HEIGHT, LABEL_COLOR
 
 
 def standard_layout(legend_on, width=PLOT_WIDTH, height=PLOT_HEIGHT):
@@ -42,17 +42,43 @@ def grey_colorscale_discrete(z):
     cols = [NULL_HEATMAP_COLOUR, NULL_HEATMAP_COLOUR, NULL_HEATMAP_COLOUR] + all_cols + ["white"]
     
     vals = [0, 0.5/np.amax(z)] + list(np.linspace(0.5/np.amax(z), 1 - 0.5/np.amax(z), n_cols)) + [1]
-    
-    # cols = [NULL_HEATMAP_COLOUR, NULL_HEATMAP_COLOUR] + pltly_clr_scale + ["red"]*5
-    # len_vals = int(np.amax(z)) - 1
-    # vals = [0, 1/np.amax(z)] + list(np.linspace(1/np.amax(z), 1, n_cols))
 
+    opt_col = "limegreen"
+
+    cols[-2:] = [opt_col]*2
+    
     for ii in range(len(vals)):
         out.append([vals[ii], cols[ii]])
         out.append([vals[ii], cols[ii+1]])
     
     return out
+
     
+def divergent_color_scale(z, x):
+
+    out = []
+    
+    # clrs = list(px.colors.sequential.Inferno)
+
+    low_col = "indigo"
+    hi_col = "seagreen"
+
+
+    cols = [low_col, "white", hi_col]
+
+    midpoint = (x - np.nanmin(z))/(np.nanmax(z) - np.nanmin(z))
+
+    vals = [0, midpoint, 1]
+    
+    for ii in range(len(vals)):
+        out.append([vals[ii], cols[ii]])
+        # out.append([vals[ii], cols[ii+1]])
+    
+    return out
+
+
+
+
 def grey_colorscale_discrete_N(max_N):
     out = []
 
@@ -175,7 +201,7 @@ def get_big_text_annotation(x, y, text, xanchor=None):
 
             font=dict(
                     size=30,
-                    color="rgb(150,150,150)",
+                    color=LIGHT_GREY_TEXT,
                 ),
         )
 

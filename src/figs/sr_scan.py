@@ -1,3 +1,5 @@
+from model.simulator import RunGrid
+from model.config_classes import GridConfig
 from sr_scan.sf_ratio import get_sf_ratio_data
 from model.params import PARAMS
 from plotting.paper_figs import SRPlot
@@ -28,4 +30,19 @@ low_df = get_sr_grid_df(n_doses, n_sp, fcide_pars)
     
 sf_ratio_data = get_sf_ratio_data(n_doses)
 
-SRPlot(def_df, low_df, sf_ratio_data, filestr)
+
+rf1s, rf2s = 1e-5, 1e-5
+primary_inoc_same = dict(RR=rf1s*rf2s, RS=rf1s, SR=rf2s, SS=1-rf1s-rf2s-rf1s*rf2s)
+
+# same RFs, same fung
+conf_grid = GridConfig(30, None, None, n_doses)
+conf_grid.load_saved = True
+conf_grid.primary_inoculum = primary_inoc_same
+conf_grid.bs_sex_prop = 1
+conf_grid.add_string()
+
+grid_output = RunGrid().run(conf_grid)
+
+
+
+SRPlot(def_df, low_df, sf_ratio_data, grid_output, filestr)

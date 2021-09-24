@@ -26,12 +26,19 @@ class BaselineConfig:
                                 f"{round(self.primary_inoculum['SR'],10)},_"
                                 f"{round(self.primary_inoculum['RR'],10)}")
 
-        self.save_string = (f"Ny={self.n_years}_" 
+        save_str = (f"Ny={self.n_years}_" 
                             f"RPs={self.res_props['f1']},_{self.res_props['f2']}_"
                             f"PI={inoc_str}_"
-                            f"BSS={self.bs_sex_prop}_"
-                            f"WSS={self.ws_sex_prop}"
+                            f"BSS={round(self.bs_sex_prop,2)}_"
+                            f"WSS={round(self.ws_sex_prop,2)}"
                             )
+
+        save_str = save_str.replace("0.", "")
+        save_str = save_str.replace(".", ",")
+        save_str = save_str.replace("__", "_")
+        save_str = save_str.replace("None", "NA")
+
+        self.save_string = save_str
 
 
     def get_conf_strings(self, filename):        

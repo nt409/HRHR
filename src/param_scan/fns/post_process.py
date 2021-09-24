@@ -143,7 +143,7 @@ class PostProcess:
         df = copy.copy(self.processed_df)
 
         res = df.loc[:,[
-                        # "run",
+                        "run",
                         "c_R_lowDoseMaxEL",
                         "c_R_medDoseMaxEL",
                         "c_R_highDoseMaxEL",
@@ -153,6 +153,16 @@ class PostProcess:
         res["low_opt"] = res["c_R_lowDoseMaxEL"] >= res["max_grid_EL"]
         res["med_opt"] = res["c_R_medDoseMaxEL"] >= res["max_grid_EL"]
         res["high_opt"] = res["c_R_highDoseMaxEL"] >= res["max_grid_EL"]
+
+        # print(res.loc[res["run"]==328])
+        # print(res.loc[res["high_opt"]])
+        # runs = res.loc[res["high_opt"]]["run"]
+        # x = self.par_df[self.par_df["run"].isin(runs)]
+        # x = self.par_df[self.par_df["run"]==328]
+        # x.sort_values(by="sr_prop", inplace=True)
+        # print(x)
+        # exit()
+        # exit()
         
         out = pd.DataFrame()
 
@@ -164,7 +174,6 @@ class PostProcess:
             out = out.append(data, ignore_index=True)
 
         print(out)
-
         
         filename = f"{self.folder}/par_scan/paper/high_or_low_dose_{res.shape[0]}.csv"
         print(f"Saving high or low dose csv to: \n{filename}")
@@ -228,6 +237,8 @@ class PostProcess:
             rp = self._get_RPs(pars, NDoses)
 
             grid_output = RunGrid(rp.fung_parms).run(rp.grid_conf)
+
+            # print(np.where(np.array(grid_output.FY)==np.amax(grid_output.FY)))
 
             RFB_dfs = RunAlongContourDFsReCalc(rp, grid_output, N_cont_doses, DS_lim, "RFB")
 
@@ -424,9 +435,14 @@ class ProcessedDF:
             
         data['min_corner'] = data[["O_corner_01", "O_corner_10"]].min(axis=1)
 
-        data['ERFB_diff_from_opt'] = data.apply(self.get_diff_from_opt_RFB, axis=1)
+        # data['ERFB_diff_from_opt'] = data.apply(self.get_diff_from_opt_RFB, axis=1)
+        # data['ESFY_diff_from_opt'] = data.apply(self.get_diff_from_opt_EqSel, axis=1)
 
-        data['ESFY_diff_from_opt'] = data.apply(self.get_diff_from_opt_EqSel, axis=1)
+        data['ERFB_diff_from_opt'] = data["c_R_maxContEL"] - data["max_grid_EL"]
+        data['ESFY_diff_from_opt'] = data["c_E_maxContEL"] - data["max_grid_EL"]
+        
+        data['ESFYL_diff_from_opt'] = data["c_E_lowDoseMaxEL"] - data["max_grid_EL"]
+
 
         integer_cols = [
                         'run',

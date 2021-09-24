@@ -85,8 +85,10 @@ class ThisStratDetailedDFReCalc:
                 (DS_extremes.max is None)):
             return {}
 
-        DS_extremes.min = max(DS_extremes.min, self.DS_lim[0])
-        DS_extremes.max = min(DS_extremes.max, self.DS_lim[1])
+        # DS_extremes.min = max(DS_extremes.min, self.DS_lim[0])
+        # DS_extremes.max = min(DS_extremes.max, self.DS_lim[1])
+        DS_extremes.min = self.DS_lim[0]
+        DS_extremes.max = self.DS_lim[1]
 
         cf = ContourDoseFinder(self.rand_pars,
                             self.strat_name,

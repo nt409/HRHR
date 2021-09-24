@@ -1473,3 +1473,110 @@ class YieldAndRfPlot(BasicFig):
 
 
 
+
+
+
+
+
+
+
+
+class DosesScatterPlot(BasicFig):
+    def __init__(self, data, conf_str) -> None:
+
+        self.width = FULL_PAGE_WIDTH
+
+        self.height = 620
+
+        self.data = data
+
+        fig = self._generate_figure()
+        
+        self.filename = conf_str.replace("/grid/", "/paper_figs/doses_scatter_")
+
+        self._save_and_show(fig)
+
+
+
+    def _generate_figure(self):
+        traces = self._get_traces()
+
+        ugly_fig = self._add_traces_to_figure(traces)
+
+        fig = self._sort_layout(ugly_fig)
+
+        return fig
+
+
+
+    def _get_traces(self):        
+        traces = []
+        
+        line = go.Scatter(x=[0,0],
+                    y=[0,12.5],
+                    line=dict(color='rgb(50,50,50)', dash='dot'),
+                    mode="lines"
+                    )
+        
+        traces.append(line)
+
+        z = EqualResFreqBreakdownArray(self.data).array
+        FYs = self.data.FY
+
+        x = np.asarray(z).flatten()
+        y = np.asarray(FYs).flatten()
+
+        dose_sum_cols = self.get_dose_sum_vec(z.shape, y)
+        
+
+        scatter = go.Scatter(
+                x=x,
+                y=y,
+                mode="markers",
+                text=dose_sum_cols,
+                marker=dict(color=dose_sum_cols,
+                    size=6,
+                    line=dict(width=0.2,
+                            color='black'
+                            ),
+
+                    colorbar=dict(title="Sum of doses"),
+                    colorscale='Viridis',
+                    showscale=True)
+                )
+
+        traces.append(scatter)
+
+        return traces
+
+
+
+    def get_dose_sum_vec(self, matrix_shape, FYs_flat):
+        array = np.zeros(matrix_shape)
+
+        for i in range(matrix_shape[0]):
+            for j in range(matrix_shape[1]):
+                array[i,j] = i+j
+        
+        array = array*(2/array[-1,-1])
+
+        
+        ds_cols = array.flatten()
+
+        dose_sum_cols = [ds_cols[i] if FYs_flat[i] else "grey" for i in range(len(ds_cols))]
+
+        return dose_sum_cols
+
+
+
+    def _add_traces_to_figure(self, traces):
+        fig = go.Figure(data=traces, layout=standard_layout(False, self.width, self.height))
+        return fig
+
+
+
+    def _sort_layout(self, fig):
+        fig.update_xaxes(title=r"$\Delta_{RFB}$")
+        fig.update_yaxes(title="Effective life")
+        return fig
+    

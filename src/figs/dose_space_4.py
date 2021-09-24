@@ -43,7 +43,6 @@ def get_data(load_saved, n_doses):
     conf_grid = GridConfig(30, None, None, n_doses)
     conf_grid.load_saved = load_saved
     conf_grid.primary_inoculum = primary_inoc_same
-    conf_grid.bs_sex_prop = 1
     conf_grid.add_string()
 
     fcide_pars = dict(omega_1=1,

@@ -9,15 +9,15 @@ ATTRS_DICT = {
     'S': dict(color='limegreen', dash='solid', name='Susceptible', legendgrp="S"),
     'R': dict(color='rgb(100,100,100)', dash='solid', name='Removed', legendgrp="S"),
     
-    'ERR': dict(color=E_cols[0], dash='dot', name='Exposed (rr)', legendgrp="E"),
-    'ERS': dict(color=E_cols[1], dash='dash', name='Exposed (rs)', legendgrp="E"),
-    'ESR': dict(color=E_cols[2], dash='dashdot', name='Exposed (sr)', legendgrp="E"),
-    'ESS': dict(color=E_cols[3], dash='solid', name='Exposed (ss)', legendgrp="E"),
+    'ERR': dict(color=E_cols[0], dash='dot', name='Exposed (<i>rr</i>)', legendgrp="E"),
+    'ERS': dict(color=E_cols[1], dash='dash', name='Exposed (<i>rs</i>)', legendgrp="E"),
+    'ESR': dict(color=E_cols[2], dash='dashdot', name='Exposed (<i>sr</i>)', legendgrp="E"),
+    'ESS': dict(color=E_cols[3], dash='solid', name='Exposed (<i>ss</i>)', legendgrp="E"),
 
-    'IRR': dict(color=I_cols[0], dash='dot', name='Infectious (rr)', legendgrp="I"),
-    'IRS': dict(color=I_cols[1], dash='dash', name='Infectious (rs)', legendgrp="I"),
-    'ISR': dict(color=I_cols[2], dash='dashdot', name='Infectious (sr)', legendgrp="I"),
-    'ISS': dict(color=I_cols[3], dash='solid', name='Infectious (ss)', legendgrp="I"),
+    'IRR': dict(color=I_cols[0], dash='dot', name='Infectious (<i>rr</i>)', legendgrp="I"),
+    'IRS': dict(color=I_cols[1], dash='dash', name='Infectious (<i>rs</i>)', legendgrp="I"),
+    'ISR': dict(color=I_cols[2], dash='dashdot', name='Infectious (<i>sr</i>)', legendgrp="I"),
+    'ISS': dict(color=I_cols[3], dash='solid', name='Infectious (<i>ss</i>)', legendgrp="I"),
 
     'fung_1': dict(color='turquoise', dash='solid', name='Fungicide <i>A</i>', legendgrp="F"),
     'fung_2': dict(color='magenta', dash='dot', name='Fungicide <i>B</i>', legendgrp="F"),
@@ -25,6 +25,7 @@ ATTRS_DICT = {
 
 
 LABEL_COLOR = "rgb(110,110,110)"
+LIGHT_GREY_TEXT = "rgb(150,150,150)"
 
 NULL_HEATMAP_COLOUR = "rgb(100, 100, 100)"
 

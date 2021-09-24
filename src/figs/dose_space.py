@@ -10,14 +10,16 @@ from plotting.paper_figs import DoseSpaceOverview
 
 
 class PretendPars:
-    fung_parms = None
+    def __init__(self, primary_inoc) -> None:
+        self.primary_inoc = primary_inoc
+        self.fung_parms = None
     
     def get_single_conf(self, dose1, dose2):
 
         conf = SingleConfig(30, 10**(-7), 10**(-3),
                                 dose1, dose1, dose2, dose2,
                                 primary_inoculum=None)
-        
+                
         config_out = self._process_conf(conf)
 
         self.sing_conf = config_out
@@ -27,6 +29,8 @@ class PretendPars:
 
     def _process_conf(self, conf):
 
+        conf.primary_inoculum = self.primary_inoc
+
         conf.bs_sex_prop = 0
 
         conf.load_saved = False
@@ -35,28 +39,10 @@ class PretendPars:
 
         conf.add_string()
 
-        # config_out = self._update_par_scan_conf_str(conf)
-
         return conf
 
 
 
-
-
-def get_this_contour_data(z, n_contours, rf1, rf2):
-    cntrs = z.find_contours(pars, n_contours)
-
-    FYs = []
-    DSs = []
-
-    for x, y in zip(cntrs['x'], cntrs['y']):
-        conf_sing = SingleConfig(30, rf1, rf2, x, x, y, y)
-        FY = RunSingleTactic().run(conf_sing).failure_year
-        FYs.append(FY)
-        DSs.append(x+y)
-    
-    out = dict(FY=FYs, DS=DSs)
-    return out
 
 
 
@@ -79,17 +65,48 @@ def get_contour_data(n_contours, rf1, rf2):
 
 
 
+
+def get_this_contour_data(z, n_contours, rf1, rf2):
+    cntrs = z.find_contours(pars, n_contours)
+
+    FYs = []
+    DSs = []
+    xs = []
+    ys = []
+
+    for x, y in zip(cntrs['x'], cntrs['y']):
+        conf_sing = SingleConfig(30, rf1, rf2, x, x, y, y)
+        FY = RunSingleTactic().run(conf_sing).failure_year
+        FYs.append(FY)
+        DSs.append(x+y)
+        xs.append(x)
+        ys.append(y)
+    
+    out = dict(FY=FYs, DS=DSs, x=xs, y=ys)
+    return out
+
+
+
+
 if __name__=="__main__":
 
-    rf1, rf2 = 10**(-7), 10**(-3)
-    
-    conf_grid = GridConfig(30, rf1, rf2, 51)
-    # conf_grid = GridConfig(30, 10**(-7), 10**(-3), 6)
+    rf1, rf2 = 1e-7, 1e-3
 
+    n_doses = 51
+    # n_doses = 6
+
+    primary_inoc = dict(RR=rf1*rf2, RS=rf1, SR=rf2, SS=1-rf1-rf2-rf1*rf2)
+
+    
+    conf_grid = GridConfig(30, rf1, rf2, n_doses)
     conf_grid.load_saved = True
+    conf_grid.primary_inoculum = primary_inoc
+    conf_grid.add_string()
+
+
     output = RunGrid().run(conf_grid)
 
-    pars = PretendPars()
+    pars = PretendPars(primary_inoc)
 
     contour_data = get_contour_data(100, rf1, rf2)
 

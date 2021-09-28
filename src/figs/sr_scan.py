@@ -16,19 +16,18 @@ n_sp = 41
 # n_sp = 3
 
 
-
-
 filestr = f"Nd={n_doses}_Nsp={n_sp}"
-def_df = get_sr_grid_df(n_doses, n_sp)
+
+def_df = get_sr_grid_df(n_doses, n_sp, load = False)
 
 fcide_pars = dict(theta_1=8, theta_2=8,
                     omega_1=0.85, omega_2=0.85,
                     delta_1=PARAMS.delta_1, delta_2=PARAMS.delta_2)
 
-low_df = get_sr_grid_df(n_doses, n_sp, fcide_pars)
+low_df = get_sr_grid_df(n_doses, n_sp, fcide_pars, load = False)
 
     
-sf_ratio_data = get_sf_ratio_data(n_doses)
+sf_ratio_data = get_sf_ratio_data(n_doses, load = False)
 
 
 rf1s, rf2s = 1e-5, 1e-5
@@ -36,7 +35,7 @@ primary_inoc_same = dict(RR=rf1s*rf2s, RS=rf1s, SR=rf2s, SS=1-rf1s-rf2s-rf1s*rf2
 
 # same RFs, same fung
 conf_grid = GridConfig(30, None, None, n_doses)
-conf_grid.load_saved = True
+conf_grid.load_saved = False
 conf_grid.primary_inoculum = primary_inoc_same
 conf_grid.bs_sex_prop = 1
 conf_grid.add_string()

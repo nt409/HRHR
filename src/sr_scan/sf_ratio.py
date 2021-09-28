@@ -8,12 +8,12 @@ from model.simulator import RunSingleTactic
 from model.config_classes import SingleConfig
 
 
-def get_sf_ratio_data(n_doses, fcide_pars=None, save=True):
+def get_sf_ratio_data(n_doses, fcide_pars=None, load=False, save=True):
     fp = fcide_pars
     fcide_str = "default" if fp is None else f"{fp['theta_1']}_{fp['omega_1']}"
     filename = f"./sr_scan/outputs/selection_ratio_{n_doses}_{fcide_str}.csv"
     
-    if os.path.isfile(filename):
+    if load and os.path.isfile(filename):
         loaded_df = pd.read_csv(filename)
         return loaded_df
 

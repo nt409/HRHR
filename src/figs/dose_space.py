@@ -46,12 +46,11 @@ class PretendPars:
 
 
 
-def get_contour_data(n_contours, rf1, rf2):
+def get_contour_data(n_contours, rf1, rf2, load_saved):
     
     filename = f'../outputs/saved_runs/contours_{n_contours}_{rf1}_{rf2}.pickle'
 
-    if os.path.isfile(filename):
-    # if False:
+    if load_saved and os.path.isfile(filename):
         with open(filename, 'rb') as f:
             loaded = pickle.load(f)
         return loaded
@@ -90,6 +89,8 @@ def get_this_contour_data(z, n_contours, rf1, rf2):
 
 if __name__=="__main__":
 
+    LOAD = True
+
     rf1, rf2 = 1e-7, 1e-3
 
     n_doses = 51
@@ -99,7 +100,7 @@ if __name__=="__main__":
 
     
     conf_grid = GridConfig(30, rf1, rf2, n_doses)
-    conf_grid.load_saved = True
+    conf_grid.load_saved = LOAD
     conf_grid.primary_inoculum = primary_inoc
     conf_grid.add_string()
 
@@ -108,6 +109,9 @@ if __name__=="__main__":
 
     pars = PretendPars(primary_inoc)
 
-    contour_data = get_contour_data(100, rf1, rf2)
+    n_conts = 100
+    # n_conts = 10
+
+    contour_data = get_contour_data(n_conts, rf1, rf2, load_saved=LOAD)
 
     DoseSpaceOverview(output, contour_data, conf_grid.config_string_img)

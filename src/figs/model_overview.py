@@ -13,6 +13,7 @@ config_sing.primary_inoculum = dict(RR = RR,
     RS = RS,
     SR = SR,
     SS = 1 - RR - RS - SR)
+# config_sing.bs_sex_prop = 1
 config_sing.add_string()
 
 run_s = RunSingleTactic()

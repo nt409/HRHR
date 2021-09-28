@@ -14,7 +14,7 @@ import itertools
 from model.params import PARAMS
 
 from model.utils import res_prop_calculator, yield_calculator, \
-    SelectionFinder, FungicideStrategy, object_dump, ModelTimes
+    FungicideStrategy, object_dump, ModelTimes, sexual_reproduction
 
 from model.ode_system import ODESystem
 from model.ode_system_SR import ODESystemWithinSeasonSex
@@ -38,8 +38,8 @@ class Simulator(ABC):
 
 
 
-class SimulatorWithDisease(Simulator):
-    """Simulates a single season."""
+class SeasonWithDisease(Simulator):
+    """Simulates a single growing season."""
 
     def __init__(self, fungicide_params, within_season_sex_prop):
         
@@ -48,8 +48,7 @@ class SimulatorWithDisease(Simulator):
         else:
             self.ode_sys = ODESystem(fungicide_params)
         
-        self.selection_finder = SelectionFinder
-        self.res_prop_finder = res_prop_calculator
+        self.res_prop_calculator = res_prop_calculator
         self.yield_finder = yield_calculator
 
         self.times = ModelTimes(PARAMS)
@@ -67,13 +66,10 @@ class SimulatorWithDisease(Simulator):
 
         self._solve_ode()
         
-        final_res_dict, end_freqs = self.res_prop_finder(self.out.states)
-
-        selection = self.selection_finder(self.primary_inoc, final_res_dict).sel
+        final_res_dict, end_freqs = self.res_prop_calculator(self.out.states)
 
         self.out.final_res_vec_dict = final_res_dict
         self.out.end_freqs = end_freqs
-        self.out.selection = selection
 
         self.out.states.delete_unnecessary_vars()
 
@@ -187,7 +183,7 @@ class SimulatorWithDisease(Simulator):
 
 
 
-class SimulatorDiseaseFree(Simulator):
+class SeasonNoDiseaseYieldOnly(Simulator):
     """Simulates a single season, but only returns the yield."""
 
     def __init__(self, fungicide_params):
@@ -288,6 +284,8 @@ class RunSingleTactic(RunModel):
         self.yield_stopper = 95
         self.PATHOGEN_STRAIN_NAMES = ['RR', 'RS', 'SR', 'SS']
 
+        self.sexual_reproduction = sexual_reproduction
+
 
 
 
@@ -302,10 +300,10 @@ class RunSingleTactic(RunModel):
             if loaded_run is not None:
                 return loaded_run
         
-        self.sim = SimulatorWithDisease(self.fcide_parms, 
+        self.sim = SeasonWithDisease(self.fcide_parms, 
                                 within_season_sex_prop=conf.ws_sex_prop)
         
-        dis_free_yield = SimulatorDiseaseFree(self.fcide_parms).run()
+        dis_free_yield = SeasonNoDiseaseYieldOnly(self.fcide_parms).run()
 
 
         self.n_years = len(conf.fung1_doses['spray_1'])
@@ -337,7 +335,7 @@ class RunSingleTactic(RunModel):
         primary_inoculum = conf.primary_inoculum
         
         if primary_inoculum is None:
-            primary_inoculum = self._primary_calculator(conf,
+            primary_inoculum = self._between_season_calculator(conf,
                                                 conf.res_props['f1'], 
                                                 conf.res_props['f2'])
 
@@ -381,17 +379,17 @@ class RunSingleTactic(RunModel):
 
     def _set_next_year_start_freqs(self, conf, sim_out, next_yr):
 
-        freqs_out = sim_out.end_freqs
+        end_freqs = sim_out.end_freqs
 
         # sex/asex after each season
-        res_prop_1_end = freqs_out['RR'] + freqs_out['RS']
-        res_prop_2_end = freqs_out['RR'] + freqs_out['SR']
+        res_prop_1_end = end_freqs['RR'] + end_freqs['RS']
+        res_prop_2_end = end_freqs['RR'] + end_freqs['SR']
 
         # get next year's primary inoc - including SR step
-        next_year_vals = self._primary_calculator(conf,
+        next_year_vals = self._between_season_calculator(conf,
                                                     res_prop_1_end,
                                                     res_prop_2_end,
-                                                    freqs_out)
+                                                    end_freqs)
 
         self.out.update_start_freqs(next_year_vals, next_yr)
 
@@ -416,28 +414,30 @@ class RunSingleTactic(RunModel):
 
     
 
-    @staticmethod
-    def _primary_calculator(
+    def _between_season_calculator(self,
                 conf,
                 res_prop_1,
                 res_prop_2,
-                proportions=None,
+                freqs=None,
                 ):
         
         bs_sex_prop = conf.bs_sex_prop
 
-        sex = dict(
-            RR = res_prop_1*res_prop_2,
-            RS = res_prop_1*(1-res_prop_2),
-            SR = (1-res_prop_1)*res_prop_2,
-            SS = (1-res_prop_1)*(1-res_prop_2)
-            )
 
-        if proportions is None:
-            return sex
+        if freqs is None:
+            warnings.warn("IDEALLY WOULDN'T USE OLD SEXUAL REPRODUCTION FORM!")
+            return dict(
+                RR = res_prop_1*res_prop_2,
+                RS = res_prop_1*(1-res_prop_2),
+                SR = (1-res_prop_1)*res_prop_2,
+                SS = (1-res_prop_1)*(1-res_prop_2)
+                )
 
         else:
-            asex = proportions
+            asex = freqs
+
+            sex = self.sexual_reproduction(freqs)
+
             out = {}
             for key in sex.keys():
                 out[key] = bs_sex_prop*sex[key] + (1 - bs_sex_prop)*asex[key]

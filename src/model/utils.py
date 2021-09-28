@@ -79,6 +79,21 @@ def res_prop_calculator(solution):
 
 
 
+
+def sexual_reproduction(freqs):
+    f = freqs
+    D = f["RR"]*f["SS"] - f["RS"]*f["SR"]
+    
+    out = dict(
+        RR = f["RR"] - 0.5*D,
+        RS = f["RS"] + 0.5*D,
+        SR = f["SR"] + 0.5*D,
+        SS = f["SS"] - 0.5*D,
+        )
+    return out
+
+
+
 # * End of Simulatr functions
 
 
@@ -201,40 +216,6 @@ class FungicideStrategy:
 
 
 
-
-
-class SelectionFinder:    
-    def __init__(self, primary_inoc, final_res_dict) -> None:
-        self._get_init_res_dict(primary_inoc)
-
-        self.final_res_dict = final_res_dict
-
-        self._get_selection()
-
-
-    def _get_init_res_dict(self, primary_inoc):
-        self.initial_res_dict = dict(
-            f1 = primary_inoc['RR'] + primary_inoc['RS'],
-            f2 = primary_inoc['RR'] + primary_inoc['SR']
-            ) 
-
-
-    def _get_selection(self):
-        self.sel = dict(f1=1, f2=1)
-
-        for key in ['f1','f2']:
-            self._get_sel_this_fung(key)
-        
-
-
-    def _get_sel_this_fung(self, key):
-        in_res_dict = self.initial_res_dict
-        fn_res_dict = self.final_res_dict
-        
-        if in_res_dict[key] > 0:
-            self.sel[key] = fn_res_dict[key] / (in_res_dict[key]/PARAMS.init_den)
-
-# * End of SelFinder cls
 
 
 

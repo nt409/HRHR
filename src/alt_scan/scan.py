@@ -96,9 +96,9 @@ def main(n_doses, n_its, within_season, alt_strat):
 
 if __name__=="__main__":
 
-    # df = main(n_doses=21, n_its=5, within_season=False, alt_strat="alt_21")
+    df = main(n_doses=21, n_its=5, within_season=False, alt_strat="alt_21")
     # df = main(n_doses=21, n_its=5, within_season=True, alt_strat="alt_21")
     # df = main(n_doses=21, n_its=5, within_season=False, alt_strat="alt_12")
-    df = main(n_doses=21, n_its=5, within_season=True, alt_strat="alt_12")
+    # df = main(n_doses=21, n_its=5, within_season=True, alt_strat="alt_12")
 
 

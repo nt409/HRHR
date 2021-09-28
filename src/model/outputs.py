@@ -85,7 +85,6 @@ class SimOutput:
 
         self.final_res_vec_dict = None
         self.end_freqs = None
-        self.selection = None
         self.yield_val = None
 
 
@@ -113,23 +112,21 @@ class SingleTacticOutput:
 
         self.res_vec_dict = self._init_res_vec_dict(res_props_in)
 
-        self.selection_vec_dict = self._init_dict_of_zeros_vecs(['f1', 'f2'], n_years+1)
-        
         # post-sex from previous year, ready for start of season
-        self.start_freqs = self._init_dict_of_zeros_vecs(strain_names, n_years+1)
+        self.start_freqs = self._init_freq_dict()
 
         # end of season, pre-sex
-        self.end_freqs = self._init_dict_of_zeros_vecs(strain_names, n_years+1)
+        self.end_freqs = self._init_freq_dict()
 
         self.states_list = []
 
 
 
-    def _init_dict_of_zeros_vecs(self, keys, length):
+    def _init_freq_dict(self):
         out = {}
         
-        for key in keys:
-            out[key] = np.zeros(length)
+        for key in self.strain_names:
+            out[key] = np.zeros(self.n_years+1)
 
         return out
     
@@ -156,8 +153,6 @@ class SingleTacticOutput:
 
         self._update_end_freqs(sim_out, yr)
 
-        self._update_selection_vec_dict(sim_out, yr+1)
-        
         self._update_res_vec_dict(sim_out, yr+1)
         
         self._update_failure_year(yr)
@@ -167,12 +162,6 @@ class SingleTacticOutput:
 
 
 
-
-
-    
-    def _update_selection_vec_dict(self, sim_out, yr):
-        for key in ['f1', 'f2']:
-            self.selection_vec_dict[key][yr] = sim_out.selection[key]
 
 
     def _update_res_vec_dict(self, sim_out, yr):
@@ -226,7 +215,6 @@ class GridTacticOutput:
         self.yield_array = np.zeros((n_doses, n_doses, n_years))
         
         fung_keys = ['f1', 'f2']
-        self.selection_DA = self._get_dict_of_zero_arrays(fung_keys, (n_doses, n_doses, n_years+1))
         self.res_vec_DA = self._get_dict_of_zero_arrays(fung_keys, (n_doses, n_doses, n_years+1))
 
         strain_keys = ['RR', 'RS', 'SR', 'SS']
@@ -247,10 +235,6 @@ class GridTacticOutput:
 
     def update_dicts_of_arrays(self, data, f1_ind, f2_ind):
         mydata = vars(data)
-
-        self.selection_DA = self._update_dict_array_this_dose(
-                                            self.selection_DA, mydata["selection_vec_dict"], 
-                                            f1_ind, f2_ind)
 
         self.res_vec_DA = self._update_dict_array_this_dose(
                                             self.res_vec_DA, mydata["res_vec_dict"], 

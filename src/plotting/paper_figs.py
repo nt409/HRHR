@@ -18,7 +18,7 @@ from model.strategy_arrays import EqualResFreqBreakdownArray, EqualSelectionArra
 
 from plotting.traces import contour_at_0, contour_at_single_level
 
-from plotting.utils import divergent_color_scale, get_text_annotation, get_arrow_annotation,\
+from plotting.utils import divergent_color_scale, get_shape_annotation, get_text_annotation, get_arrow_annotation,\
     grey_colorscale_discrete, grey_colorscale_discrete_N, \
     invisible_colorbar, my_colorbar_subplot, standard_layout, \
     grey_colorscale, my_colorbar, get_big_text_annotation
@@ -211,7 +211,7 @@ class CombinedModelPlot(BasicFig):
 
     def add_traces_to_layout(self, data_dict):
         fig = make_subplots(rows=2, cols=3, 
-                            horizontal_spacing=0.2,
+                            horizontal_spacing=0.25,
                             shared_xaxes=True,
                             # row_heights=[0.3, 0.3]
                             )
@@ -383,7 +383,7 @@ class DoseSpaceOverview(BasicFig):
                         x=[0.375, 1.005],
                         y=[0.21, 0.79],
                         # intercepts are where the blue/black lines cross 0.5/0 resp.
-                        intercepts=[0.24, 0.765],
+                        intercepts=[0.238, 0.765],
                         len=0.46)
 
         fig = self._generate_figure()
@@ -396,7 +396,7 @@ class DoseSpaceOverview(BasicFig):
 
     def _generate_figure(self):
 
-        fig = make_subplots(rows=2, cols=2, horizontal_spacing=0.25)
+        fig = make_subplots(rows=2, cols=2, horizontal_spacing=0.28)
 
         fig.add_traces(self._get_EL_traces(), rows=1, cols=1)
         fig.add_traces(self._get_ESFY_traces(), rows=1, cols=2)
@@ -445,6 +445,7 @@ class DoseSpaceOverview(BasicFig):
             self._get_ERFB_contour_single(),
             ]
         traces += self._get_ERFB_cont_scatter_trcs_heatmap_plot()
+        
         return traces    
     
     # D
@@ -637,7 +638,7 @@ class DoseSpaceOverview(BasicFig):
             y = y,
             z = z,
             colorscale = [[0, NULL_HEATMAP_COLOUR],[1, NULL_HEATMAP_COLOUR]],
-            colorbar = invisible_colorbar(self.cbar_attrs['x'][0], self.cbar_attrs['y'][0])
+            colorbar = invisible_colorbar(self.cbar_attrs['x'][0], self.cbar_attrs['y'][0]),
             )
         return grey_map
 
@@ -677,10 +678,13 @@ class DoseSpaceOverview(BasicFig):
 
     def _sort_layout(self, fig):
         fig.update_layout(standard_layout(True, self.width, self.height))
+        
+
+        fig.layout.coloraxis.showscale = False
 
         fig.update_layout(legend=dict(
                         x=0,
-                        y=1.05,
+                        y=1.07,
                         xanchor="left", 
                         yanchor="bottom",
                         
@@ -702,11 +706,14 @@ class DoseSpaceOverview(BasicFig):
         fig.update_yaxes(title="Effective life", row=2, col=2, showgrid=False)
         
 
-        top_row = 1.07
-        bottom_row = 0.49
+        top_row = 1.08
+        bottom_row = 0.51
         
         left = -0.04
-        middle = 0.59
+        middle = 0.61
+
+        cbarbox_x = 0.43
+        cbarbox_y = 0.58
 
 
         annotz = [  
@@ -724,9 +731,12 @@ class DoseSpaceOverview(BasicFig):
             get_big_text_annotation(middle, top_row, 'B'),
             get_big_text_annotation(left, bottom_row, 'C'),
             get_big_text_annotation(middle, bottom_row, 'D'),
+            get_shape_annotation(cbarbox_x, cbarbox_y),
             ]
 
         fig.update_layout(annotations=annotz)
+
+
         return fig
     
     
@@ -859,6 +869,7 @@ class DoseSpaceScenariosPlot(BasicFig):
 
         out = contour_at_0(x, y, z_transpose, 'black', 'dash')
         out['name'] = "Delta RFB"
+        out['coloraxis'] = "coloraxis"
 
         return out
 
@@ -872,6 +883,7 @@ class DoseSpaceScenariosPlot(BasicFig):
 
         out = contour_at_single_level(x, y, z_transpose, 0.5, 'blue', 'dot')
         out['name'] = "Equal Selection"
+        out['coloraxis'] = "coloraxis"
 
         return out
 
@@ -899,6 +911,8 @@ class DoseSpaceScenariosPlot(BasicFig):
         
         fig.update_xaxes(title="Dose (fungicide <i>A</i>)", row=2, col=2, range=[0,1], showgrid=False, zeroline=False)
         fig.update_xaxes(title="Dose (fungicide <i>A</i>)", row=2, col=1, range=[0,1], showgrid=False, zeroline=False)
+
+        fig.layout.coloraxis.showscale = False
         
         top_row = 1.075
         bottom_row = 0.495
@@ -1425,6 +1439,8 @@ class SRPlot(BasicFig):
     def _sort_layout(self, fig):
         fig.update_layout(standard_layout(True, self.width, self.height))
 
+        fig.update_layout(template="plotly_white")
+
         fig.update_layout(
 
             coloraxis=dict(colorbar=dict(
@@ -1455,12 +1471,12 @@ class SRPlot(BasicFig):
         fig.update_xaxes(range=[0,1], row=1, col=1, showline=False, zeroline=False)
         fig.update_xaxes(range=[0,1], row=1, col=2, showline=False, zeroline=False)
         
-        fig.update_xaxes(range=[0.15,1], row=2, col=1,
+        fig.update_xaxes(range=[0,1], row=2, col=1,
                 title=dict(text="Dose",
                                 font=dict(size=18, color="black")),            
                             showgrid=False)
         
-        fig.update_xaxes(row=2, col=2,
+        fig.update_xaxes(range=[0,1], row=2, col=2,
                 title=dict(text="Dose (fungicide <i>A</i>)",
                                 font=dict(size=18, color="black")),            
                             showgrid=False, zeroline=False)
@@ -1472,18 +1488,18 @@ class SRPlot(BasicFig):
                                 font=dict(size=18, color="black")),
                             showline=False, zeroline=False)
 
-        fig.update_yaxes(range=[0,1], row=2, col=2,
+        fig.update_yaxes(range=[0,1], row=1, col=2,
                             showline=False, zeroline=False)
         
-        fig.update_yaxes(range=[0,9], row=2, col=1,
+        fig.update_yaxes(range=[0,10], row=2, col=1,
                 title=dict(text="Ratio of frequencies<br>year 2 vs year 1",
                                 font=dict(size=18, color="black")),
                             showline=True, zeroline=False)
         
-        fig.update_yaxes(row=2, col=2,
+        fig.update_yaxes(range=[0,1], row=2, col=2,
                 title=dict(text="Dose (fungicide <i>B</i>)",
                                 font=dict(size=18, color="black")),            
-                            showgrid=False, zeroline=False)
+                            showline=False, zeroline=False)
         
 
         # annotations
@@ -1693,7 +1709,7 @@ class DoseResponse(BasicFig):
         
         fig.update_yaxes(title=u"Growth rate<br>factor (\u03B4<sub>F,s</sub>)", range=[-0.01,1.01], showgrid=False, row=1, col=1)
         fig.update_yaxes(title=u"Growth rate<br>factor (\u03B4<sub>F,s</sub>)", range=[-0.01,1.01], showgrid=False, row=2, col=1)
-        fig.update_yaxes(title="Concentration (C)", range=[-0.01,1.01], showgrid=False, showline=True, row=1, col=2)
+        fig.update_yaxes(title="Concentration (C)", range=[-0.01,1.2], showgrid=False, showline=True, row=1, col=2)
         fig.update_yaxes(title=u"Growth rate<br>factor (\u03B4<sub>F,s</sub>)", range=[-0.01,1.01], showgrid=False, showline=True, row=2, col=2)
         
         
@@ -1845,8 +1861,8 @@ class CurveDose(BasicFig):
         top_row = 1.15
 
         annotz = [
-            get_text_annotation(-0.03, 0.1, "Max. effect", "right", "bottom"),
-            get_text_annotation(-0.03, 1.05, "No effect", "right", "top"),
+            get_text_annotation(-0.05, 0.05, "Max. effect", "right", "bottom"),
+            get_text_annotation(-0.05, 1.05, "No effect", "right", "top"),
             get_big_text_annotation(left, top_row, 'A', xanchor="left"),
             get_big_text_annotation(middle, top_row, 'B', xanchor="left"),
             ]
@@ -2050,6 +2066,7 @@ class DoseSpaceScenarioSingle(BasicFig):
 
     def _sort_layout(self, fig):
         fig.update_layout(standard_layout(True, self.width, self.height))
+        fig.update_layout(template="plotly_white")
 
         fig.update_layout(legend=dict(
                         x=0,

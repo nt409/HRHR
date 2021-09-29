@@ -248,11 +248,11 @@ class PostProcess:
             
             out = out.append(data, ignore_index=True)
 
-            # plot output
-            conf_str = rp.grid_conf.config_string_img
-            conf_str = conf_str.replace("param_scan/", f"param_scan/run={this_run_ind}_")
+            # plot output - not if on cluster!
+            # conf_str = rp.grid_conf.config_string_img
+            # conf_str = conf_str.replace("param_scan/", f"param_scan/run={this_run_ind}_")
 
-            DoseSpaceScenarioSingle(grid_output, conf_str)
+            # DoseSpaceScenarioSingle(grid_output, conf_str)
 
         for col in ["c_R_maxContEL", "max_grid_EL", "run"]:
             out[col] = out[col].astype("int")

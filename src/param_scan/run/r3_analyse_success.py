@@ -13,11 +13,10 @@ def main(config):
     dfp = PP.processed_df
 
     # print(dfp.loc[dfp["c_R_maxContEL"] -4 >= dfp["c_E_maxContEL"], ["c_R_maxContEL", "c_E_maxContEL"]])
-    # print("\n")
-    # print(dfp.loc[dfp["c_R_maxContEL"] -4 >= dfp["c_E_maxContEL"], ["c_R_maxContEL", "c_E_maxContEL"]].mean())
+    
+    print("\nMean max EL if: (i) general; (ii) failed by at least 4:")
     print(dfp["c_R_maxContEL"].mean())
-
-    # exit()
+    print(dfp.loc[dfp["c_R_maxContEL"] -4 >= dfp["c_E_maxContEL"], ["c_R_maxContEL", "c_E_maxContEL"]].mean())
 
 
     print("\nThese runs failed:")
@@ -30,7 +29,12 @@ def main(config):
     print(dfp.loc[:, ["ERFB_diff_from_opt"]].value_counts())
     print(dfp.loc[:, ["ESFY_diff_from_opt"]].value_counts())
     print(dfp.loc[:, ["ESFYL_diff_from_opt"]].value_counts())
+
+    print("\nESFY/ESFYL wrong by at least two years:")
+    print(100*sum(dfp.loc[dfp["ESFY_diff_from_opt"]<=-2, ["ESFY_diff_from_opt"]].count())/500)
+    print(100*sum(dfp.loc[dfp["ESFYL_diff_from_opt"]<=-2, ["ESFYL_diff_from_opt"]].count())/500)
     
+
     results_df = PP.analyse_processed_df()
     print("\nThis is the summary table for the paper:")
     print(results_df)

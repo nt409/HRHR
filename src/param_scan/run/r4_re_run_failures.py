@@ -37,23 +37,23 @@ def main(run_attrs, print=False):
 if __name__=="__main__":
     
     N_dose_def = 51
-    N_cont_ds = 100
+    N_cont_ds = 300
     
     # N_dose_def = 11
     # N_cont_ds = 5
 
     run_attrs = [
-        dict(run = 10,  DS_lim=[0.5,1.1], NDoses=N_dose_def, N_cont_doses=N_cont_ds),
-        dict(run = 91,  DS_lim=[0.3,1.0], NDoses=N_dose_def, N_cont_doses=N_cont_ds),
-        dict(run = 116, DS_lim=[0.2,1.0], NDoses=N_dose_def, N_cont_doses=N_cont_ds),
-        dict(run = 183, DS_lim=[0.3,0.6], NDoses=N_dose_def, N_cont_doses=N_cont_ds),
-        dict(run = 227, DS_lim=[0.5,1.1], NDoses=N_dose_def, N_cont_doses=N_cont_ds),
-        dict(run = 241, DS_lim=[0.3,0.6], NDoses=N_dose_def, N_cont_doses=N_cont_ds),
-        dict(run = 295, DS_lim=[0.6,1.0], NDoses=N_dose_def, N_cont_doses=N_cont_ds),
-        dict(run = 478, DS_lim=[0.2,0.6], NDoses=N_dose_def, N_cont_doses=N_cont_ds),
+        # dict(run = 10,  DS_lim=[0.5,1.1], NDoses=N_dose_def, N_cont_doses=N_cont_ds), # Y
+        # dict(run = 116, DS_lim=[0.2,1.0], NDoses=N_dose_def, N_cont_doses=N_cont_ds), # Y
+        dict(run = 91,  DS_lim=[0.3,1.0], NDoses=N_dose_def, N_cont_doses=N_cont_ds), # N
+        dict(run = 183, DS_lim=[0.3,0.6], NDoses=N_dose_def, N_cont_doses=N_cont_ds), # N
+        dict(run = 227, DS_lim=[0.5,1.1], NDoses=N_dose_def, N_cont_doses=N_cont_ds), # N
+        dict(run = 241, DS_lim=[0.3,0.6], NDoses=N_dose_def, N_cont_doses=N_cont_ds), # N
+        dict(run = 295, DS_lim=[0.6,1.0], NDoses=N_dose_def, N_cont_doses=N_cont_ds), # N
+        dict(run = 478, DS_lim=[0.2,0.6], NDoses=N_dose_def, N_cont_doses=N_cont_ds), # N
 
         # ESFY outperformed ERFB
-        dict(run = 265, DS_lim=[0.4,0.8], NDoses=N_dose_def, N_cont_doses=N_cont_ds),
+        dict(run = 265, DS_lim=[0.4,0.8], NDoses=N_dose_def, N_cont_doses=N_cont_ds), # N
         ]
     
     

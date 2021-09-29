@@ -12,7 +12,6 @@ def main(n_doses, n_its):
     for alt_strat, index in itertools.product(["alt_12", "alt_21"], list(range(n_its**3))):
 
         _, _, ii, jj, kk = get_alt_scan_params(n_its, index)
-        print(alt_strat, ii, jj, kk)
 
         filename = f"./alt_scan/outputs/single/out_{n_its}_{n_doses}_{False}_{alt_strat}_{ii}_{jj}_{kk}.csv"
         

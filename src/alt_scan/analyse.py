@@ -11,7 +11,7 @@ df = pd.DataFrame()
 
 for alt_strat, within_season in itertools.product(["alt_12", "alt_21"], [True, False]):
 
-    filename = f"./alt_scan/output_{n_its}_{n_doses}_{within_season}_{alt_strat}.csv"
+    filename = f"./alt_scan/outputs/out_{n_its}_{n_doses}_{within_season}_{alt_strat}.csv"
     
     new_df = pd.read_csv(filename)
     new_df["within_season"] = within_season

@@ -62,7 +62,7 @@ if __name__=="__main__":
     print(out)
 
     df = pd.DataFrame([out])
-    filename = f"./alt_scan/failed_run_{alt_strat}_{n_doses}_{rf1}_{rf2}_{om1}_{om2}_{thet1}_{thet2}.csv"
+    filename = f"./alt_scan/outputs/failed_run_{alt_strat}_{n_doses}_{rf1}_{rf2}_{om1}_{om2}_{thet1}_{thet2}.csv"
     print(f"saving df to: {filename}")
     df.to_csv(filename, index=False)
     

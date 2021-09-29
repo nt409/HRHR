@@ -26,8 +26,14 @@ def main(n_doses, n_its):
     # print(df.head(-10))
     # print(df.describe())
 
+    print("WORKED RUNS; MIX AT LEAST AS GOOD")
+    print(df[df["asex_alt"]<=df["asex_mix"]])
+    print(df[df["sex_alt"] <= df["sex_mix"]])
+
+    print("FAILED RUNS; ALT OUTPERFORMS MIX")
     print(df[df["asex_alt"]>df["asex_mix"]])
     print(df[df["sex_alt"]>df["sex_mix"]])
+    
 
 
     filename = f"./alt_scan/outputs/combined/out_{n_its}_{n_doses}_{alt_strat}.csv"

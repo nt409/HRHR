@@ -40,7 +40,7 @@ def main(n_doses, n_its):
 
 if __name__=="__main__":
     
-    n_doses = 11
+    n_doses = 21
     n_its = 5
 
     main(n_doses, n_its)

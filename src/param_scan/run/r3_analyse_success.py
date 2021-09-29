@@ -17,7 +17,7 @@ def main(config):
     # print(dfp.loc[dfp["c_R_maxContEL"] -4 >= dfp["c_E_maxContEL"], ["c_R_maxContEL", "c_E_maxContEL"]].mean())
     print(dfp["c_R_maxContEL"].mean())
 
-    exit()
+    # exit()
 
 
     print("\nThese runs failed:")

@@ -7,37 +7,12 @@ from math import floor
 from model.params import PARAMS
 from model.simulator import RunGrid
 from model.config_classes import GridConfig
+from alt_scan.utils import get_alt_scan_params
 
 
 def main(n_doses, n_its, within_season, alt_strat, index):
-
-    rfs = np.logspace(-10, -4, n_its)
-    omegas = np.linspace(0.4, 1, n_its)
-    thetas = np.linspace(4,  12, n_its)
-
-
-    ii = int( floor(index/(n_its**2)) )
-    jj = int( floor((index % 25)/(n_its)) )
-    kk = int( index % n_its )
-
-    rf1 = rfs[ii]
-    rf2 = 1e-5
-    om1 = omegas[jj]
-    om2 = 1
-    thet1 = thetas[kk]
-    thet2 = 9.6
-
-
-    primary_inoc = dict(RR=rf1*rf2, RS=rf1, SR=rf2, SS=1-rf1-rf2-rf1*rf2)
-
-    fcide_parms = dict(
-        omega_1 = om1,
-        omega_2 = om2,
-        theta_1 = thet1,
-        theta_2 = thet2,
-        delta_1 = PARAMS.delta_1,
-        delta_2 = PARAMS.delta_2,
-        )
+   
+    primary_inoc, fcide_parms, ii, jj, kk = get_alt_scan_params(n_its, index)
 
     model_run = RunGrid(fcide_parms)
     
@@ -88,12 +63,12 @@ def main(n_doses, n_its, within_season, alt_strat, index):
 
     # ADD TO DATAFRAME
     data = dict(
-        rf1 =  rf1,
-        rf2 = rf2,
-        omega1 =  om1,
-        omega2 =  om2,
-        theta1 =  thet1,
-        theta2 = thet2,
+        RS =  primary_inoc["RS"],
+        SR =  primary_inoc["SR"],
+        omega1 = fcide_parms["omega1"],
+        omega2 = fcide_parms["omega2"],
+        theta1 = fcide_parms["theta1"],
+        theta2 = fcide_parms["theta2"],
         asex_alt = np.amax(asex_alt.FY),
         asex_mix = np.amax(asex_mix.FY),
         sex_alt = np.amax(sex_alt.FY),
@@ -101,7 +76,6 @@ def main(n_doses, n_its, within_season, alt_strat, index):
         )
     
     df = pd.DataFrame([data])
-    # df = df.append(data, ignore_index=True)
 
 
 
@@ -117,7 +91,7 @@ def main(n_doses, n_its, within_season, alt_strat, index):
 if __name__=="__main__":
 
     if len(sys.argv)!=2:
-        raise Exception("Supply one argument: a random seed")
+        raise Exception("Supply one argument: the run index")
 
     index = int(sys.argv[1])
 

@@ -8,17 +8,17 @@ from param_scan.fns.config import config_rand
 from param_scan.fns.post_process import PostProcess
 
 
-def main(run_attrs):
+def main(run_attrs, print=False):
         
     PP = PostProcess(config_rand['par_str'])
 
+    if print:
+        df = PP.processed_df
+        print("FAILURES:")
+        print(df.loc[df["c_R_maxCont%"]<100, ["max_grid_EL", "c_R_maxContEL", "I_R_best_value"]])
 
-    df = PP.processed_df
-    print("FAILURES:")
-    print(df.loc[df["c_R_maxCont%"]<100, ["max_grid_EL", "c_R_maxContEL", "I_R_best_value"]])
-
-    print("ESFY 'outpeforms' ERFB:")
-    print(df.loc[df["c_R_maxContEL"]<df["c_E_maxContEL"], ["max_grid_EL", "c_E_maxContEL", "c_R_maxContEL", "I_R_best_value"]])
+        print("ESFY 'outpeforms' ERFB:")
+        print(df.loc[df["c_R_maxContEL"]<df["c_E_maxContEL"], ["max_grid_EL", "c_E_maxContEL", "c_R_maxContEL", "I_R_best_value"]])
 
 
     for data in run_attrs:
@@ -36,11 +36,11 @@ def main(run_attrs):
 
 if __name__=="__main__":
     
-    # N_dose_def = 51
-    # N_cont_ds = 100
+    N_dose_def = 51
+    N_cont_ds = 100
     
-    N_dose_def = 11
-    N_cont_ds = 5
+    # N_dose_def = 11
+    # N_cont_ds = 5
 
     run_attrs = [
         dict(run = 10,  DS_lim=[0.5,1.1], NDoses=N_dose_def, N_cont_doses=N_cont_ds),
@@ -62,8 +62,8 @@ if __name__=="__main__":
         raise Exception("Supply one argument: the run index")
 
     index = int(sys.argv[1])
-    
     run_attrs_use = [run_attrs[index]]
+    
     main(run_attrs_use)
 
 

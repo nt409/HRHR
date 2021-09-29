@@ -36,11 +36,11 @@ def main(run_attrs):
 
 if __name__=="__main__":
     
-    N_dose_def = 51
-    N_cont_ds = 100
+    # N_dose_def = 51
+    # N_cont_ds = 100
     
-    # N_dose_def = 11
-    # N_cont_ds = 5
+    N_dose_def = 11
+    N_cont_ds = 5
 
     run_attrs = [
         dict(run = 10,  DS_lim=[0.5,1.1], NDoses=N_dose_def, N_cont_doses=N_cont_ds),

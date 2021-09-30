@@ -2250,7 +2250,7 @@ class DoseSpaceScenarioDouble(BasicFig):
 
 
 class SREffect(BasicFig):
-    def __init__(self, data, double_freqs, conf_str) -> None:
+    def __init__(self, data, n_its, conf_str) -> None:
 
         self.width = FULL_PAGE_WIDTH
 
@@ -2258,7 +2258,7 @@ class SREffect(BasicFig):
 
         self.data = data
 
-        self.double_freqs = double_freqs
+        self.n_its = n_its
 
         fig = self._generate_figure()
 
@@ -2286,12 +2286,11 @@ class SREffect(BasicFig):
 
         df = copy.copy(self.data)
 
-        double_freqs = self.double_freqs
+        # e.g. 0-9, 10-19, 20-29
 
-        x1 = 10**(double_freqs[col-1])
-        x2 = 10**(double_freqs[col-1]+2)
+        df = df.loc[((df["run"]<col*self.n_its) 
+                    & (df["run"]>=(col-1)*self.n_its))]        
 
-        df = df.loc[(df["RR"]>=x1) & (df["RR"]<=x2)]
 
         traces = []
 

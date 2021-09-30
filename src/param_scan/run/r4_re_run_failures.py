@@ -28,19 +28,19 @@ def main(run_attrs, print=False):
         run = data["run"]        
 
         # saves result to outpus/re_run/...
-        PP.re_run_cont(NDoses=NDoses, N_cont_doses=N_cont_doses, DS_lim=DS_lim, run_indices=[run])
-        # PP.re_run_grid(NDoses=NDoses, run_indices=[run])
+        # PP.re_run_cont(NDoses=NDoses, N_cont_doses=N_cont_doses, DS_lim=DS_lim, run_indices=[run])
+        PP.re_run_grid(NDoses=NDoses, run_indices=[run])
 
 
 
 
 if __name__=="__main__":
     
-    N_dose_def = 51
-    N_cont_ds = 300
-    
     # N_dose_def = 11
     # N_cont_ds = 5
+    
+    N_dose_def = 101
+    N_cont_ds = 300
 
     run_attrs = [
         # dict(run = 10,  DS_lim=[0.5,1.1], NDoses=N_dose_def, N_cont_doses=N_cont_ds), # Y
@@ -58,11 +58,12 @@ if __name__=="__main__":
     
     
     
-    if len(sys.argv)!=2:
-        raise Exception("Supply one argument: the run index")
-
-    index = int(sys.argv[1])
-    run_attrs_use = [run_attrs[index]]
+    # if len(sys.argv)!=2:
+    #     raise Exception("Supply one argument: the run index")
+    # index = int(sys.argv[1])
+    # run_attrs_use = [run_attrs[index]]
+    
+    run_attrs_use = [run_attrs[-1]]
     
     main(run_attrs_use)
 

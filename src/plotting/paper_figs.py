@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from abc import ABC, abstractmethod
+import copy
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -1987,12 +1988,12 @@ class DoseSpaceScenarioSingle(BasicFig):
 
         if showlegend:
             traces.append(self._get_DSS_ERFB_legend_entry())
-            # traces.append(self._get_DSS_ESFY_legend_entry())
+            traces.append(self._get_DSS_ESFY_legend_entry())
 
         traces.append(self._get_DSS_FY_trace(data))
         
         traces.append(self._get_DSS_ERFB_contour_single(data))
-        # traces.append(self._get_DSS_ESFY_contour_single(data))
+        traces.append(self._get_DSS_ESFY_contour_single(data))
 
         return traces
 
@@ -2241,6 +2242,98 @@ class DoseSpaceScenarioDouble(BasicFig):
 
 
 
+        
+        return fig
+    
+    
+
+
+
+class SREffect(BasicFig):
+    def __init__(self, data, double_freqs, conf_str) -> None:
+
+        self.width = FULL_PAGE_WIDTH
+
+        self.height = 450
+
+        self.data = data
+
+        self.double_freqs = double_freqs
+
+        fig = self._generate_figure()
+
+        self.filename = conf_str.replace("/grid/", "/paper_figs/sr_effect")
+
+        self._save_and_show(fig)
+
+
+
+    def _generate_figure(self):
+
+        fig = make_subplots(rows=1, cols=3)
+        
+        fig.add_traces(self.get_traces(1), rows=1, cols=1)
+        fig.add_traces(self.get_traces(2), rows=1, cols=2)
+        fig.add_traces(self.get_traces(3), rows=1, cols=3)
+
+        fig = self._sort_layout(fig)
+
+        return fig
+
+
+
+    def get_traces(self, col):
+
+        df = copy.copy(self.data)
+
+        double_freqs = self.double_freqs
+
+        x1 = 10**(double_freqs[col-1])
+        x2 = 10**(double_freqs[col-1]+2)
+
+        df = df.loc[(df["RR"]>=x1) & (df["RR"]<=x2)]
+
+        traces = []
+
+        for rr in df.run.unique():
+            xx = df.loc[df["run"]==rr].bs_sex_prop
+            yy = df.loc[df["run"]==rr].maxEL
+
+            trc = dict(x=xx, 
+                    y=yy,
+                    )
+            
+            traces.append(trc)
+
+        return traces
+
+
+    def _sort_layout(self, fig):
+        fig.update_layout(standard_layout(False, self.width, self.height))
+
+        fig.update_yaxes(range=[4.5,18.5], title="Maximum effective life", row=1, col=1)
+        fig.update_yaxes(range=[4.5,18.5], row=1, col=2)
+        fig.update_yaxes(range=[4.5,18.5], row=1, col=3)
+        
+        left = -0.02
+        middle = 0.33
+        right = 0.69
+
+        top_row = 1.12
+
+        c1 = get_big_text_annotation(left,   top_row, 'A: low <i>rr</i>', xanchor="left")
+        c2 = get_big_text_annotation(middle, top_row, 'B: medium <i>rr</i>', xanchor="left")
+        c3 = get_big_text_annotation(right,  top_row, 'C: high <i>rr</i>', xanchor="left")
+        c1['font'] = dict(size=18, color=LIGHT_GREY_TEXT)
+        c2['font'] = dict(size=18, color=LIGHT_GREY_TEXT)
+        c3['font'] = dict(size=18, color=LIGHT_GREY_TEXT)
+        
+        x_lab = get_big_text_annotation(0.5, -0.14, 'Between-season sexual reproduction proportion (<i>p<sub>B</sub></i>)')
+        x_lab['font'] = dict(size=18, color="black")
+
+        annotz = [c1,c2,c3,x_lab]
+
+        fig.update_layout(annotations=annotz)
         
         return fig
     

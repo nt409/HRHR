@@ -5,16 +5,16 @@ import sys
 # import itertools
 # import os
 # from tqdm import tqdm
-import plotly.graph_objects as go
+# import plotly.graph_objects as go
 
 from model.simulator import RunGrid, RunSingleTactic
 from model.config_classes import GridConfig, SingleConfig
 from model.params import PARAMS
 
 
-def get_sr_scan_df(n_its, n_sex_props, n_doses, double_freq_factors, index):
+def get_sr_scan_df(n_variants, n_sex_props, n_doses, double_freq_factor_lowest, index):
     
-    dfp = get_sr_scan_params(n_its, double_freq_factors, index)
+    dfp = get_sr_scan_params(n_variants, double_freq_factor_lowest, index)
 
     sex_props = np.linspace(0, 1, n_sex_props)
 
@@ -58,8 +58,8 @@ def get_sr_scan_df(n_its, n_sex_props, n_doses, double_freq_factors, index):
         df = df.append(data, ignore_index=True)
 
 
-    dff_str = ",".join([str(ee) for ee in double_freq_factors])
-    filename = f"./sr_hap/outputs/single/df_{n_its}_{n_sex_props}_{n_doses}_{dff_str}_{index}.csv"
+
+    filename = f"./sr_hap/outputs/single/df_{n_variants}_{n_sex_props}_{n_doses}_{double_freq_factor_lowest}_{index}.csv"
     print(f"Saving df to: {filename}")
     df.to_csv(filename, index=False)
     
@@ -71,11 +71,16 @@ def get_sr_scan_df(n_its, n_sex_props, n_doses, double_freq_factors, index):
 
 
 
-def get_sr_scan_params(n_its, double_freq_factors, index):
+def get_sr_scan_params(n_variants, double_freq_factor_lowest, index):
+
+    power_of_10 = floor(index/n_variants)
+
+    double_freq_factor = double_freq_factor_lowest * 10**(power_of_10)
+
+
+    index = index % n_variants
 
     np.random.seed(index)
-
-    double_freq_factor = double_freq_factors[int(floor(index/n_its))]
 
     valid = False
 
@@ -109,6 +114,7 @@ def get_sr_scan_params(n_its, double_freq_factors, index):
             theta_2 = thet2,
             delta_1 = PARAMS.delta_1*delta_factor1,
             delta_2 = PARAMS.delta_2*delta_factor2,
+            double_freq_factor = double_freq_factor,
             )
         
         conf = SingleConfig(1, None, None,
@@ -155,41 +161,19 @@ def get_rfd(x, y):
 
 
 
-def plot_df(df):
-    trcs = []
-
-    for rr in range(n_its):
-        data_use = df.loc[df["run"]==rr, :]
-        xx = data_use["bs_sex_prop"]
-        yy = data_use["maxEL"]
-        trc = dict(x=xx, y=yy, name=f"run={rr}")
-
-        trcs.append(trc)
-
-    fig = go.Figure(data=trcs, layout=dict(template="simple_white"))
-    fig.show()
-
-
-
 
 if __name__=="__main__":
-    n_its = 10
+    n_variants = 3
     n_sex_ps = 11
     n_doses = 21
-    # n_doses = 6
-
+    
     if len(sys.argv)!=2:
         raise Exception("Supply one argument: a run index")
 
     index = int(sys.argv[1])
     
-    double_freq_factors = [1e-5, 1, 1e5]
-    df = get_sr_scan_df(n_its, n_sex_ps, n_doses, double_freq_factors, index)
-
-    print(df)
-
-    # plot_df(df)
-
+    double_freq_factor_lowest = 1e-4
+    df = get_sr_scan_df(n_variants, n_sex_ps, n_doses, double_freq_factor_lowest, index)
         
 
 

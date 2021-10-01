@@ -77,7 +77,6 @@ def get_sr_scan_params(n_variants, double_freq_factor_lowest, index):
 
     double_freq_factor = double_freq_factor_lowest * 10**(power_of_10)
 
-
     index = index % n_variants
 
     np.random.seed(index)

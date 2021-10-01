@@ -2250,7 +2250,7 @@ class DoseSpaceScenarioDouble(BasicFig):
 
 
 class SREffect(BasicFig):
-    def __init__(self, data, out_l, out_m, out_h, n_its, conf_str) -> None:
+    def __init__(self, data, out_l, out_m, out_h, n_trcs_per_fig, indices, conf_str) -> None:
 
         self.width = FULL_PAGE_WIDTH
 
@@ -2262,8 +2262,9 @@ class SREffect(BasicFig):
         self.outputs_m = out_m
         self.outputs_h = out_h
 
+        self.n_trcs_per_fig = n_trcs_per_fig
 
-        self.n_its = n_its
+        self.indices = indices
 
         fig = self._generate_figure()
 
@@ -2287,9 +2288,9 @@ class SREffect(BasicFig):
 
         print(cols2, cols3)
         
-        fig.add_traces(self.get_EL_traces(1, 6), rows=1, cols=1)
-        fig.add_traces(self.get_EL_traces(2, 10), rows=1, cols=2)
-        fig.add_traces(self.get_EL_traces(3, 24), rows=1, cols=3)
+        fig.add_traces(self.get_EL_traces(1, self.indices[0]), rows=1, cols=1)
+        fig.add_traces(self.get_EL_traces(2, self.indices[1]), rows=1, cols=2)
+        fig.add_traces(self.get_EL_traces(3, self.indices[2]), rows=1, cols=3)
 
         trcs_l_rr, trcs_l_sing = self.get_rf_traces(self.outputs_l, [0, 0.5, 1], cols3, True)
         trcs_m_rr, trcs_m_sing = self.get_rf_traces(self.outputs_m, [0, 1], cols2)
@@ -2314,13 +2315,22 @@ class SREffect(BasicFig):
         df = copy.copy(self.data)
 
         # e.g. 0-9, 10-19, 20-29
-        df = df.loc[((df["run"]<col*self.n_its) 
-                    & (df["run"]>=(col-1)*self.n_its))]        
+        df = df.loc[((df["run"]<col*self.n_trcs_per_fig) 
+                    & (df["run"]>=(col-1)*self.n_trcs_per_fig))]        
 
+        cols = ["red", "green", "blue"]
+        dashes = ["solid", "dash", "dot"]
 
         traces = []
 
         for rr in df.run.unique():
+            
+            reset_ind = (rr % self.n_trcs_per_fig)
+
+            dash_ind = reset_ind % 3
+            col_ind = floor(reset_ind/3)
+
+
             xx = df.loc[df["run"]==rr].bs_sex_prop
             yy = df.loc[df["run"]==rr].maxEL
 
@@ -2329,19 +2339,22 @@ class SREffect(BasicFig):
                     showlegend=False,
                     opacity = 0.6,
                     name=rr,
+                    line=dict(color=cols[col_ind], dash=dashes[dash_ind]),
+                    mode="lines",
                     )
             
             traces.append(trc)
         
         if col>1:
-            index = index % ((col-1)*self.n_its)
+            index = index % ((col-1)*self.n_trcs_per_fig)
         
         index = int(index)
 
 
         highlighted_trace = traces[index]
         highlighted_trace["opacity"] = 1
-        highlighted_trace["line"] = dict(color="black", dash="dot")
+        highlighted_trace["line"] = dict(color="black", dash="solid")
+        highlighted_trace["mode"] = "markers+lines"
 
         traces = traces[:(index)] + traces[(index+1):] + [highlighted_trace]
 

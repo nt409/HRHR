@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-def combine_haploid_df(n_variants, n_sex_props, n_doses, double_freq_factor_lowest):
+def combine_haploid_df(n_its, n_variants, n_sex_props, n_doses, double_freq_factor_lowest):
     df = pd.DataFrame()
 
     for index in range(n_its):

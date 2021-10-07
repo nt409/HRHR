@@ -1,8 +1,8 @@
-# n_sex_props = 11
-# n_doses = 21
+n_sex_props = 11
+n_doses = 21
 
-n_sex_props = 2
-n_doses = 3
+# n_sex_props = 2
+# n_doses = 3
 
 
 

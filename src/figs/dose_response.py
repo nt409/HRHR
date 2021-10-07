@@ -7,8 +7,8 @@ from plotting.paper_figs import DoseResponse
 from model.utils import Fungicide
 
 
-fc = Fungicide(0.8, 5, PARAMS.delta_1)
-fcd = Fungicide(1, 9.6, PARAMS.delta_1)
+fc = Fungicide(0.8, 5, None)
+fcd = Fungicide(1, 9.6, None)
 
 x = np.linspace(0, 1, 100)
 xs = [x, x]

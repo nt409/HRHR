@@ -978,6 +978,7 @@ class ParamScanPlotMeVsHobb(BasicFig):
     def _process_data(self, data):
 
         data_use = data.loc[:, ["run", 
+                                "c_E_lowDoseMaxEL",
                                 "c_R_maxContEL",
                                 "c_E_maxContEL",
                                 "I_R_best_value",
@@ -992,24 +993,32 @@ class ParamScanPlotMeVsHobb(BasicFig):
                                  ]]
         
 
+        print("\nNB NOW COMPARING LOW DOSES")
+
         if self.use_pc:
-            data_use['successMetric'] = 100*data_use['c_E_maxContEL']/data_use['c_R_maxContEL']
+            # data_use['successMetric'] = 100*data_use['c_E_maxContEL']/data_use['c_R_maxContEL']
+            data_use['successMetric'] = 100*data_use['c_E_lowDoseMaxEL']/data_use['c_R_maxContEL']
 
             bad_df = data_use[data_use['successMetric']>100]
             
             print(f"\n CURRENTLY REPLACING {bad_df.shape[0]} ROWS GREATER THAN 100 WITH 100... will need to check/justify!! \n")
-            print(bad_df.loc[:, ["run", "c_R_maxContEL", "c_E_maxContEL", "max_grid_EL"]])
+            print(bad_df.loc[:, ["run", "c_R_maxContEL", "c_E_maxContEL", "c_E_lowDoseMaxEL", "max_grid_EL"]])
 
-            data_use.loc[data_use['successMetric']>100, ['successMetric']] = 100
+            # data_use.loc[data_use['successMetric']>100, ['successMetric']] = 100
+            data_use.loc[data_use['successMetric']>100, ['successMetric']] = None
+        
         else:
-            data_use['successMetric'] = data_use['c_R_maxContEL'] - data_use['c_E_maxContEL']
+            # data_use['successMetric'] = data_use['c_R_maxContEL'] - data_use['c_E_maxContEL']
+            data_use['successMetric'] = data_use['c_R_maxContEL'] - data_use['c_E_lowDoseMaxEL']
+            
 
             bad_df = data_use[data_use['successMetric']<0]
             
             print(f"\n CURRENTLY REPLACING {bad_df.shape[0]} ROWS GREATER THAN 100 WITH 100... will need to justify!! \n")
-            print(bad_df.loc[:, ["run", "c_R_maxContEL", "c_E_maxContEL", "max_grid_EL"]])
+            print(bad_df.loc[:, ["run", "c_R_maxContEL", "c_E_maxContEL", "c_E_lowDoseMaxEL", "max_grid_EL"]])
 
-            data_use.loc[data_use['successMetric']<0, ['successMetric']] = 0
+            # data_use.loc[data_use['successMetric']<0, ['successMetric']] = 0
+            data_use.loc[data_use['successMetric']<0, ['successMetric']] = None
 
 
 
@@ -1085,19 +1094,10 @@ class ParamScanPlotMeVsHobb(BasicFig):
 
 
     def _generate_figure(self):
-        
 
-        ugly_fig = self._add_traces_to_figure()
-
-        fig = self._sort_layout(ugly_fig)
-
-        return fig
-
-
-    def _add_traces_to_figure(self):
         fig = make_subplots(rows=2, cols=2, vertical_spacing=0.3, horizontal_spacing=0.16)
 
-        trace_dict = self._get_traces()
+        trace_dict = self._get_trace_dict()
 
         fig.add_traces(trace_dict['IRFMetric'],   rows=1, cols=1)
         fig.add_traces(trace_dict['logRR'],       rows=1, cols=2)
@@ -1106,11 +1106,11 @@ class ParamScanPlotMeVsHobb(BasicFig):
         
         fig.add_traces(self._get_traces_high_low(), rows=2, cols=2)
 
-        return fig
+        return self._sort_layout(fig)
 
 
 
-    def _get_traces(self):        
+    def _get_trace_dict(self):        
         out = {}
 
         data = self.data
@@ -1179,6 +1179,7 @@ class ParamScanPlotMeVsHobb(BasicFig):
 
 
     def _update_axes(self, fig):
+
         fig.update_xaxes(title="Log difference in single resistance<br>frequencies (absolute value)", row=1, col=1, showgrid=False, showline=True)
         
         fig.update_xaxes(title="Double resistant<br>frequency (log scale)", row=1, col=2, showgrid=False, showline=True)
@@ -1198,7 +1199,6 @@ class ParamScanPlotMeVsHobb(BasicFig):
         fig.update_yaxes(title=ylab, row=2, col=1, showgrid=False, showline=True, zeroline=False)
         
         fig.update_yaxes(title="High/low dose metric", row=2, col=2, showgrid=False)
-        # <br>(high efficacy fungicides)
 
         return fig
 
@@ -2249,8 +2249,8 @@ class DoseSpaceScenarioDouble(BasicFig):
 
 
 
-class SREffect(BasicFig):
-    def __init__(self, data, out_l, out_m, out_h, n_trcs_per_fig, indices, conf_str) -> None:
+class SREffectAppendix(BasicFig):
+    def __init__(self, data, out_l, out_m, out_h, n_trcs_per_fig, indices, indices_use, conf_str) -> None:
 
         self.width = FULL_PAGE_WIDTH
 
@@ -2265,6 +2265,275 @@ class SREffect(BasicFig):
         self.n_trcs_per_fig = n_trcs_per_fig
 
         self.indices = indices
+
+        self.indices_use = indices_use
+
+        fig = self._generate_figure()
+
+        self.filename = conf_str.replace("/grid/", "/paper_figs/sr_effect")
+
+        self._save_and_show(fig)
+
+
+
+    def _generate_figure(self):
+
+        fig = make_subplots(rows=3, cols=3, vertical_spacing=0.18, 
+                shared_yaxes=True,
+                row_heights=[0.5, 0.25, 0.25])
+
+        cs = ["maroon", "cornflowerblue", "lime"]
+
+        step = 1
+
+        cols2 = cs[0::(2*step)]
+        cols3 = cs[0::step]
+
+        fig.add_traces(self.get_EL_traces(1, self.indices[0]), rows=1, cols=1)
+        fig.add_traces(self.get_EL_traces(2, self.indices[1]), rows=1, cols=2)
+        fig.add_traces(self.get_EL_traces(3, self.indices[2]), rows=1, cols=3)
+
+        trcs_l_rr, trcs_l_sing = self.get_rf_traces(self.outputs_l, [0, 0.2, 1], cols3, True)
+        trcs_m_rr, trcs_m_sing = self.get_rf_traces(self.outputs_m, [0, 1], cols2)
+        trcs_h_rr, trcs_h_sing = self.get_rf_traces(self.outputs_h, [0, 1], cols2)
+        
+        fig.add_traces(trcs_l_rr, rows=2, cols=1)
+        fig.add_traces(trcs_m_rr, rows=2, cols=2)
+        fig.add_traces(trcs_h_rr, rows=2, cols=3)
+        
+        fig.add_traces(trcs_l_sing, rows=3, cols=1)
+        fig.add_traces(trcs_m_sing, rows=3, cols=2)
+        fig.add_traces(trcs_h_sing, rows=3, cols=3)
+
+        fig = self._sort_layout(fig)
+
+        return fig
+
+
+
+    def get_EL_traces(self, col, index):
+
+        df = copy.copy(self.data)
+
+        # e.g. 0-8, 9-17, 18-26
+        df = df.loc[((df["run"]<col*self.n_trcs_per_fig) 
+                    & (df["run"]>=(col-1)*self.n_trcs_per_fig))]        
+
+        cols = ["rgba(0,100,0,0.5)", "rgba(0,0,255,1)", "rgba(199,21,133,0.5)"]
+        
+        dashes = ["dot", "solid", "dash"]
+        # dashes = ["solid", "solid", "solid"]
+
+        traces = []
+
+        for rr in df.run.unique():
+
+            if rr not in self.indices_use:
+                traces.append(None)
+                continue
+
+
+            reset_ind = (rr % self.n_trcs_per_fig)
+
+            col_ind = int(reset_ind % 3)
+            dash_ind = int(floor(reset_ind/3))
+
+
+            xx = df.loc[df["run"]==rr].bs_sex_prop
+            yy = df.loc[df["run"]==rr].maxEL
+
+            trc = dict(x=xx, 
+                    y=yy,
+                    showlegend=False,
+                    # opacity = 0.6,
+                    name=rr,
+                    line=dict(color=cols[col_ind], dash=dashes[dash_ind]),
+                    mode="lines",
+                    )
+            
+            traces.append(trc)
+        
+        if col>1:
+            index = index % ((col-1)*self.n_trcs_per_fig)
+        
+        index = int(index)
+
+
+        highlighted_trace = traces[index]
+        highlighted_trace["opacity"] = 1
+        # highlighted_trace["line"] = dict(dash="solid")
+        highlighted_trace["mode"] = "markers+lines"
+
+        prominent_traces = [traces[(index-1)], traces[(index+1)], highlighted_trace]
+
+        traces = traces[:(index-1)] + traces[(index+2):] + prominent_traces
+
+        out = list(filter(None.__ne__, traces))
+
+        return out
+
+
+
+
+
+
+    def get_rf_traces(self, outputs, bss, cols, showlegend=False):
+        
+        traces_rr = []
+        traces_sing = []
+        
+        for data, bs, col in zip(outputs, bss, cols):
+            traces = self.get_rf_trace(data, bs, col, showlegend)
+
+            traces_rr += [traces[0]]
+            traces_sing += traces[1:]
+
+
+        return traces_rr, traces_sing
+    
+
+    def get_rf_trace(self, data, bs, col, showlegend):
+
+        fy = int(np.amax(data.FY))
+        
+        fRR = data.start_freqs_DA["RR"][-1,-1,:(fy+1)]
+        fRS = data.start_freqs_DA["RS"][-1,-1,:(fy+1)]
+        fSR = data.start_freqs_DA["SR"][-1,-1,:(fy+1)]
+        # fSS = data.start_freqs_DA["SS"][-1,-1,:]
+
+        x = list(range(len(fRR)))
+
+        traces = []
+
+        for ff, dash, name in zip([fRR, fRS, fSR],
+                            ["solid", "dash", "dot"],
+                            [f"Sexual proportion={bs}, strain <i>rr</i>",
+                                f"Sexual proportion={bs}, strain <i>rs</i>", 
+                                f"Sexual proportion={bs}, strain <i>sr</i>"],
+                            ):
+
+            ff = [None if ee==0 else log10(ee/(1-ee)) for ee in ff]
+
+            trc = dict(x=x, y=ff,
+                        line=dict(dash=dash, color=col),
+                        name=name,
+                        legendgroup=col,
+                        showlegend=showlegend,
+                        mode="lines"
+                        )
+            traces.append(trc)
+        return traces
+
+
+
+
+
+
+    def _sort_layout(self, fig):
+
+        fig.update_layout(standard_layout(True, self.width, self.height))
+
+        lowest_EL = 8
+        highest_EL = 17
+
+        lowest_RFS = -7
+        highest_RFS = 2
+        
+        lowest_RFD = -15.5
+        highest_RFD = 1
+
+        EL_col1 = 9
+        EL_col2 = 9
+        EL_col3 = 8
+
+        fig.update_yaxes(range=[lowest_EL - 0.5, highest_EL + 0.5], title="Maximum<br>effective life", row=1, col=1)
+        # fig.update_yaxes(range=[lowest_EL - 0.5, highest_EL + 0.5], row=1, col=2)
+        # fig.update_yaxes(range=[lowest_EL - 0.5, highest_EL + 0.5], row=1, col=3)
+        
+        fig.update_yaxes(range=[lowest_RFD, highest_RFD], title="Double resistant<br>frequency<br>(logit scale)", row=2, col=1)
+        # fig.update_yaxes(row=2, col=2)
+        # fig.update_yaxes(row=2, col=3)
+        
+        fig.update_yaxes(range=[lowest_RFS, highest_RFS], title="Single resistant<br>frequencies<br>(logit scale)", row=3, col=1)
+        # fig.update_yaxes(row=3, col=2)
+        # fig.update_yaxes(row=3, col=3)
+
+
+        fig.update_xaxes(range=[-0.5, EL_col1 + 0.5], row=2, col=1)
+        fig.update_xaxes(range=[-0.5, EL_col1 + 0.5], row=3, col=1)
+        
+        fig.update_xaxes(range=[-0.5, EL_col2 + 0.5],  row=2, col=2)
+        fig.update_xaxes(range=[-0.5, EL_col2 + 0.5],  row=3, col=2)
+
+        fig.update_xaxes(range=[-0.5, EL_col3 + 0.5], row=2, col=3)
+        fig.update_xaxes(range=[-0.5, EL_col3 + 0.5], row=3, col=3)
+        
+
+        left = -0.015
+        middle = 0.34
+        right = 0.695
+
+        top_row = 1.05
+        middle_row = 0.56
+        bottom_row = 0.23
+
+        annotz = [
+            get_big_text_annotation(left,   top_row, 'A: low <i>rr</i>', xanchor="left"),
+            get_big_text_annotation(middle, top_row, 'B: medium <i>rr</i>', xanchor="left"),
+            get_big_text_annotation(right,  top_row, 'C: high <i>rr</i>', xanchor="left"),
+            
+            get_big_text_annotation(left,   middle_row, 'D', xanchor="left"),
+            get_big_text_annotation(middle, middle_row, 'E', xanchor="left"),
+            get_big_text_annotation(right,  middle_row, 'F', xanchor="left"),
+
+            get_big_text_annotation(left,   bottom_row, 'H', xanchor="left"),
+            get_big_text_annotation(middle, bottom_row, 'I', xanchor="left"),
+            get_big_text_annotation(right,  bottom_row, 'J', xanchor="left"),
+            ]
+
+
+        for cc in annotz:
+            cc['font'] = dict(size=20, color=LIGHT_GREY_TEXT)
+        
+        x_lab = get_big_text_annotation(0.5, 0.61, 'Between-season sexual reproduction proportion (<i>p<sub>B</sub></i>)')
+        x_lab['font'] = dict(size=18, color="black")
+        
+        x_lab2 = get_big_text_annotation(0.5, -0.08, 'Time (years)')
+        x_lab2['font'] = dict(size=18, color="black")
+
+        annotz += [x_lab, x_lab2]
+
+        fig.update_layout(annotations=annotz)
+
+        fig.update_layout(legend=dict(x=-0.15, y=-0.15, orientation="h",
+                    xanchor="left", yanchor="top",
+                    font=dict(size=12),
+                    ))
+
+        
+        return fig
+    
+    
+
+
+
+
+
+class SREffectResults(BasicFig):
+    def __init__(self, data, out_l, out_m, out_h, n_its, conf_str) -> None:
+
+        self.width = FULL_PAGE_WIDTH
+
+        self.height = 900
+
+        self.data = data
+        
+        self.outputs_l = out_l
+        self.outputs_m = out_m
+        self.outputs_h = out_h
+
+
+        self.n_its = n_its
 
         fig = self._generate_figure()
 
@@ -2288,9 +2557,9 @@ class SREffect(BasicFig):
 
         print(cols2, cols3)
         
-        fig.add_traces(self.get_EL_traces(1, self.indices[0]), rows=1, cols=1)
-        fig.add_traces(self.get_EL_traces(2, self.indices[1]), rows=1, cols=2)
-        fig.add_traces(self.get_EL_traces(3, self.indices[2]), rows=1, cols=3)
+        fig.add_traces(self.get_EL_traces(1, 6), rows=1, cols=1)
+        fig.add_traces(self.get_EL_traces(2, 10), rows=1, cols=2)
+        fig.add_traces(self.get_EL_traces(3, 24), rows=1, cols=3)
 
         trcs_l_rr, trcs_l_sing = self.get_rf_traces(self.outputs_l, [0, 0.5, 1], cols3, True)
         trcs_m_rr, trcs_m_sing = self.get_rf_traces(self.outputs_m, [0, 1], cols2)
@@ -2315,22 +2584,13 @@ class SREffect(BasicFig):
         df = copy.copy(self.data)
 
         # e.g. 0-9, 10-19, 20-29
-        df = df.loc[((df["run"]<col*self.n_trcs_per_fig) 
-                    & (df["run"]>=(col-1)*self.n_trcs_per_fig))]        
+        df = df.loc[((df["run"]<col*self.n_its) 
+                    & (df["run"]>=(col-1)*self.n_its))]        
 
-        cols = ["red", "green", "blue"]
-        dashes = ["solid", "dash", "dot"]
 
         traces = []
 
         for rr in df.run.unique():
-            
-            reset_ind = (rr % self.n_trcs_per_fig)
-
-            dash_ind = reset_ind % 3
-            col_ind = floor(reset_ind/3)
-
-
             xx = df.loc[df["run"]==rr].bs_sex_prop
             yy = df.loc[df["run"]==rr].maxEL
 
@@ -2339,22 +2599,19 @@ class SREffect(BasicFig):
                     showlegend=False,
                     opacity = 0.6,
                     name=rr,
-                    line=dict(color=cols[col_ind], dash=dashes[dash_ind]),
-                    mode="lines",
                     )
             
             traces.append(trc)
         
         if col>1:
-            index = index % ((col-1)*self.n_trcs_per_fig)
+            index = index % ((col-1)*self.n_its)
         
         index = int(index)
 
 
         highlighted_trace = traces[index]
         highlighted_trace["opacity"] = 1
-        highlighted_trace["line"] = dict(color="black", dash="solid")
-        highlighted_trace["mode"] = "markers+lines"
+        highlighted_trace["line"] = dict(color="black", dash="dot")
 
         traces = traces[:(index)] + traces[(index+1):] + [highlighted_trace]
 
@@ -2484,6 +2741,3 @@ class SREffect(BasicFig):
 
         
         return fig
-    
-    
-

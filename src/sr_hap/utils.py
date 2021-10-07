@@ -8,21 +8,6 @@ from model.config_classes import GridConfig, SingleConfig
 from model.params import PARAMS
 
 
-def get_haploid_outputs_res(n_variants, n_doses, double_freq_factor_lowest, index, bss):
-    outputs = []
-    
-    dfp = get_sr_scan_params_res(n_variants, double_freq_factor_lowest, index)
-    
-    print(dfp)
-
-    for bs in bss:
-
-        output = get_this_run_output(n_doses, bs, dfp)
-
-        outputs.append(output)
-    return outputs
-
-
 
 def get_haploid_outputs_app(n_variants, n_doses, double_freq_factor_lowest, index, bss):
     outputs = []

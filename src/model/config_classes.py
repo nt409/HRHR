@@ -24,7 +24,7 @@ class BaselineConfig:
         inoc_str = "N" if self.primary_inoculum is None else (
                                 f"{round(self.primary_inoculum['RS'],10)},_"
                                 f"{round(self.primary_inoculum['SR'],10)},_"
-                                f"{round(self.primary_inoculum['RR'],10)}")
+                                f"{round(self.primary_inoculum['RR'],15)}")
 
         save_str = (f"Ny={self.n_years}_" 
                             f"RPs={self.res_props['f1']},_{self.res_props['f2']}_"

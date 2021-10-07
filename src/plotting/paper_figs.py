@@ -3,6 +3,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 import copy
+from numpy.core.fromnumeric import size
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -2250,27 +2251,19 @@ class DoseSpaceScenarioDouble(BasicFig):
 
 
 class SREffectAppendix(BasicFig):
-    def __init__(self, data, out_l, out_m, out_h, n_trcs_per_fig, indices, indices_use, conf_str) -> None:
+    def __init__(self, out_l, out_m, out_h, conf_str) -> None:
 
         self.width = FULL_PAGE_WIDTH
 
         self.height = 900
 
-        self.data = data
-        
         self.outputs_l = out_l
         self.outputs_m = out_m
         self.outputs_h = out_h
 
-        self.n_trcs_per_fig = n_trcs_per_fig
-
-        self.indices = indices
-
-        self.indices_use = indices_use
-
         fig = self._generate_figure()
 
-        self.filename = conf_str.replace("/grid/", "/paper_figs/sr_effect")
+        self.filename = conf_str.replace("/grid/", "/paper_figs/sr_app_")
 
         self._save_and_show(fig)
 
@@ -2278,32 +2271,27 @@ class SREffectAppendix(BasicFig):
 
     def _generate_figure(self):
 
-        fig = make_subplots(rows=3, cols=3, vertical_spacing=0.18, 
-                shared_yaxes=True,
-                row_heights=[0.5, 0.25, 0.25])
+        fig = make_subplots(rows=3, cols=3, 
+                shared_xaxes=True,
+                )
 
-        cs = ["maroon", "cornflowerblue", "lime"]
+        cols3 = ["maroon", "cornflowerblue", "lime"]
 
-        step = 1
-
-        cols2 = cs[0::(2*step)]
-        cols3 = cs[0::step]
-
-        fig.add_traces(self.get_EL_traces(1, self.indices[0]), rows=1, cols=1)
-        fig.add_traces(self.get_EL_traces(2, self.indices[1]), rows=1, cols=2)
-        fig.add_traces(self.get_EL_traces(3, self.indices[2]), rows=1, cols=3)
-
-        trcs_l_rr, trcs_l_sing = self.get_rf_traces(self.outputs_l, [0, 0.2, 1], cols3, True)
-        trcs_m_rr, trcs_m_sing = self.get_rf_traces(self.outputs_m, [0, 1], cols2)
-        trcs_h_rr, trcs_h_sing = self.get_rf_traces(self.outputs_h, [0, 1], cols2)
+        trcs_l_rr, trcs_l_rs, trcs_l_sr = self.get_rf_traces(self.outputs_l, [0, 0.2, 1], cols3, True)
+        trcs_m_rr, trcs_m_rs, trcs_m_sr = self.get_rf_traces(self.outputs_m, [0, 0.2, 1], cols3)
+        trcs_h_rr, trcs_h_rs, trcs_h_sr = self.get_rf_traces(self.outputs_h, [0, 0.2, 1], cols3)
         
-        fig.add_traces(trcs_l_rr, rows=2, cols=1)
-        fig.add_traces(trcs_m_rr, rows=2, cols=2)
-        fig.add_traces(trcs_h_rr, rows=2, cols=3)
+        fig.add_traces(trcs_l_rr, rows=1, cols=1)
+        fig.add_traces(trcs_m_rr, rows=1, cols=2)
+        fig.add_traces(trcs_h_rr, rows=1, cols=3)
         
-        fig.add_traces(trcs_l_sing, rows=3, cols=1)
-        fig.add_traces(trcs_m_sing, rows=3, cols=2)
-        fig.add_traces(trcs_h_sing, rows=3, cols=3)
+        fig.add_traces(trcs_l_rs, rows=2, cols=1)
+        fig.add_traces(trcs_m_rs, rows=2, cols=2)
+        fig.add_traces(trcs_h_rs, rows=2, cols=3)
+        
+        fig.add_traces(trcs_l_sr, rows=3, cols=1)
+        fig.add_traces(trcs_m_sr, rows=3, cols=2)
+        fig.add_traces(trcs_h_sr, rows=3, cols=3)
 
         fig = self._sort_layout(fig)
 
@@ -2311,95 +2299,39 @@ class SREffectAppendix(BasicFig):
 
 
 
-    def get_EL_traces(self, col, index):
-
-        df = copy.copy(self.data)
-
-        # e.g. 0-8, 9-17, 18-26
-        df = df.loc[((df["run"]<col*self.n_trcs_per_fig) 
-                    & (df["run"]>=(col-1)*self.n_trcs_per_fig))]        
-
-        cols = ["rgba(0,100,0,0.5)", "rgba(0,0,255,1)", "rgba(199,21,133,0.5)"]
-        
-        dashes = ["dot", "solid", "dash"]
-        # dashes = ["solid", "solid", "solid"]
-
-        traces = []
-
-        for rr in df.run.unique():
-
-            if rr not in self.indices_use:
-                traces.append(None)
-                continue
-
-
-            reset_ind = (rr % self.n_trcs_per_fig)
-
-            col_ind = int(reset_ind % 3)
-            dash_ind = int(floor(reset_ind/3))
-
-
-            xx = df.loc[df["run"]==rr].bs_sex_prop
-            yy = df.loc[df["run"]==rr].maxEL
-
-            trc = dict(x=xx, 
-                    y=yy,
-                    showlegend=False,
-                    # opacity = 0.6,
-                    name=rr,
-                    line=dict(color=cols[col_ind], dash=dashes[dash_ind]),
-                    mode="lines",
-                    )
-            
-            traces.append(trc)
-        
-        if col>1:
-            index = index % ((col-1)*self.n_trcs_per_fig)
-        
-        index = int(index)
-
-
-        highlighted_trace = traces[index]
-        highlighted_trace["opacity"] = 1
-        # highlighted_trace["line"] = dict(dash="solid")
-        highlighted_trace["mode"] = "markers+lines"
-
-        prominent_traces = [traces[(index-1)], traces[(index+1)], highlighted_trace]
-
-        traces = traces[:(index-1)] + traces[(index+2):] + prominent_traces
-
-        out = list(filter(None.__ne__, traces))
-
-        return out
 
 
 
-
-
-
-    def get_rf_traces(self, outputs, bss, cols, showlegend=False):
+    def get_rf_traces(self, outputs, bss, cols, showledge=False):
         
         traces_rr = []
-        traces_sing = []
+        traces_rs = []
+        traces_sr = []
         
         for data, bs, col in zip(outputs, bss, cols):
-            traces = self.get_rf_trace(data, bs, col, showlegend)
+            traces = self.get_rf_trace(data, bs, col, showledge)
 
             traces_rr += [traces[0]]
-            traces_sing += traces[1:]
+            traces_rs += [traces[1]]
+            traces_sr += [traces[2]]
 
 
-        return traces_rr, traces_sing
-    
+        return traces_rr, traces_rs, traces_sr
 
-    def get_rf_trace(self, data, bs, col, showlegend):
+
+
+
+    def get_rf_trace(self, data, bs, col, showledge):
 
         fy = int(np.amax(data.FY))
-        
-        fRR = data.start_freqs_DA["RR"][-1,-1,:(fy+1)]
-        fRS = data.start_freqs_DA["RS"][-1,-1,:(fy+1)]
-        fSR = data.start_freqs_DA["SR"][-1,-1,:(fy+1)]
+
+        fRR = data.start_freqs_DA["RR"][4, 19, :(fy+1)]
+        fRS = data.start_freqs_DA["RS"][4, 19, :(fy+1)]
+        fSR = data.start_freqs_DA["SR"][4, 19, :(fy+1)]
         # fSS = data.start_freqs_DA["SS"][-1,-1,:]
+
+        # print(data.FY[5, 10:20])
+        print(fy)
 
         x = list(range(len(fRR)))
 
@@ -2414,14 +2346,20 @@ class SREffectAppendix(BasicFig):
 
             ff = [None if ee==0 else log10(ee/(1-ee)) for ee in ff]
 
+            showlegend = showledge if dash=="solid" else False
+
+            name_use = name.split(",")[0]
+
             trc = dict(x=x, y=ff,
                         line=dict(dash=dash, color=col),
-                        name=name,
-                        legendgroup=col,
+                        name=name_use,
+                        # legendgroup=col,
                         showlegend=showlegend,
                         mode="lines"
                         )
+            
             traces.append(trc)
+
         return traces
 
 
@@ -2433,49 +2371,21 @@ class SREffectAppendix(BasicFig):
 
         fig.update_layout(standard_layout(True, self.width, self.height))
 
-        lowest_EL = 8
-        highest_EL = 17
-
-        lowest_RFS = -7
-        highest_RFS = 2
+        fig.update_yaxes(title="Frequency <i>rr</i><br>(logit scale)", row=1, col=1)
+        fig.update_yaxes(title="Frequency <i>rs</i><br>(logit scale)", row=2, col=1)
+        fig.update_yaxes(title="Frequency <i>sr</i><br>(logit scale)", row=3, col=1)                
         
-        lowest_RFD = -15.5
-        highest_RFD = 1
-
-        EL_col1 = 9
-        EL_col2 = 9
-        EL_col3 = 8
-
-        fig.update_yaxes(range=[lowest_EL - 0.5, highest_EL + 0.5], title="Maximum<br>effective life", row=1, col=1)
-        # fig.update_yaxes(range=[lowest_EL - 0.5, highest_EL + 0.5], row=1, col=2)
-        # fig.update_yaxes(range=[lowest_EL - 0.5, highest_EL + 0.5], row=1, col=3)
-        
-        fig.update_yaxes(range=[lowest_RFD, highest_RFD], title="Double resistant<br>frequency<br>(logit scale)", row=2, col=1)
-        # fig.update_yaxes(row=2, col=2)
-        # fig.update_yaxes(row=2, col=3)
-        
-        fig.update_yaxes(range=[lowest_RFS, highest_RFS], title="Single resistant<br>frequencies<br>(logit scale)", row=3, col=1)
-        # fig.update_yaxes(row=3, col=2)
-        # fig.update_yaxes(row=3, col=3)
-
-
-        fig.update_xaxes(range=[-0.5, EL_col1 + 0.5], row=2, col=1)
-        fig.update_xaxes(range=[-0.5, EL_col1 + 0.5], row=3, col=1)
-        
-        fig.update_xaxes(range=[-0.5, EL_col2 + 0.5],  row=2, col=2)
-        fig.update_xaxes(range=[-0.5, EL_col2 + 0.5],  row=3, col=2)
-
-        fig.update_xaxes(range=[-0.5, EL_col3 + 0.5], row=2, col=3)
-        fig.update_xaxes(range=[-0.5, EL_col3 + 0.5], row=3, col=3)
-        
+        fig.update_xaxes(range=[-0.5, 17.5], row=3, col=1)
+        fig.update_xaxes(range=[-0.5, 17.5], row=3, col=2)
+        fig.update_xaxes(range=[-0.5, 17.5], row=3, col=3)
 
         left = -0.015
         middle = 0.34
         right = 0.695
 
         top_row = 1.05
-        middle_row = 0.56
-        bottom_row = 0.23
+        middle_row = 0.68
+        bottom_row = 0.32
 
         annotz = [
             get_big_text_annotation(left,   top_row, 'A: low <i>rr</i>', xanchor="left"),
@@ -2495,20 +2405,18 @@ class SREffectAppendix(BasicFig):
         for cc in annotz:
             cc['font'] = dict(size=20, color=LIGHT_GREY_TEXT)
         
-        x_lab = get_big_text_annotation(0.5, 0.61, 'Between-season sexual reproduction proportion (<i>p<sub>B</sub></i>)')
-        x_lab['font'] = dict(size=18, color="black")
         
         x_lab2 = get_big_text_annotation(0.5, -0.08, 'Time (years)')
         x_lab2['font'] = dict(size=18, color="black")
 
-        annotz += [x_lab, x_lab2]
+        annotz += [x_lab2]
 
         fig.update_layout(annotations=annotz)
 
-        fig.update_layout(legend=dict(x=-0.15, y=-0.15, orientation="h",
-                    xanchor="left", yanchor="top",
-                    font=dict(size=12),
-                    ))
+        fig.update_layout(legend=dict(x=-0.1, y=-0.072, 
+                    # orientation="h",
+                    font=dict(size=18),
+                    xanchor="left", yanchor="top"))
 
         
         return fig
@@ -2740,4 +2648,111 @@ class SREffectResults(BasicFig):
                     ))
 
         
+        return fig
+
+
+
+class SREffectResults2(BasicFig):
+    def __init__(self, data, double_freqs, conf_str) -> None:
+
+        self.width = FULL_PAGE_WIDTH
+
+        self.height = 450
+
+        self.data = data
+
+        self.double_freqs = double_freqs
+
+        fig = self._generate_figure()
+
+        self.filename = conf_str.replace("/grid/", "/paper_figs/sr_effect")
+
+        self._save_and_show(fig)
+
+
+
+    def _generate_figure(self):
+
+        fig = make_subplots(rows=1, cols=3)
+
+        fig.add_traces(self.get_traces(1), rows=1, cols=1)
+        fig.add_traces(self.get_traces(2), rows=1, cols=2)
+        fig.add_traces(self.get_traces(3), rows=1, cols=3)
+
+        fig = self._sort_layout(fig)
+
+        return fig
+
+
+
+    def get_traces(self, col):
+
+        df = copy.copy(self.data)
+
+        double_freq_factor = self.double_freqs[col-1]
+
+        df = df.loc[df["double_freq_factor"]==double_freq_factor]
+
+        traces = []
+
+        cols = dict(
+            col0="green",
+            col1="red",
+            col2="blue",
+                )
+
+        for rr in df.run.unique():
+            xx = df.loc[df["run"]==rr].bs_sex_prop
+            yy = df.loc[df["run"]==rr].maxEL
+
+            showlegend = True if col==1 else False
+
+            colr = cols["col" + str(int(rr))]
+
+            trc = dict(x=xx, 
+                    y=yy,
+                    name=f"Scenario {int(rr+1)}",
+                    showlegend=showlegend,
+                    line=dict(color=colr),
+                    opacity=0.7,
+                    )
+
+            traces.append(trc)
+
+        return traces
+
+
+    def _sort_layout(self, fig):
+        fig.update_layout(standard_layout(True, self.width, self.height))
+
+        fig.update_yaxes(range=[4.5,18.5], title="Maximum effective life", row=1, col=1)
+        fig.update_yaxes(range=[4.5,18.5], row=1, col=2)
+        fig.update_yaxes(range=[4.5,18.5], row=1, col=3)
+
+        left = -0.02
+        middle = 0.33
+        right = 0.69
+
+        top_row = 1.12
+
+        c1 = get_big_text_annotation(left,   top_row, 'A: low <i>rr</i>', xanchor="left")
+        c2 = get_big_text_annotation(middle, top_row, 'B: medium <i>rr</i>', xanchor="left")
+        c3 = get_big_text_annotation(right,  top_row, 'C: high <i>rr</i>', xanchor="left")
+        c1['font'] = dict(size=18, color=LIGHT_GREY_TEXT)
+        c2['font'] = dict(size=18, color=LIGHT_GREY_TEXT)
+        c3['font'] = dict(size=18, color=LIGHT_GREY_TEXT)
+
+        x_lab = get_big_text_annotation(0.5, -0.14, 'Between-season sexual reproduction proportion (<i>p<sub>B</sub></i>)')
+        x_lab['font'] = dict(size=18, color="black")
+
+        annotz = [c1,c2,c3,x_lab]
+
+        fig.update_layout(annotations=annotz)
+        fig.update_layout(legend=dict(x=0, y=1.1, 
+            font=dict(size=18),
+            yanchor="bottom",
+            xanchor="left",
+            orientation="h",
+            ))
+
         return fig

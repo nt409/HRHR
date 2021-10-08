@@ -156,11 +156,9 @@ def get_sr_scan_params_app(n_variants, double_freq_factor_lowest, index):
 
 
 
-def get_sr_scan_params_res(n_its, double_freq_factor, index):
+def get_sr_scan_params_res(double_freq_factor, index):
 
     np.random.seed(index)
-
-    # double_freq_factor = double_freq_factors[int(floor(index/n_its))]
 
     valid = False
 

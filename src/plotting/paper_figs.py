@@ -13,6 +13,7 @@ from math import floor, log10
 from scipy import stats
 from PIL import Image
 import plotly.express as px
+import random
 
 
 from model.utils import logit10
@@ -343,8 +344,8 @@ class CombinedModelPlot(BasicFig):
         fig.update_yaxes(title="Leaf proportion", row=1, col=1, showline=True, showgrid=False)
         fig.update_yaxes(title="Leaf proportion<br>(x10<sup>-3</sup>)", row=1, col=2, showline=True, showgrid=False)
 
-        fig.update_yaxes(title="Leaf proportion<br>(x10<sup>-3</sup>)", row=2, col=1, showline=True, showgrid=False)
-        fig.update_yaxes(title="Concentration", row=2, col=2, showline=True, showgrid=False)
+        fig.update_yaxes(title="Leaf proportion", row=2, col=1, showline=True, showgrid=False)
+        fig.update_yaxes(title="Leaf proportion<br>(x10<sup>-3</sup>)", row=2, col=2, showline=True, showgrid=False)
 
         fig.update_yaxes(title="Yield", row=1, col=3, showgrid=False)
         fig.update_yaxes(title="Resistance<br>frequency", row=2, col=3, showgrid=False)
@@ -2427,7 +2428,7 @@ class SREffectAppendix(BasicFig):
 
 
 
-class SREffectResults(BasicFig):
+class SREffectResultsOld(BasicFig):
     def __init__(self, data, out_l, out_m, out_h, n_its, conf_str) -> None:
 
         self.width = FULL_PAGE_WIDTH
@@ -2445,7 +2446,7 @@ class SREffectResults(BasicFig):
 
         fig = self._generate_figure()
 
-        self.filename = conf_str.replace("/grid/", "/paper_figs/sr_effect")
+        self.filename = conf_str.replace("/grid/", "/paper_figs/sr_effect_old")
 
         self._save_and_show(fig)
 
@@ -2652,7 +2653,11 @@ class SREffectResults(BasicFig):
 
 
 
-class SREffectResults2(BasicFig):
+
+
+
+
+class SREffectResults3Panel(BasicFig):
     def __init__(self, data, double_freqs, conf_str) -> None:
 
         self.width = FULL_PAGE_WIDTH
@@ -2673,7 +2678,7 @@ class SREffectResults2(BasicFig):
 
     def _generate_figure(self):
 
-        fig = make_subplots(rows=1, cols=3)
+        fig = make_subplots(rows=1, cols=3, shared_yaxes=True)
 
         fig.add_traces(self.get_traces(1), rows=1, cols=1)
         fig.add_traces(self.get_traces(2), rows=1, cols=2)
@@ -2695,11 +2700,8 @@ class SREffectResults2(BasicFig):
 
         traces = []
 
-        cols = dict(
-            col0="green",
-            col1="red",
-            col2="blue",
-                )
+        colors = list(px.colors.qualitative.Bold)
+
 
         for rr in df.run.unique():
             xx = df.loc[df["run"]==rr].bs_sex_prop
@@ -2707,14 +2709,16 @@ class SREffectResults2(BasicFig):
 
             showlegend = True if col==1 else False
 
-            colr = cols["col" + str(int(rr))]
+            colr = colors[int(rr)]
+            
+            opacity = 0.8 if rr in [0,1,2] else 0.15
 
             trc = dict(x=xx, 
                     y=yy,
                     name=f"Scenario {int(rr+1)}",
                     showlegend=showlegend,
                     line=dict(color=colr),
-                    opacity=0.7,
+                    opacity=opacity,
                     )
 
             traces.append(trc)
@@ -2725,9 +2729,7 @@ class SREffectResults2(BasicFig):
     def _sort_layout(self, fig):
         fig.update_layout(standard_layout(True, self.width, self.height))
 
-        fig.update_yaxes(range=[4.5,18.5], title="Maximum effective life", row=1, col=1)
-        fig.update_yaxes(range=[4.5,18.5], row=1, col=2)
-        fig.update_yaxes(range=[4.5,18.5], row=1, col=3)
+        fig.update_yaxes(range=[6.5,17.5], title="Maximum effective life", row=1, col=1)
 
         left = -0.02
         middle = 0.33
@@ -2736,7 +2738,7 @@ class SREffectResults2(BasicFig):
         top_row = 1.12
 
         c1 = get_big_text_annotation(left,   top_row, 'A: low <i>rr</i>', xanchor="left")
-        c2 = get_big_text_annotation(middle, top_row, 'B: medium <i>rr</i>', xanchor="left")
+        c2 = get_big_text_annotation(middle, top_row, 'B: expected <i>rr</i>', xanchor="left")
         c3 = get_big_text_annotation(right,  top_row, 'C: high <i>rr</i>', xanchor="left")
         c1['font'] = dict(size=18, color=LIGHT_GREY_TEXT)
         c2['font'] = dict(size=18, color=LIGHT_GREY_TEXT)
@@ -2748,8 +2750,8 @@ class SREffectResults2(BasicFig):
         annotz = [c1,c2,c3,x_lab]
 
         fig.update_layout(annotations=annotz)
-        fig.update_layout(legend=dict(x=0, y=1.1, 
-            font=dict(size=18),
+        fig.update_layout(legend=dict(x=-0.05, y=1.15, 
+            font=dict(size=16),
             yanchor="bottom",
             xanchor="left",
             orientation="h",

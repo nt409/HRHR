@@ -1,7 +1,7 @@
 import pandas as pd
 
 from sr_hap.configs import config_res
-from plotting.paper_figs import SREffectResults, SREffectResults2
+from plotting.paper_figs import SREffectResults3Panel
 
 
 
@@ -16,7 +16,19 @@ if __name__=="__main__":
     dff_str = ",".join([str(ee) for ee in double_freq_factors])
     filename = f"./sr_hap/outputs/combined/df_res_{n_its}_{n_sex_props}_{n_doses}_{dff_str}.csv"
     df = pd.read_csv(filename)
+    
+    df = df.loc[df["run"]<5]
+    df.run.replace(0, 50, inplace=True)
+    df.run.replace(1, 51, inplace=True)
+    df.run.replace(2, 52, inplace=True)
+    df.run.replace(3, 53, inplace=True)
 
+    df.run.replace(52, 0, inplace=True)
+    df.run.replace(53, 1, inplace=True)
+    df.run.replace(50, 2, inplace=True)
+    df.run.replace(51, 3, inplace=True)
+
+    df.sort_values(by=["run", "bs_sex_prop"], inplace=True)
 
     filename = f"../outputs/figures/paper_figs/sr_effect_res_{n_its}_{n_sex_props}_{n_doses}_{dff_str}.png"
-    SREffectResults2(df, double_freq_factors, filename)
+    SREffectResults3Panel(df, double_freq_factors, filename)

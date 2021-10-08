@@ -18,7 +18,7 @@ def get_sr_scan_df_res(n_its, n_sex_props, n_doses, double_freq_factors, index):
 
     for dd in double_freq_factors:
         
-        dfp = get_sr_scan_params_res(n_its, dd, index)
+        dfp = get_sr_scan_params_res(dd, index)
 
 
 

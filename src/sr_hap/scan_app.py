@@ -1,64 +1,66 @@
-
 import numpy as np
 import pandas as pd
 import sys
 
-from model.simulator import RunGrid
+from model.simulator import RunGrid, RunSingleTactic
 from model.config_classes import GridConfig
-from .utils import get_sr_scan_params_app
+from sr_hap.utils import get_sr_scan_params_app
+from sr_hap.configs import config_res
 
 
-
-def get_sr_scan_df_app(n_variants, n_sex_props, n_doses, double_freq_factor_lowest, index):
-    
-    dfp = get_sr_scan_params_app(n_variants, double_freq_factor_lowest, index)
-
-    sex_props = np.linspace(0, 1, n_sex_props)
+def get_sr_scan_df_res(n_its, n_sex_props, n_doses, double_freq_factors, index):
 
     df = pd.DataFrame()
-
-
-
-    data = dfp.iloc[int(0),:]
-
-    conf = GridConfig(30, None, None, n_doses)
     
-    conf.primary_inoculum = dict(
-        RR = data["RR"],
-        RS = data["RS"],
-        SR = data["SR"],
-        SS = data["SS"],
-        )
+    sex_props = np.linspace(0, 1, n_sex_props)
 
-    fcide_pars = dict(
-        omega_1 = data["omega_1"],
-        omega_2 = data["omega_2"],
-        theta_1 = data["theta_1"],
-        theta_2 = data["theta_2"],
-        delta_1 = data["delta_1"],
-        delta_2 = data["delta_2"],
-        )
 
-    conf.load_saved = False
+    worked = True
 
-    for bs in sex_props:
-
-        conf.bs_sex_prop = bs
-        conf.add_string()
-
-        output = RunGrid(fcide_pars).run(conf)
-
-        data["maxEL"] = np.amax(output.FY)
-        data["bs_sex_prop"] = bs
-        data["run"] = index
+    for dd in double_freq_factors:
         
-        df = df.append(data, ignore_index=True)
+        dfp, fcide_pars, conf = get_sr_scan_params_app(dd, index)
+        
+        conf.load_saved = False
+        
+        out = RunSingleTactic(fcide_pars).run(conf)
 
 
 
-    filename = f"./sr_hap/outputs/single/df_app_{n_variants}_{n_sex_props}_{n_doses}_{double_freq_factor_lowest}_{index}.csv"
-    print(f"Saving df to: {filename}")
-    df.to_csv(filename, index=False)
+
+        data = dfp.iloc[int(0),:]
+
+
+        conf.load_saved = False
+
+
+        for bs in sex_props:
+
+            conf.bs_sex_prop = bs
+            conf.add_string()
+
+            out = RunSingleTactic(fcide_pars).run(conf)
+
+
+            data.loc["maxDoseEL"] = out.failure_year
+            data.loc["bs_sex_prop"] = bs
+            data.loc["run"] = index
+            
+            df = df.append(data, ignore_index=True)
+
+        increasing = np.float(df.loc[((df["bs_sex_prop"]==1) & (df["double_freq_factor"]==dd)), "maxDoseEL"])> np.float(df.loc[((df["bs_sex_prop"]==0) & (df["double_freq_factor"]==dd)), "maxDoseEL"])
+        const      = np.float(df.loc[((df["bs_sex_prop"]==1) & (df["double_freq_factor"]==dd)), "maxDoseEL"])==np.float(df.loc[((df["bs_sex_prop"]==0) & (df["double_freq_factor"]==dd)), "maxDoseEL"])
+        decreasing = np.float(df.loc[((df["bs_sex_prop"]==1) & (df["double_freq_factor"]==dd)), "maxDoseEL"])< np.float(df.loc[((df["bs_sex_prop"]==0) & (df["double_freq_factor"]==dd)), "maxDoseEL"])
+
+        worked = True if worked and ((increasing and dd>1) or (const and dd==1) or (decreasing and dd<1)) else False
+
+        df["worked"] = worked
+    
+    if any(df["worked"]):
+        dff_str = ",".join([str(ee) for ee in double_freq_factors])
+        filename = f"./sr_hap/outputs/single/df_app_{n_its}_{n_sex_props}_{n_doses}_{dff_str}_{index}.csv"
+        print(f"Saving df to: {filename}")
+        df.to_csv(filename, index=False)
     
     return df
 
@@ -69,18 +71,27 @@ def get_sr_scan_df_app(n_variants, n_sex_props, n_doses, double_freq_factor_lowe
 
 
 
-if __name__=="__main__":
-    n_variants = 3
-    n_sex_ps = 11
-    n_doses = 21
-    
-    if len(sys.argv)!=2:
-        raise Exception("Supply one argument: a run index")
 
-    index = int(sys.argv[1])
+
+
+if __name__=="__main__":
     
-    double_freq_factor_lowest = 1e-4
-    df = get_sr_scan_df_app(n_variants, n_sex_ps, n_doses, double_freq_factor_lowest, index)
+    df = pd.DataFrame()
+
+    for ind in range(100):
+
+        ind_dict = dict(index=ind)
+
+        config_res = {**config_res, **ind_dict}
+        
+        tmp = get_sr_scan_df_res(**config_res)
+
+        if any(tmp["worked"]):
+            df = pd.concat([df, tmp])
+    
+    filename = f"./sr_hap/outputs/combined/df_app.csv"
+    print(f"Saving df to: {filename}")
+    df.to_csv(filename, index=False)
         
 
 

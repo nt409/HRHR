@@ -2,6 +2,7 @@ import numpy as np
 from math import floor
 
 from model.params import PARAMS
+from sr_hap.utils import get_rfd
 
 
 
@@ -22,8 +23,9 @@ def get_alt_scan_params(n_its, index):
     thet1 = thetas[kk]
     thet2 = 9.6
 
-
-    primary_inoc = dict(RR=rf1*rf2, RS=rf1, SR=rf2, SS=1-rf1-rf2-rf1*rf2)
+    rfd = get_rfd(rf1, rf2)
+    
+    primary_inoc = dict(RR=rfd, RS=rf1, SR=rf2, SS=1-rf1-rf2-rfd)
 
     fcide_parms = dict(
         omega_1 = om1,

@@ -9,22 +9,6 @@ from model.params import PARAMS
 
 
 
-def get_haploid_outputs_app(n_variants, n_doses, double_freq_factor_lowest, index, bss):
-    outputs = []
-    
-    dfp = get_sr_scan_params_app(n_variants, double_freq_factor_lowest, index)
-    
-    print(dfp)
-
-    for bs in bss:
-
-        output = get_this_run_output(n_doses, bs, dfp)
-
-        outputs.append(output)
-    return outputs
-
-
-
 
 
 
@@ -73,13 +57,7 @@ def get_rfd(x, y):
 
 
 
-def get_sr_scan_params_app(n_variants, double_freq_factor_lowest, index):
-
-    power_of_10 = floor(index/n_variants)
-
-    double_freq_factor = double_freq_factor_lowest * 10**(power_of_10)
-
-    index = index % n_variants
+def get_sr_scan_params_app(double_freq_factor, index):
 
     np.random.seed(index)
 
@@ -89,15 +67,18 @@ def get_sr_scan_params_app(n_variants, double_freq_factor_lowest, index):
 
         rf1 = 10**(np.random.uniform(-8, -4))
         rf2 = 10**(np.random.uniform(-8, -4))
+        # rf2 = rf1
         
         rfd = get_rfd(rf1, rf2)
         rfd = double_freq_factor*rfd
 
         om1 = np.random.uniform(0.4,1)
         om2 = np.random.uniform(0.4,1)
+        # om2 = om1
         
         thet1 = np.random.uniform(4,12)
         thet2 = np.random.uniform(4,12)
+        # thet2 = thet1
         
         delta_factor1 = np.random.uniform(1/3,3)
         delta_factor2 = np.random.uniform(1/3,3)
@@ -118,7 +99,7 @@ def get_sr_scan_params_app(n_variants, double_freq_factor_lowest, index):
             double_freq_factor = double_freq_factor,
             )
         
-        conf = SingleConfig(1, None, None,
+        conf = SingleConfig(35, None, None,
                             1, 1, 1, 1,
                             primary_inoculum=None
                             )
@@ -148,7 +129,7 @@ def get_sr_scan_params_app(n_variants, double_freq_factor_lowest, index):
             valid = True
             par_df = pd.DataFrame([params])
 
-    return par_df
+    return par_df, fcide_pars, conf
 
 
 

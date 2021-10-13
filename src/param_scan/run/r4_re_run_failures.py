@@ -3,9 +3,15 @@ Re-run failed cases - try to find out why
 """
 
 import sys
+import numpy as np
+from model.strategy_arrays import EqualResFreqBreakdownArray
+from model.utils import object_dump
 
 from param_scan.fns.config import config_rand
 from param_scan.fns.post_process import PostProcess
+
+
+
 
 
 def main(run_attrs, print=False):
@@ -29,7 +35,12 @@ def main(run_attrs, print=False):
 
         # saves result to outpus/re_run/...
         # PP.re_run_cont(NDoses=NDoses, N_cont_doses=N_cont_doses, DS_lim=DS_lim, run_indices=[run])
-        PP.re_run_grid(NDoses=NDoses, run_indices=[run])
+        grid_out = PP.re_run_grid(NDoses=NDoses, run_indices=[run])
+
+        filename = f"./param_scan/outputs/failed/grid_output_run={run}.csv"
+        object_dump(filename, grid_out)
+
+
 
 
 

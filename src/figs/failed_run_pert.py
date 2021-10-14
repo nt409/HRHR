@@ -11,9 +11,6 @@ from param_scan.fns.post_process import PostProcess
 
 
 
-# def run_old(run_index):
-#     PP.re_run_grid(NDoses=201, run_indices=[run_index])
-
 def run_pert(run_index):
     df_test = PP.get_params_for_specific_runs([run_index])
 
@@ -21,10 +18,10 @@ def run_pert(run_index):
 
     this_run_ind = int(df_test.iloc[0,:].run)
 
-    rp = PP._get_RPs(pars, 201)
     
+    # rp = PP._get_RPs(pars, NDoses=101)
     # grid_default = RunGrid(rp.fung_parms).run(rp.grid_conf)
-    filename = f"./param_scan/outputs/failed/grid_output_run={this_run_ind}.csv"
+    filename = f"./param_scan/outputs/failed/grid_output_run={this_run_ind}.pickle"
     with open(filename, 'rb') as f:
         grid_default = pickle.load(f)
 
@@ -35,7 +32,7 @@ def run_pert(run_index):
     pars['RS'] = pars['RS']*0.9
     pars['RR'] = pars['RR']*1.1
 
-    rp = PP._get_RPs(pars, NDoses=201)
+    rp = PP._get_RPs(pars, NDoses=101)
     
     grid_pert = RunGrid(rp.fung_parms).run(rp.grid_conf)
 
@@ -48,14 +45,8 @@ def run_pert(run_index):
 
 if __name__=="__main__":
 
-    run = 91
-    # run = 183
-    # run = 227
-    # run = 241
-    # run = 295
-    # run = 478
+    run = 295
     
     PP = PostProcess(config_rand['par_str'])
 
-    # run_old(run)
     run_pert(run)

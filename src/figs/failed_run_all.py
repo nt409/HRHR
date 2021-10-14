@@ -18,7 +18,7 @@ def run_all_failed(runs):
 
     for run_index in runs:
         
-        filename = f"./param_scan/outputs/failed/grid_output_run={run_index}.csv"
+        filename = f"./param_scan/outputs/failed/grid_output_run={run_index}.pickle"
         with open(filename, 'rb') as f:
             data = pickle.load(f)
         
@@ -36,13 +36,15 @@ def run_all_failed(runs):
 
 
     # plot output
-    conf_str = conf_str.replace("param_scan/", f"paper_figs/failed_run={this_run_ind}_pert_")
-    DoseSpace6(grid_outputs, conf_str)
+    conf_str = conf_str.replace("param_scan/", f"paper_figs/failed_run_all={this_run_ind}_pert_")
+    filename = conf_str[:100] + ".png"
+    DoseSpace6(grid_outputs, filename)
 
 
 if __name__=="__main__":
 
-    runs = [91,
+    runs = [
+      91,
       183,
       227,
       241,

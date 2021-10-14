@@ -10,21 +10,18 @@ from sr_scan.configs import config_res
 
 def get_sr_scan_df_res(n_its, n_sex_props, n_doses, double_freq_factors, index):
 
-    df = pd.DataFrame()
     
     sex_props = np.linspace(0, 1, n_sex_props)
 
-
-    worked = True
+    df = pd.DataFrame()
 
     for dd in double_freq_factors:
-        
+        tmp = pd.DataFrame()
+
         dfp, fcide_pars, conf = get_sr_scan_params_app(dd, index)
         
         conf.load_saved = False
         
-        out = RunSingleTactic(fcide_pars).run(conf)
-
 
 
 
@@ -46,16 +43,19 @@ def get_sr_scan_df_res(n_its, n_sex_props, n_doses, double_freq_factors, index):
             data.loc["bs_sex_prop"] = bs
             data.loc["run"] = index
             
-            df = df.append(data, ignore_index=True)
+            tmp = tmp.append(data, ignore_index=True)
 
-        increasing = np.float(df.loc[((df["bs_sex_prop"]==1) & (df["double_freq_factor"]==dd)), "maxDoseEL"])> np.float(df.loc[((df["bs_sex_prop"]==0) & (df["double_freq_factor"]==dd)), "maxDoseEL"])
-        const      = np.float(df.loc[((df["bs_sex_prop"]==1) & (df["double_freq_factor"]==dd)), "maxDoseEL"])==np.float(df.loc[((df["bs_sex_prop"]==0) & (df["double_freq_factor"]==dd)), "maxDoseEL"])
-        decreasing = np.float(df.loc[((df["bs_sex_prop"]==1) & (df["double_freq_factor"]==dd)), "maxDoseEL"])< np.float(df.loc[((df["bs_sex_prop"]==0) & (df["double_freq_factor"]==dd)), "maxDoseEL"])
+        increasing = np.float(tmp.loc[((tmp["bs_sex_prop"]==1) & (tmp["double_freq_factor"]==dd)), "maxDoseEL"])> np.float(tmp.loc[((tmp["bs_sex_prop"]==0) & (tmp["double_freq_factor"]==dd)), "maxDoseEL"])
+        const      = np.float(tmp.loc[((tmp["bs_sex_prop"]==1) & (tmp["double_freq_factor"]==dd)), "maxDoseEL"])==np.float(tmp.loc[((tmp["bs_sex_prop"]==0) & (tmp["double_freq_factor"]==dd)), "maxDoseEL"])
+        decreasing = np.float(tmp.loc[((tmp["bs_sex_prop"]==1) & (tmp["double_freq_factor"]==dd)), "maxDoseEL"])< np.float(tmp.loc[((tmp["bs_sex_prop"]==0) & (tmp["double_freq_factor"]==dd)), "maxDoseEL"])
 
         this_bit_worked = ((increasing and dd>1) or (const and dd==1) or (decreasing and dd<1))
-        worked = True if worked or this_bit_worked else False
+        worked = True if this_bit_worked else False
 
-        df["worked"] = worked
+        tmp["worked"] = worked
+
+        if any(tmp["worked"]):
+            df = pd.concat([df, tmp])
     
     if any(df["worked"]):
         dff_str = ",".join([str(ee) for ee in double_freq_factors])

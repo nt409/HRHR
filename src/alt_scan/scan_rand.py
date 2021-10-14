@@ -74,7 +74,7 @@ def main(n_doses, alt_strat, index):
 
 
 
-    filename = f"./alt_scan/outputs/single/out_rand_{n_doses}_{alt_strat}.csv"
+    filename = f"./alt_scan/outputs/single/out_rand_{n_doses}_{alt_strat}_{index}.csv"
     print(f"saving df to: {filename}")
     df.to_csv(filename)
 

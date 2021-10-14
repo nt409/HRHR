@@ -326,7 +326,7 @@ def get_strain_freq_traces(rf_s, rf_e):
 # * End of Strain freq traces
 
 
-def contour_at_0(x, y, z, color, dash):
+def contour_at_0(x, y, z, color, dash, xpos=0.42):
     return go.Contour(x=x,
                     y=y,
                     z=z,
@@ -334,7 +334,7 @@ def contour_at_0(x, y, z, color, dash):
                     contours_coloring='lines',
                     colorscale=[color]*2,
                     line=dict(width=2, dash=dash),
-                    colorbar=invisible_colorbar(0.42, None),
+                    colorbar=invisible_colorbar(xpos, None),
                     )
 
 

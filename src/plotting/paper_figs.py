@@ -2284,7 +2284,7 @@ class DoseSpaceScenarioDouble(BasicFig):
 
 
 class SREffectAppendix(BasicFig):
-    def __init__(self, out_l, out_m, out_h, conf_str) -> None:
+    def __init__(self, out_l, out_m, out_h, sex_props, conf_str) -> None:
 
         self.width = FULL_PAGE_WIDTH
 
@@ -2293,6 +2293,8 @@ class SREffectAppendix(BasicFig):
         self.outputs_l = out_l
         self.outputs_m = out_m
         self.outputs_h = out_h
+
+        self.sex_props = sex_props
 
         fig = self._generate_figure()
 
@@ -2307,12 +2309,15 @@ class SREffectAppendix(BasicFig):
         fig = make_subplots(rows=3, cols=3, 
                 shared_xaxes=True,
                 )
-
-        cols3 = ["maroon", "cornflowerblue", "lime"]
-
-        trcs_l_rr, trcs_l_rs, trcs_l_sr = self.get_rf_traces(self.outputs_l, [0, 0.2, 1], cols3, True)
-        trcs_m_rr, trcs_m_rs, trcs_m_sr = self.get_rf_traces(self.outputs_m, [0, 0.2, 1], cols3)
-        trcs_h_rr, trcs_h_rs, trcs_h_sr = self.get_rf_traces(self.outputs_h, [0, 0.2, 1], cols3)
+        
+        cols31 = list(px.colors.sequential.Plasma)[::3]
+        cols32 = list(px.colors.sequential.Viridis)[::3]
+        cols32.reverse()
+        cols33 = list(px.colors.sequential.Cividis)[::3]
+        
+        trcs_l_rr, trcs_l_rs, trcs_l_sr = self.get_rf_traces(self.outputs_l, self.sex_props, cols31, True)
+        trcs_m_rr, trcs_m_rs, trcs_m_sr = self.get_rf_traces(self.outputs_m, self.sex_props, cols32)
+        trcs_h_rr, trcs_h_rs, trcs_h_sr = self.get_rf_traces(self.outputs_h, self.sex_props, cols33)
         
         fig.add_traces(trcs_l_rr, rows=1, cols=1)
         fig.add_traces(trcs_m_rr, rows=1, cols=2)
@@ -2335,18 +2340,22 @@ class SREffectAppendix(BasicFig):
 
 
 
-    def get_rf_traces(self, outputs, bss, cols, showledge=False):
+    def get_rf_traces(self, outputs, bss, col, showledge=False):
         
         traces_rr = []
         traces_rs = []
         traces_sr = []
         
-        for data, bs, col in zip(outputs, bss, cols):
+        for data, bs in zip(outputs, bss):
             traces = self.get_rf_trace(data, bs, col, showledge)
 
             traces_rr += [traces[0]]
             traces_rs += [traces[1]]
             traces_sr += [traces[2]]
+            
+            traces_rr += [traces[3]]
+            traces_rs += [traces[4]]
+            traces_sr += [traces[5]]
 
 
         return traces_rr, traces_rs, traces_sr
@@ -2354,44 +2363,79 @@ class SREffectAppendix(BasicFig):
 
 
 
-    def get_rf_trace(self, data, bs, col, showledge):
+    def get_rf_trace(self, data, bs, cols, showledge):
 
-        fy = int(np.amax(data.FY))
+        fy = data.failure_year
 
-        fRR = data.start_freqs_DA["RR"][4, 19, :(fy+1)]
-        fRS = data.start_freqs_DA["RS"][4, 19, :(fy+1)]
-        fSR = data.start_freqs_DA["SR"][4, 19, :(fy+1)]
-        # fSS = data.start_freqs_DA["SS"][-1,-1,:]
-
-        # print(data.FY[5, 10:20])
-        print(fy)
+        fRR = data.start_freqs["RR"][:(fy+1)]
+        fRS = data.start_freqs["RS"][:(fy+1)]
+        fSR = data.start_freqs["SR"][:(fy+1)]
 
         x = list(range(len(fRR)))
 
         traces = []
 
-        for ff, dash, name in zip([fRR, fRS, fSR],
-                            ["solid", "dash", "dot"],
-                            [f"Sexual proportion={bs}, strain <i>rr</i>",
-                                f"Sexual proportion={bs}, strain <i>rs</i>", 
-                                f"Sexual proportion={bs}, strain <i>sr</i>"],
-                            ):
+        for ff in [fRR, fRS, fSR]:
 
             ff = [None if ee==0 else log10(ee/(1-ee)) for ee in ff]
 
-            showlegend = showledge if dash=="solid" else False
+               
+            if bs==0:
+                # dash = "solid"
+                col = cols[0]
+            elif bs==1:
+                # dash = "dot"
+                col = cols[2]
+            else:
+                # dash = "dash"
+                col = cols[1]
+                
 
-            name_use = name.split(",")[0]
 
             trc = dict(x=x, y=ff,
-                        line=dict(dash=dash, color=col),
-                        name=name_use,
-                        # legendgroup=col,
-                        showlegend=showlegend,
+                        line=dict(color=col),
+                        # name=name_use,
+                        showlegend=False,
                         mode="lines"
                         )
             
             traces.append(trc)
+
+
+        for vals, name in zip(
+                            [fRR, fRS, fSR],
+                            [f"Sexual proportion={bs}, strain <i>rr</i>",
+                                f"Sexual proportion={bs}, strain <i>rs</i>", 
+                                f"Sexual proportion={bs}, strain <i>sr</i>"],
+                            ):
+            
+            xs = [data.failure_year]
+            ff = [None if ee==0 else log10(ee/(1-ee)) for ee in vals]
+            ys = [ff[data.failure_year]]
+
+            showlegend = showledge if "rr" in name else False
+
+
+            if bs==0:
+                col = cols[0]
+                marker="cross"
+            elif bs==1:
+                col = cols[2]
+                marker="diamond"
+            else:
+                col = cols[1]
+                marker="star-diamond"
+
+            name_use = name.split(",")[0]
+
+            vertical_trace = go.Scatter(x=xs, y=ys, 
+                        showlegend=showlegend,
+                        name=name_use,
+                        marker=dict(color=col, size=12, symbol=marker),
+                        mode="markers",
+                        )
+            
+            traces.append(vertical_trace)
 
         return traces
 
@@ -2408,9 +2452,9 @@ class SREffectAppendix(BasicFig):
         fig.update_yaxes(title="Frequency <i>rs</i><br>(logit scale)", row=2, col=1)
         fig.update_yaxes(title="Frequency <i>sr</i><br>(logit scale)", row=3, col=1)                
         
-        fig.update_xaxes(range=[-0.5, 17.5], row=3, col=1)
-        fig.update_xaxes(range=[-0.5, 17.5], row=3, col=2)
-        fig.update_xaxes(range=[-0.5, 17.5], row=3, col=3)
+        fig.update_xaxes(range=[-0.5, self.outputs_l[0].failure_year + 0.9], row=3, col=1)
+        fig.update_xaxes(range=[-0.5, self.outputs_m[1].failure_year + 0.9], row=3, col=2)
+        fig.update_xaxes(range=[-0.5, self.outputs_h[2].failure_year + 0.9], row=3, col=3)
 
         left = -0.015
         middle = 0.34
@@ -2422,15 +2466,15 @@ class SREffectAppendix(BasicFig):
 
         annotz = [
             get_big_text_annotation(left,   top_row, 'A: low <i>rr</i>', xanchor="left"),
-            get_big_text_annotation(middle, top_row, 'B: medium <i>rr</i>', xanchor="left"),
-            get_big_text_annotation(right,  top_row, 'C: high <i>rr</i>', xanchor="left"),
+            get_big_text_annotation(middle, top_row, 'D: medium <i>rr</i>', xanchor="left"),
+            get_big_text_annotation(right,  top_row, 'H: high <i>rr</i>', xanchor="left"),
             
-            get_big_text_annotation(left,   middle_row, 'D', xanchor="left"),
+            get_big_text_annotation(left,   middle_row, 'B', xanchor="left"),
             get_big_text_annotation(middle, middle_row, 'E', xanchor="left"),
-            get_big_text_annotation(right,  middle_row, 'F', xanchor="left"),
+            get_big_text_annotation(right,  middle_row, 'I', xanchor="left"),
 
-            get_big_text_annotation(left,   bottom_row, 'H', xanchor="left"),
-            get_big_text_annotation(middle, bottom_row, 'I', xanchor="left"),
+            get_big_text_annotation(left,   bottom_row, 'C', xanchor="left"),
+            get_big_text_annotation(middle, bottom_row, 'F', xanchor="left"),
             get_big_text_annotation(right,  bottom_row, 'J', xanchor="left"),
             ]
 
@@ -2734,10 +2778,15 @@ class SREffectResults3Panel(BasicFig):
 
         colors = list(px.colors.qualitative.Bold)
 
+        np.random.seed(7)
+
 
         for rr in df.run.unique():
             xx = df.loc[df["run"]==rr].bs_sex_prop
             yy = df.loc[df["run"]==rr].maxEL
+            yy = list(yy)
+            eps = np.random.normal(0,0.07)
+            yy = [ee+eps for ee in yy]
 
             showlegend = True if col==1 else False
 
@@ -2801,6 +2850,131 @@ class SREffectResults3Panel(BasicFig):
 
 
 
+class SREffectResults3PanelApp(BasicFig):
+    def __init__(self, data, double_freqs, conf_str) -> None:
+
+        self.width = FULL_PAGE_WIDTH
+
+        self.height = 450
+
+        self.data = data
+
+        self.double_freqs = double_freqs
+
+        fig = self._generate_figure()
+
+        self.filename = conf_str.replace("/grid/", "/paper_figs/sr_effect")
+
+        self._save_and_show(fig)
+
+
+
+    def _generate_figure(self):
+
+        fig = make_subplots(rows=1, cols=3, shared_yaxes=True)
+
+        fig.add_traces(self.get_traces(1), rows=1, cols=1)
+        fig.add_traces(self.get_traces(2), rows=1, cols=2)
+        fig.add_traces(self.get_traces(3), rows=1, cols=3)
+
+        fig = self._sort_layout(fig)
+
+        return fig
+
+
+
+    def get_traces(self, col):
+
+        df = copy.copy(self.data)
+
+        double_freq_factor = self.double_freqs[col-1]
+
+        df = df.loc[df["double_freq_factor"]==double_freq_factor]
+
+        traces = []
+
+        colors = list(px.colors.qualitative.Bold)
+
+        np.random.seed(5)
+
+
+        for rr in df.run.unique():
+            xx = df.loc[df["run"]==rr].bs_sex_prop
+            yy = df.loc[df["run"]==rr].maxEL
+            yy = list(yy)
+            eps = np.random.normal(0,0.05)
+            yy = [ee+eps for ee in yy]
+
+            showlegend = False
+
+            colr = colors[int(rr)]
+            
+            opacity = 0.15
+
+            if rr==1 and col in [1,3]:
+                colr="black"
+                opacity = 1
+            
+            if rr==0 and col==2:
+                colr="black"
+                opacity = 1
+
+            trc = dict(x=xx, 
+                    y=yy,
+                    name=f"Scenario {int(rr+1)}",
+                    showlegend=showlegend,
+                    line=dict(color=colr),
+                    opacity=opacity,
+                    )
+
+            traces.append(trc)
+
+        return traces
+
+
+    def _sort_layout(self, fig):
+        fig.update_layout(standard_layout(False, self.width, self.height))
+
+        fig.update_yaxes(range=[6.5,17.5], title="Maximum effective life", row=1, col=1)
+
+        left = -0.02
+        middle = 0.33
+        right = 0.69
+
+        top_row = 1.12
+
+        c1 = get_big_text_annotation(left,   top_row, 'A: low <i>rr</i>', xanchor="left")
+        c2 = get_big_text_annotation(middle, top_row, 'B: expected <i>rr</i>', xanchor="left")
+        c3 = get_big_text_annotation(right,  top_row, 'C: high <i>rr</i>', xanchor="left")
+        c1['font'] = dict(size=18, color=LIGHT_GREY_TEXT)
+        c2['font'] = dict(size=18, color=LIGHT_GREY_TEXT)
+        c3['font'] = dict(size=18, color=LIGHT_GREY_TEXT)
+
+        x_lab = get_big_text_annotation(0.5, -0.14, 'Between-season sexual reproduction proportion (<i>p<sub>B</sub></i>)')
+        x_lab['font'] = dict(size=18, color="black")
+
+        annotz = [c1,c2,c3,x_lab]
+
+        fig.update_layout(annotations=annotz)
+        fig.update_layout(legend=dict(x=-0.05, y=1.15, 
+            font=dict(size=16),
+            yanchor="bottom",
+            xanchor="left",
+            orientation="h",
+            ))
+
+        return fig
+
+
+
+
+
+
+
+
+
+
+
 
 
 class DoseSpace6(BasicFig):
@@ -2812,6 +2986,8 @@ class DoseSpace6(BasicFig):
 
         self.data_list = data_list
 
+        self.cbar_attrs = dict(x=[0.40, 1.01], y=[0.13, 0.5, 0.87], len=0.28)
+
         fig = self._generate_figure()
 
         self.filename = conf_str.replace("/grid/", "/paper_figs/dose_space_scenario_single")
@@ -2822,15 +2998,18 @@ class DoseSpace6(BasicFig):
 
     def _generate_figure(self):
 
-        fig = make_subplots(rows=3, cols=2, shared_yaxes=True, shared_xaxes=True)
-
+        fig = make_subplots(rows=3, cols=2, shared_yaxes=True, shared_xaxes=True,
+            # vertical_spacing=0.25,
+            horizontal_spacing=0.22)
+        
+        # self.data_list.reverse()
         for ind, data in enumerate(self.data_list):
             showledge = True if ind==0 else False
 
             rows = 1 + floor(ind/2)
-            cols = 1+ ind % 2
+            cols = 1 + ind % 2
 
-            traces = self._get_DSS_EL_traces(data, showlegend=showledge)
+            traces = self._get_DSS_EL_traces(data, cols-1, rows-1, showlegend=showledge)
 
             fig.add_traces(traces, rows=rows, cols=cols)
 
@@ -2840,13 +3019,13 @@ class DoseSpace6(BasicFig):
 
 
 
-    def _get_DSS_EL_traces(self, data, showlegend=False):  
+    def _get_DSS_EL_traces(self, data, cbar_x, cbar_y, showlegend=False):  
         traces = []
 
         if showlegend:
             traces.append(self._get_DSS_ERFB_legend_entry())
 
-        traces.append(self._get_DSS_FY_trace(data))
+        traces.append(self._get_DSS_FY_trace(data, cbar_x, cbar_y))
         
         traces.append(self._get_DSS_ERFB_contour_single(data))
 
@@ -2872,7 +3051,7 @@ class DoseSpace6(BasicFig):
 
 
 
-    def _get_DSS_FY_trace(self, data):
+    def _get_DSS_FY_trace(self, data, cbar_x, cbar_y):
         FYs = np.transpose(data.FY)
 
         xheat = np.linspace(0, 1, FYs.shape[0])
@@ -2882,7 +3061,12 @@ class DoseSpace6(BasicFig):
             x = xheat,
             y = yheat,
             z = FYs,
-            coloraxis = "coloraxis",
+            # coloraxis = "coloraxis",
+            colorscale = grey_colorscale_discrete(FYs),
+            colorbar = my_colorbar_subplot("E.L.",
+                            self.cbar_attrs['x'][cbar_x],
+                            self.cbar_attrs['y'][cbar_y],
+                            self.cbar_attrs['len']),
             )
 
         return heatmap
@@ -2897,24 +3081,10 @@ class DoseSpace6(BasicFig):
 
         z_transpose = np.transpose(z)
 
-        out = contour_at_0(x, y, z_transpose, 'black', 'dash')
+        out = contour_at_0(x, y, z_transpose, 'black', 'dash', xpos=0.52)
         out['name'] = "Delta RFB"
 
         return out
-
-    def _get_DSS_ESFY_contour_single(self, data):
-        z = EqualSelectionArray(data).array
-
-        x = np.linspace(0, 1, z.shape[0])
-        y = np.linspace(0, 1, z.shape[1])
-
-        z_transpose = np.transpose(z)
-
-        out = contour_at_single_level(x, y, z_transpose, 0.5, 'blue', 'dot')
-        out['name'] = "Equal Selection"
-
-        return out
-
 
 
     def _sort_layout(self, fig):
@@ -2932,26 +3102,39 @@ class DoseSpace6(BasicFig):
                         )
                         ))
         
-        fig.update_layout(
-            coloraxis = dict(colorbar=dict(
-                    title = "E.L.",
-                    titleside = 'right',
-                ),
-                colorscale = grey_colorscale_discrete(self.data_def.FY),
-                )
-            )
-        fig.update_xaxes(title="Dose (fungicide <i>A</i>)", range=[0,1], showgrid=False, zeroline=False, row=1, col=1)
-        fig.update_xaxes(title="Dose (fungicide <i>A</i>)", range=[0,1], showgrid=False, zeroline=False, row=1, col=2)
+        # fig.update_layout(
+        #     coloraxis = dict(colorbar=dict(
+        #             title = "E.L.",
+        #             titleside = 'right',
+        #         ),
+        #         # colorscale = grey_colorscale_discrete(self.data_list[0].FY),
+        #         )
+        #     )
+        
+        fig.update_xaxes(title="Dose (fungicide <i>A</i>)", range=[0,1], showgrid=False, zeroline=False, row=3, col=1)
+        fig.update_xaxes(title="Dose (fungicide <i>A</i>)", range=[0,1], showgrid=False, zeroline=False, row=3, col=2)
+        
         fig.update_yaxes(title="Dose (fungicide <i>B</i>)", range=[0,1], showgrid=False, zeroline=False, row=1, col=1)
+        fig.update_yaxes(title="Dose (fungicide <i>B</i>)", range=[0,1], showgrid=False, zeroline=False, row=2, col=1)
+        fig.update_yaxes(title="Dose (fungicide <i>B</i>)", range=[0,1], showgrid=False, zeroline=False, row=3, col=1)
 
         
-        left = 0
-        middle = 0.54
-        top_row = 1.15
-        c1 = get_big_text_annotation(left, top_row, 'A', xanchor="left")
-        c2 = get_big_text_annotation(middle, top_row, 'B', xanchor="left")
+        left = -0.03
+        middle = 0.58
 
-        annotz = [c1,c2]
+        top_row = 1.07
+        middle_row = 0.7
+        bottom_row = 0.33
+
+        annotz = [
+            get_big_text_annotation(left, top_row, 'A', xanchor="left"),
+            get_big_text_annotation(middle, top_row, 'B', xanchor="left"),
+            get_big_text_annotation(left, middle_row, 'C', xanchor="left"),
+            get_big_text_annotation(middle, middle_row, 'D', xanchor="left"),
+            get_big_text_annotation(left, bottom_row, 'E', xanchor="left"),
+            get_big_text_annotation(middle, bottom_row, 'F', xanchor="left"),
+            get_shape_annotation(0.55, 0.55),
+            ]
 
         fig.update_layout(annotations=annotz)
 

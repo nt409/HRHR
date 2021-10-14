@@ -1,22 +1,32 @@
-from sr_scan.utils import get_haploid_outputs_app
-from sr_scan.configs import config_app
+from model.simulator import RunSingleTactic
 from plotting.paper_figs import SREffectAppendix
+from sr_scan.configs import config_app
+from sr_scan.utils import get_sr_scan_params_app
 
+
+def main(dd, index, sex_props):
+    
+    dfp, fcide_pars, conf = get_sr_scan_params_app(dd, index)
+    conf.load_saved = False
+
+    out = []
+    
+    for bs in sex_props:
+        conf.bs_sex_prop = bs
+        conf.add_string()
+        data = RunSingleTactic(fcide_pars).run(conf)
+        out.append(data)
+
+    return out
 
 
 if __name__=="__main__":
 
-    n_variants = config_app["n_variants"]
-    n_sex_props = config_app["n_sex_props"]
-    n_doses = config_app["n_doses"]
-    double_freq_factor_lowest = config_app["double_freq_factor_lowest"]
+    sex_props = [0,0.5,1]
 
+    outputs_l = main(config_app["double_freq_factors"][0], index=3, sex_props=sex_props)
+    outputs_m = main(config_app["double_freq_factors"][1], index=4, sex_props=sex_props)
+    outputs_h = main(config_app["double_freq_factors"][2], index=9, sex_props=sex_props)
 
-    indices = [4, 13, 22]
-
-    outputs_l = get_haploid_outputs_app(n_variants, n_doses, double_freq_factor_lowest, indices[0], [0,0.5,1])
-    outputs_m = get_haploid_outputs_app(n_variants, n_doses, double_freq_factor_lowest, indices[1], [0,0.5,1])
-    outputs_h = get_haploid_outputs_app(n_variants, n_doses, double_freq_factor_lowest, indices[2], [0,0.5,1])
-
-    filename = f"../outputs/figures/paper_figs/sr_effect_app_{n_variants}_{n_sex_props}_{n_doses}_{double_freq_factor_lowest}.png"
-    SREffectAppendix(outputs_l, outputs_m, outputs_h, filename)
+    filename = f"../outputs/figures/paper_figs/sr_effect_app.png"
+    SREffectAppendix(outputs_l, outputs_m, outputs_h, sex_props, filename)

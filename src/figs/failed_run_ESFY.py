@@ -19,10 +19,10 @@ def run_single(run_index):
     conf_str = rp.grid_conf.config_string_img
     
     
-    # grid_default = RunGrid(rp.fung_parms).run(rp.grid_conf)
-    filename = f"./param_scan/outputs/failed/grid_output_run={this_run_ind}.csv"
-    with open(filename, 'rb') as f:
-        grid_default = pickle.load(f)
+    grid_default = RunGrid(rp.fung_parms).run(rp.grid_conf)
+    # filename = f"./param_scan/outputs/failed/grid_output_run={this_run_ind}.pickle"
+    # with open(filename, 'rb') as f:
+        # grid_default = pickle.load(f)
 
 
     # plot output
@@ -32,8 +32,6 @@ def run_single(run_index):
 
 if __name__=="__main__":
 
-    run = 265
-    
     PP = PostProcess(config_rand['par_str'])
 
-    run_single(run)
+    run_single(265)

@@ -76,15 +76,26 @@ sbatch param_scan/scan.submit
 ```
 
 
-To check progress:
+## To check progress:
 
 ```bash
 squeue -u nt409
 ```
 
-Est start time:
+## Est start time:
 
 ```bash
 squeue -u nt409 --start
 ```
 
+## To cancel a job:
+
+
+```bash
+scancel [JOBID]
+```
+
+i.e.:
+```bash
+scancel 47650567
+```

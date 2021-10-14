@@ -51,4 +51,4 @@ source activate /home/nt409/software/conda_envs/hrhr_env
 #! The variable $SLURM_ARRAY_TASK_ID contains the array index for each job.
 #! In this example, each job will be passed its index
 
-python -m sr_hap.scan_res $SLURM_ARRAY_TASK_ID
+python -m sr_scan.scan_res $SLURM_ARRAY_TASK_ID

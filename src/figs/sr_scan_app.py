@@ -1,5 +1,5 @@
-from sr_hap.utils import get_haploid_outputs_app
-from sr_hap.configs import config_app
+from sr_scan.utils import get_haploid_outputs_app
+from sr_scan.configs import config_app
 from plotting.paper_figs import SREffectAppendix
 
 

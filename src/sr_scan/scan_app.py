@@ -4,8 +4,8 @@ import sys
 
 from model.simulator import RunGrid, RunSingleTactic
 from model.config_classes import GridConfig
-from sr_hap.utils import get_sr_scan_params_app
-from sr_hap.configs import config_res
+from sr_scan.utils import get_sr_scan_params_app
+from sr_scan.configs import config_res
 
 
 def get_sr_scan_df_res(n_its, n_sex_props, n_doses, double_freq_factors, index):
@@ -59,7 +59,7 @@ def get_sr_scan_df_res(n_its, n_sex_props, n_doses, double_freq_factors, index):
     
     if any(df["worked"]):
         dff_str = ",".join([str(ee) for ee in double_freq_factors])
-        filename = f"./sr_hap/outputs/single/df_app_{n_its}_{n_sex_props}_{n_doses}_{dff_str}_{index}.csv"
+        filename = f"./sr_scan/outputs/single/df_app_{n_its}_{n_sex_props}_{n_doses}_{dff_str}_{index}.csv"
         print(f"Saving df to: {filename}")
         df.to_csv(filename, index=False)
     
@@ -90,7 +90,7 @@ if __name__=="__main__":
         if any(tmp["worked"]):
             df = pd.concat([df, tmp])
     
-    filename = f"./sr_hap/outputs/combined/df_app.csv"
+    filename = f"./sr_scan/outputs/combined/df_app.csv"
     print(f"Saving df to: {filename}")
     df.to_csv(filename, index=False)
         

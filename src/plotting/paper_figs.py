@@ -1,19 +1,13 @@
 """Figures for the paper."""
 
-from __future__ import annotations
 from abc import ABC, abstractmethod
 import copy
-from numpy.core.fromnumeric import size
-import pandas as pd
+import numpy as np
+from math import floor, log10
+from PIL import Image
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import numpy as np
-# import pandas as pd
-from math import floor, log10
-from scipy import stats
-from PIL import Image
 import plotly.express as px
-import random
 
 
 from model.utils import logit10
@@ -21,13 +15,15 @@ from model.strategy_arrays import EqualResFreqBreakdownArray, EqualSelectionArra
 
 from plotting.traces import contour_at_0, contour_at_single_level
 
-from plotting.utils import divergent_color_scale, get_shape_annotation, get_text_annotation, get_arrow_annotation,\
+from plotting.utils import divergent_color_scale, get_shape_annotation, \
+    get_text_annotation, get_arrow_annotation,\
     grey_colorscale_discrete, grey_colorscale_discrete_N, \
     invisible_colorbar, my_colorbar_subplot, standard_layout, \
     grey_colorscale, my_colorbar, get_big_text_annotation
 
-from plotting.consts import ATTRS_DICT, LABEL_COLOR, LIGHT_GREY_TEXT, NULL_HEATMAP_COLOUR, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT, \
-        FULL_PAGE_WIDTH
+from plotting.consts import ATTRS_DICT, LABEL_COLOR, LIGHT_GREY_TEXT, \
+    NULL_HEATMAP_COLOUR, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT, \
+    FULL_PAGE_WIDTH
 
 
 # Paper Figs
@@ -399,7 +395,10 @@ class DoseSpaceOverview(BasicFig):
 
     def _generate_figure(self):
 
-        fig = make_subplots(rows=2, cols=2, horizontal_spacing=0.28)
+        fig = make_subplots(rows=2, cols=2, horizontal_spacing=0.28, 
+            # shared_xaxes=True,
+            # shared_yaxes=True,
+            )
 
         fig.add_traces(self._get_EL_traces(), rows=1, cols=1)
         fig.add_traces(self._get_ESFY_traces(), rows=1, cols=2)
@@ -631,10 +630,12 @@ class DoseSpaceOverview(BasicFig):
             ]
         return trcs
 
+
     def get_grey_heatmap(self):
         z = [[0,0], [0,0]]
-        x = np.linspace(0,1,2)
-        y = np.linspace(0,1,2)
+
+        x = np.linspace(0,0.8,3)
+        y = np.linspace(0,0.8,3)
 
         grey_map = go.Heatmap(
             x = x,
@@ -697,13 +698,17 @@ class DoseSpaceOverview(BasicFig):
                         )
                         ))
 
-        fig.update_yaxes(title="Dose (fungicide <i>B</i>)", row=1, col=1, range=[0,1], showgrid=False, zeroline=False)
+        dmin = 0
+        dmax = 1.02
         
-        fig.update_xaxes(title="Dose (fungicide <i>A</i>)", row=2, col=1, range=[0,1], showgrid=False, zeroline=False)
-        fig.update_yaxes(title="Dose (fungicide <i>B</i>)", row=2, col=1, range=[0,1], showgrid=False, zeroline=False)
+        fig.update_yaxes(title="Dose (fungicide <i>B</i>)", row=1, col=1, range=[0,dmax], showgrid=False, zeroline=False)
+        fig.update_xaxes(row=1, col=1, range=[0,dmax], showgrid=False, zeroline=False, showticklabels=False)
         
-        fig.update_xaxes(title="Dose (fungicide <i>A</i>)", row=1, col=2, range=[0,1], showgrid=False, zeroline=False)
-        fig.update_yaxes(title="",                   row=1, col=2, range=[0,1], showgrid=False, zeroline=False, showticklabels=False)
+        fig.update_xaxes(title="Dose (fungicide <i>A</i>)", row=2, col=1, range=[0,dmax], showgrid=False, zeroline=False)
+        fig.update_yaxes(title="Dose (fungicide <i>B</i>)", row=2, col=1, range=[0,dmax], showgrid=False, zeroline=False)
+        
+        fig.update_xaxes(title="Dose (fungicide <i>A</i>)", row=1, col=2, range=[0,dmax], showgrid=False, zeroline=False)
+        fig.update_yaxes(                                   row=1, col=2, range=[0,dmax], showgrid=False, zeroline=False, showticklabels=False)
 
         fig.update_xaxes(title="Dose sum",       row=2, col=2, range=[0,2.05], showgrid=False, showline=True)
         fig.update_yaxes(title="Effective life", row=2, col=2, showgrid=False)

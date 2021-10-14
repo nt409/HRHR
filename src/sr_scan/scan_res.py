@@ -4,8 +4,8 @@ import sys
 
 from model.simulator import RunGrid
 from model.config_classes import GridConfig
-from sr_hap.utils import get_sr_scan_params_res
-from sr_hap.configs import config_res
+from sr_scan.utils import get_sr_scan_params_res
+from sr_scan.configs import config_res
 
 
 def get_sr_scan_df_res(n_its, n_sex_props, n_doses, double_freq_factors, index):
@@ -59,7 +59,7 @@ def get_sr_scan_df_res(n_its, n_sex_props, n_doses, double_freq_factors, index):
 
 
     dff_str = ",".join([str(ee) for ee in double_freq_factors])
-    filename = f"./sr_hap/outputs/single/df_res_{n_its}_{n_sex_props}_{n_doses}_{dff_str}_{index}.csv"
+    filename = f"./sr_scan/outputs/single/df_res_{n_its}_{n_sex_props}_{n_doses}_{dff_str}_{index}.csv"
     print(f"Saving df to: {filename}")
     df.to_csv(filename, index=False)
     

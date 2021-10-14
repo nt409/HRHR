@@ -37,3 +37,32 @@ def get_alt_scan_params(n_its, index):
         )
     
     return primary_inoc, fcide_parms, ii, jj, kk
+
+
+def get_alt_scan_params_rand(index):
+    np.random.seed(index)
+
+
+    rf1 = 10**(np.random.uniform(-10,-4))
+    rf2 = 10**(np.random.uniform(-10,-4))
+    rfd = 10**(np.random.uniform(-15,-4))
+    
+    om1 = np.random.uniform(0.4, 1)
+    om2 = np.random.uniform(0.4, 1)
+    thet1 = np.random.uniform(4, 12)
+    thet2 = np.random.uniform(4, 12)
+    delta_factor_1 = np.random.uniform(1/3,3)
+    delta_factor_2 = np.random.uniform(1/3,3)
+
+    primary_inoc = dict(RR=rfd, RS=rf1, SR=rf2, SS=1-rf1-rf2-rfd)
+
+    fcide_parms = dict(
+        omega_1 = om1,
+        omega_2 = om2,
+        theta_1 = thet1,
+        theta_2 = thet2,
+        delta_1 = PARAMS.delta_1*delta_factor_1,
+        delta_2 = PARAMS.delta_2*delta_factor_2,
+        )
+    
+    return primary_inoc, fcide_parms

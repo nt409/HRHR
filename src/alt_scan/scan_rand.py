@@ -6,12 +6,12 @@ import pandas as pd
 
 from model.simulator import RunGrid
 from model.config_classes import GridConfig
-from alt_scan.utils import get_alt_scan_params
+from alt_scan.utils import get_alt_scan_params_rand
 
 
-def main(n_doses, n_its, alt_strat, index):
+def main(n_doses, alt_strat, index):
    
-    primary_inoc, fcide_parms, ii, jj, kk = get_alt_scan_params(n_its, index)
+    primary_inoc, fcide_parms = get_alt_scan_params_rand(index)
 
     model_run = RunGrid(fcide_parms)
     
@@ -23,7 +23,6 @@ def main(n_doses, n_its, alt_strat, index):
     conf_grid_a_mix = GridConfig(40, None, None, n_doses)
     conf_grid_a_mix.load_saved = False
     
-
     conf_grid_a_mix.primary_inoculum = primary_inoc
     conf_grid_a_mix.add_string()
 
@@ -75,7 +74,7 @@ def main(n_doses, n_its, alt_strat, index):
 
 
 
-    filename = f"./alt_scan/outputs/single/out_{n_its}_{n_doses}_{alt_strat}_{ii}_{jj}_{kk}.csv"
+    filename = f"./alt_scan/outputs/single/out_rand_{n_doses}_{alt_strat}.csv"
     print(f"saving df to: {filename}")
     df.to_csv(filename)
 
@@ -91,7 +90,7 @@ if __name__=="__main__":
 
     index = int(sys.argv[1])
 
-    df = main(n_doses=21, n_its=5, alt_strat="alt_21", index=index)
-    df = main(n_doses=21, n_its=5, alt_strat="alt_12", index=index)
+    df = main(n_doses=21, alt_strat="alt_21", index=index)
+    df = main(n_doses=21, alt_strat="alt_12", index=index)
 
 

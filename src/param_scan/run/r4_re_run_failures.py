@@ -37,7 +37,7 @@ def main(run_attrs, plot, print=False):
         # PP.re_run_cont(NDoses=NDoses, N_cont_doses=N_cont_doses, DS_lim=DS_lim, run_indices=[run])
         
         grid_out = PP.re_run_grid(NDoses=NDoses, run_indices=[run], plot=plot)
-        filename = f"./param_scan/outputs/failed/grid_output_run={run}.csv"
+        filename = f"./param_scan/outputs/failed/grid_output_run={run}.pickle"
         object_dump(filename, grid_out)
 
 
@@ -69,12 +69,12 @@ if __name__=="__main__":
     
     
     
-    # if len(sys.argv)!=2:
-    #     raise Exception("Supply one argument: the run index")
-    # index = int(sys.argv[1])
-    # run_attrs_use = [run_attrs[index]]
+    if len(sys.argv)!=2:
+        raise Exception("Supply one argument: the run index")
+    index = int(sys.argv[1])
+    run_attrs_use = [run_attrs[index]]
     
-    run_attrs_use = [run_attrs[-1]]
+    # run_attrs_use = [run_attrs[-1]]
     
     main(run_attrs_use, plot=False)
 

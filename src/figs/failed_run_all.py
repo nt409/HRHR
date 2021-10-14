@@ -17,8 +17,10 @@ def run_all_failed(runs):
     grid_outputs = []
 
     for run_index in runs:
-
-        data = pickle.load(f"./param_scan/outputs/failed/grid_output_run={run_index}.csv")
+        
+        filename = f"./param_scan/outputs/failed/grid_output_run={run_index}.csv"
+        with open(filename, 'rb') as f:
+            data = pickle.load(f)
         
         grid_outputs.append(data)
 

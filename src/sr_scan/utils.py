@@ -1,4 +1,3 @@
-from math import floor, sqrt
 import numpy as np
 import pandas as pd
 
@@ -6,6 +5,7 @@ import pandas as pd
 from model.simulator import RunGrid, RunSingleTactic
 from model.config_classes import GridConfig, SingleConfig
 from model.params import PARAMS
+from model.utils import get_rfd
 
 
 
@@ -43,13 +43,6 @@ def get_this_run_output(n_doses, bs, dfp):
 
     return output
 
-
-
-def get_rfd(x, y):
-    B = 1 - x - y
-    C = x*y
-    out = (B - sqrt(B**2 -4*C))/2
-    return out
 
 
 

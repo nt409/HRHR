@@ -20,7 +20,9 @@ def run_single(run_index):
     
     
     # grid_default = RunGrid(rp.fung_parms).run(rp.grid_conf)
-    grid_default = pickle.load(f"./param_scan/outputs/failed/grid_output_run={this_run_ind}.csv")
+    filename = f"./param_scan/outputs/failed/grid_output_run={this_run_ind}.csv"
+    with open(filename, 'rb') as f:
+        grid_default = pickle.load(f)
 
 
     # plot output

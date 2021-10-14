@@ -24,7 +24,9 @@ def run_pert(run_index):
     rp = PP._get_RPs(pars, 201)
     
     # grid_default = RunGrid(rp.fung_parms).run(rp.grid_conf)
-    grid_default = pickle.load(f"./param_scan/outputs/failed/grid_output_run={this_run_ind}.csv")
+    filename = f"./param_scan/outputs/failed/grid_output_run={this_run_ind}.csv"
+    with open(filename, 'rb') as f:
+        grid_default = pickle.load(f)
 
 
     print(f"\nRe-running run: {this_run_ind} \n")

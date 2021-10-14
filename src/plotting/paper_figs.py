@@ -21,7 +21,7 @@ from plotting.utils import divergent_color_scale, get_shape_annotation, \
     invisible_colorbar, my_colorbar_subplot, standard_layout, \
     grey_colorscale, my_colorbar, get_big_text_annotation
 
-from plotting.consts import ATTRS_DICT, LABEL_COLOR, LIGHT_GREY_TEXT, \
+from plotting.consts import ATTRS_DICT, FADED_LINE_COLOR, LABEL_COLOR, LIGHT_GREY_TEXT, \
     NULL_HEATMAP_COLOUR, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT, \
     FULL_PAGE_WIDTH
 
@@ -877,7 +877,7 @@ class DoseSpaceScenariosPlot(BasicFig):
 
         out = contour_at_0(x, y, z_transpose, 'black', 'dash')
         out['name'] = "Delta RFB"
-        out['coloraxis'] = "coloraxis"
+        # out['coloraxis'] = "coloraxis"
 
         return out
 
@@ -891,7 +891,7 @@ class DoseSpaceScenariosPlot(BasicFig):
 
         out = contour_at_single_level(x, y, z_transpose, 0.5, 'blue', 'dot')
         out['name'] = "Equal Selection"
-        out['coloraxis'] = "coloraxis"
+        # out['coloraxis'] = "coloraxis"
 
         return out
 
@@ -928,11 +928,15 @@ class DoseSpaceScenariosPlot(BasicFig):
         left = 0.02
         middle = 0.59
 
+        cbarbox_x = 0.44
+        cbarbox_y = 0.56
+
         annotz = [
                   get_big_text_annotation(left, top_row, 'A'),
                   get_big_text_annotation(middle, top_row, 'B'),
                   get_big_text_annotation(left, bottom_row, 'C'),
                   get_big_text_annotation(middle, bottom_row, 'D'),
+                  get_shape_annotation(cbarbox_x, cbarbox_y),
                     ]
 
         fig.update_layout(annotations=annotz)
@@ -1306,7 +1310,7 @@ class SRPlot(BasicFig):
 
 
         traces += [go.Scatter(x=[0.15,1], y=[1,1], 
-                        line=dict(color="rgba(0,0,0,0.5)", dash="dash"), 
+                        line=dict(color=FADED_LINE_COLOR, dash="dash"), 
                         mode="lines",
                         name="No selection",
                         )]
@@ -1585,70 +1589,21 @@ class DoseResponse(BasicFig):
     def _generate_figure(self):
         fig = make_subplots(rows=2, cols=2, horizontal_spacing=0.25, shared_xaxes=True) # vertical_spacing=0.18,
 
-        traces = self._get_dr_traces_1()
-        fig.add_traces(traces, rows=1, cols=1)
+        fig.add_traces(self._get_dr_traces_1(), rows=1, cols=1)
         
-        traces = self._get_dr_traces_2()
-        fig.add_traces(traces, rows=2, cols=1)
+        fig.add_traces(self._get_dr_traces_2(), rows=2, cols=1)
         
-        traces = self._get_conc_traces()
-        fig.add_traces(traces, rows=1, cols=2)
+        fig.add_traces(self._get_conc_traces(), rows=1, cols=2)
 
-        traces = self._get_eff_traces()
-        fig.add_traces(traces, rows=2, cols=2)
+        fig.add_traces(self._get_eff_traces(), rows=2, cols=2)
 
         fig = self._sort_layout(fig)
         return fig
     
 
 
-    def _get_eff_traces(self):
-        xs = self.eff_data['x']
-        ys = self.eff_data['y']
-        names = self.eff_data['name']
-        cols = self.eff_data['cols']
-        dashes = self.eff_data['dashes']
-
-        traces = []
- 
-        for x, y, name, col, dash in zip(xs, ys, names, cols, dashes):
-            trc = go.Scatter(x=x,
-                        y=y,
-                        mode="lines",
-                        showlegend=False,
-                        name=name,
-                        line=dict(color=col, dash=dash)
-                        )
-            traces.append(trc)
-        
-        traces.append(trc)
-
-        return traces
-
-    def _get_conc_traces(self):
-        xs = self.eff_data['x']
-        ys = self.eff_data['concs']
-        names = self.eff_data['name']
-        cols = self.eff_data['cols']
-        dashes = self.eff_data['dashes']
-
-        traces = []
- 
-        for x, y, name, col, dash in zip(xs, ys, names, cols, dashes):
-            trc = go.Scatter(x=x,
-                        y=y,
-                        mode="lines",
-                        showlegend=False,
-                        name=name,
-                        line=dict(color=col, dash=dash)
-                        )
-            traces.append(trc)
-        
-        traces.append(trc)
-
-        return traces
-
     def _get_dr_traces_1(self):
+        # A
         x = self.dr_data['x'][1]
         y = self.dr_data['y'][1]
         name = self.dr_data['name'][1]
@@ -1669,7 +1624,9 @@ class DoseResponse(BasicFig):
 
         return traces
     
+
     def _get_dr_traces_2(self):
+        # B
         xs = self.dr_data['x']
         ys = self.dr_data['y']
 
@@ -1680,7 +1637,7 @@ class DoseResponse(BasicFig):
                         mode="lines",
                         showlegend=False,
                         line=dict(dash="dot", 
-                                color="rgba(0,0,0,0.5)"),
+                                color=FADED_LINE_COLOR),
                         )
 
         traces.append(asymp_trc)
@@ -1704,6 +1661,72 @@ class DoseResponse(BasicFig):
         return traces
 
 
+    def _get_conc_traces(self):
+        # C
+        traces = []
+
+        xs = [[1456,1456], [1700,1700]]
+        for xx in xs:
+            vert_trace = go.Scatter(x=xx,
+                                    y=[1.2,1.28],
+                                    line=dict(
+                                        color=FADED_LINE_COLOR),
+                                    mode="lines",
+                                    showlegend=False,
+                                    )
+
+            traces.append(vert_trace)
+
+
+        xs = self.eff_data['x']
+        ys = self.eff_data['concs']
+        names = self.eff_data['name']
+        cols = self.eff_data['cols']
+        dashes = self.eff_data['dashes']
+
+ 
+        for x, y, name, col, dash in zip(xs, ys, names, cols, dashes):
+            trc = go.Scatter(x=x,
+                        y=y,
+                        mode="lines",
+                        showlegend=False,
+                        name=name,
+                        line=dict(color=col, dash=dash)
+                        )
+            traces.append(trc)
+        
+        traces.append(trc)
+
+
+
+
+        return traces
+
+
+    def _get_eff_traces(self):
+        # D
+        xs = self.eff_data['x']
+        ys = self.eff_data['y']
+        names = self.eff_data['name']
+        cols = self.eff_data['cols']
+        dashes = self.eff_data['dashes']
+
+        traces = []
+ 
+        for x, y, name, col, dash in zip(xs, ys, names, cols, dashes):
+            trc = go.Scatter(x=x,
+                        y=y,
+                        mode="lines",
+                        showlegend=False,
+                        name=name,
+                        line=dict(color=col, dash=dash)
+                        )
+            traces.append(trc)
+        
+        traces.append(trc)
+
+        return traces
+
 
     def _sort_layout(self, fig):
 
@@ -1717,7 +1740,7 @@ class DoseResponse(BasicFig):
         
         fig.update_yaxes(title=u"Growth rate<br>factor (\u03B4<sub>F,s</sub>)", range=[-0.01,1.01], showgrid=False, row=1, col=1)
         fig.update_yaxes(title=u"Growth rate<br>factor (\u03B4<sub>F,s</sub>)", range=[-0.01,1.01], showgrid=False, row=2, col=1)
-        fig.update_yaxes(title="Concentration (C)", range=[-0.01,1.2], showgrid=False, showline=True, row=1, col=2)
+        fig.update_yaxes(title="Concentration (C)", range=[-0.01,1.28], showgrid=False, showline=True, row=1, col=2)
         fig.update_yaxes(title=u"Growth rate<br>factor (\u03B4<sub>F,s</sub>)", range=[-0.01,1.01], showgrid=False, showline=True, row=2, col=2)
         
         
@@ -1732,15 +1755,19 @@ class DoseResponse(BasicFig):
                         )
         
         
-        left = 0
-        middle = 0.62
+        left = -0.04
+        middle = 0.58
         
-        top_row = 1.10
-        bottom_row = 0.5
+        top_row = 1.11
+        bottom_row = 0.51
 
         annotz = [
-            get_text_annotation(-0.035, 0.6, "Max. effect", "right", "bottom"),
-            get_text_annotation(-0.035, 1.02, "No effect", "right", "top"),
+            get_text_annotation(-0.04, 0.565, "Max. effect", "right", "bottom"),
+            get_text_annotation(-0.04, 1.017, "No effect", "right", "top"),
+            # get_text_annotation(0.70, 0.56, "T<sub>GS32</sub>", "center", "top"),
+            # get_text_annotation(0.77, 0.56, "T<sub>GS39</sub>", "center", "top"),
+            get_text_annotation(0.67, 1.05, "T<sub>GS32</sub>", "center", "top"),
+            get_text_annotation(0.755, 1.05, "T<sub>GS39</sub>", "center", "top"),
             get_big_text_annotation(left, top_row, 'A', xanchor="left"),
             get_big_text_annotation(left,   bottom_row, 'B', xanchor="left"),
             get_big_text_annotation(middle, top_row, 'C', xanchor="left"),

@@ -1,5 +1,5 @@
 import numpy as np
-from math import exp, log10, floor
+from math import exp, log10, floor, sqrt
 from scipy.integrate import simps
 import os
 import pickle
@@ -32,6 +32,15 @@ def logit10_difference(x1, x2):
 
 def log10_difference(x1, x2):
     return log10(x1) - log10(x2)
+
+
+
+def get_rfd(rs, sr):
+    """Get double resistant frequency if at linkage eqm"""
+    B = 1 - rs - sr
+    C = rs*sr
+    out = (B - sqrt(B**2 -4*C))/2
+    return out
 
 # * End of utility functions
 

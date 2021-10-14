@@ -2,7 +2,7 @@ import numpy as np
 from math import floor
 
 from model.params import PARAMS
-from sr_hap.utils import get_rfd
+from model.utils import get_rfd
 
 
 

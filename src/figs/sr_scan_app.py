@@ -14,9 +14,9 @@ if __name__=="__main__":
 
     indices = [4, 13, 22]
 
-    outputs_l = get_haploid_outputs_app(n_variants, n_doses, double_freq_factor_lowest, indices[0], [0,0.2,1])
-    outputs_m = get_haploid_outputs_app(n_variants, n_doses, double_freq_factor_lowest, indices[1], [0,0.2,1])
-    outputs_h = get_haploid_outputs_app(n_variants, n_doses, double_freq_factor_lowest, indices[2], [0,0.2,1])
+    outputs_l = get_haploid_outputs_app(n_variants, n_doses, double_freq_factor_lowest, indices[0], [0,0.5,1])
+    outputs_m = get_haploid_outputs_app(n_variants, n_doses, double_freq_factor_lowest, indices[1], [0,0.5,1])
+    outputs_h = get_haploid_outputs_app(n_variants, n_doses, double_freq_factor_lowest, indices[2], [0,0.5,1])
 
     filename = f"../outputs/figures/paper_figs/sr_effect_app_{n_variants}_{n_sex_props}_{n_doses}_{double_freq_factor_lowest}.png"
     SREffectAppendix(outputs_l, outputs_m, outputs_h, filename)

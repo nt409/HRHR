@@ -2,9 +2,8 @@ import copy
 import sys
 import numpy as np
 import pandas as pd
-from math import floor
 
-from model.params import PARAMS
+
 from model.simulator import RunGrid
 from model.config_classes import GridConfig
 from alt_scan.utils import get_alt_scan_params
@@ -65,10 +64,10 @@ def main(n_doses, n_its, within_season, alt_strat, index):
     data = dict(
         RS =  primary_inoc["RS"],
         SR =  primary_inoc["SR"],
-        omega1 = fcide_parms["omega1"],
-        omega2 = fcide_parms["omega2"],
-        theta1 = fcide_parms["theta1"],
-        theta2 = fcide_parms["theta2"],
+        omega1 = fcide_parms["omega_1"],
+        omega2 = fcide_parms["omega_2"],
+        theta1 = fcide_parms["theta_1"],
+        theta2 = fcide_parms["theta_2"],
         asex_alt = np.amax(asex_alt.FY),
         asex_mix = np.amax(asex_mix.FY),
         sex_alt = np.amax(sex_alt.FY),

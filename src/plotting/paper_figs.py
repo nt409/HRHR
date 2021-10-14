@@ -2758,3 +2758,172 @@ class SREffectResults3Panel(BasicFig):
             ))
 
         return fig
+
+
+
+
+
+
+
+
+
+
+
+
+
+class DoseSpace6(BasicFig):
+    def __init__(self, data_list, conf_str) -> None:
+
+        self.width = FULL_PAGE_WIDTH
+
+        self.height = 900
+
+        self.data_list = data_list
+
+        fig = self._generate_figure()
+
+        self.filename = conf_str.replace("/grid/", "/paper_figs/dose_space_scenario_single")
+
+        self._save_and_show(fig)
+
+
+
+    def _generate_figure(self):
+
+        fig = make_subplots(rows=3, cols=2, shared_yaxes=True, shared_xaxes=True)
+
+        for ind, data in enumerate(self.data_list):
+            showledge = True if ind==0 else False
+
+            rows = 1 + floor(ind/2)
+            cols = 1+ ind % 2
+
+            traces = self._get_DSS_EL_traces(data, showlegend=showledge)
+
+            fig.add_traces(traces, rows=rows, cols=cols)
+
+        fig = self._sort_layout(fig)
+
+        return fig
+
+
+
+    def _get_DSS_EL_traces(self, data, showlegend=False):  
+        traces = []
+
+        if showlegend:
+            traces.append(self._get_DSS_ERFB_legend_entry())
+
+        traces.append(self._get_DSS_FY_trace(data))
+        
+        traces.append(self._get_DSS_ERFB_contour_single(data))
+
+        return traces
+
+
+    def _get_DSS_ESFY_legend_entry(self):
+        return go.Scatter(x=[1], 
+                    y=[1],
+                    mode="lines",
+                    line=dict(color="blue", dash="dot"),
+                    name=u"\u03A9<sub>SFY</sub>=0.5 contour"
+                    )
+
+
+    def _get_DSS_ERFB_legend_entry(self):
+        return go.Scatter(x=[1], 
+                    y=[1],
+                    mode="lines",
+                    line=dict(color="black", dash="dash"),
+                    name=u"\u0394<sub>RFB</sub>=0 contour"
+                    )
+
+
+
+    def _get_DSS_FY_trace(self, data):
+        FYs = np.transpose(data.FY)
+
+        xheat = np.linspace(0, 1, FYs.shape[0])
+        yheat = np.linspace(0, 1, FYs.shape[1])
+
+        heatmap = go.Heatmap(
+            x = xheat,
+            y = yheat,
+            z = FYs,
+            coloraxis = "coloraxis",
+            )
+
+        return heatmap
+
+
+
+    def _get_DSS_ERFB_contour_single(self, data):
+        z = EqualResFreqBreakdownArray(data).array
+
+        x = np.linspace(0, 1, z.shape[0])
+        y = np.linspace(0, 1, z.shape[1])
+
+        z_transpose = np.transpose(z)
+
+        out = contour_at_0(x, y, z_transpose, 'black', 'dash')
+        out['name'] = "Delta RFB"
+
+        return out
+
+    def _get_DSS_ESFY_contour_single(self, data):
+        z = EqualSelectionArray(data).array
+
+        x = np.linspace(0, 1, z.shape[0])
+        y = np.linspace(0, 1, z.shape[1])
+
+        z_transpose = np.transpose(z)
+
+        out = contour_at_single_level(x, y, z_transpose, 0.5, 'blue', 'dot')
+        out['name'] = "Equal Selection"
+
+        return out
+
+
+
+    def _sort_layout(self, fig):
+        fig.update_layout(standard_layout(True, self.width, self.height))
+
+        fig.update_layout(legend=dict(
+                        x=1,
+                        y=1,
+                        xanchor="right", 
+                        yanchor="bottom",
+                        
+                        orientation="h",
+                        font=dict(
+                            color=LABEL_COLOR
+                        )
+                        ))
+        
+        fig.update_layout(
+            coloraxis = dict(colorbar=dict(
+                    title = "E.L.",
+                    titleside = 'right',
+                ),
+                colorscale = grey_colorscale_discrete(self.data_def.FY),
+                )
+            )
+        fig.update_xaxes(title="Dose (fungicide <i>A</i>)", range=[0,1], showgrid=False, zeroline=False, row=1, col=1)
+        fig.update_xaxes(title="Dose (fungicide <i>A</i>)", range=[0,1], showgrid=False, zeroline=False, row=1, col=2)
+        fig.update_yaxes(title="Dose (fungicide <i>B</i>)", range=[0,1], showgrid=False, zeroline=False, row=1, col=1)
+
+        
+        left = 0
+        middle = 0.54
+        top_row = 1.15
+        c1 = get_big_text_annotation(left, top_row, 'A', xanchor="left")
+        c2 = get_big_text_annotation(middle, top_row, 'B', xanchor="left")
+
+        annotz = [c1,c2]
+
+        fig.update_layout(annotations=annotz)
+
+
+
+        
+        return fig

@@ -52,7 +52,8 @@ def get_sr_scan_df_res(n_its, n_sex_props, n_doses, double_freq_factors, index):
         const      = np.float(df.loc[((df["bs_sex_prop"]==1) & (df["double_freq_factor"]==dd)), "maxDoseEL"])==np.float(df.loc[((df["bs_sex_prop"]==0) & (df["double_freq_factor"]==dd)), "maxDoseEL"])
         decreasing = np.float(df.loc[((df["bs_sex_prop"]==1) & (df["double_freq_factor"]==dd)), "maxDoseEL"])< np.float(df.loc[((df["bs_sex_prop"]==0) & (df["double_freq_factor"]==dd)), "maxDoseEL"])
 
-        worked = True if worked and ((increasing and dd>1) or (const and dd==1) or (decreasing and dd<1)) else False
+        this_bit_worked = ((increasing and dd>1) or (const and dd==1) or (decreasing and dd<1))
+        worked = True if worked or this_bit_worked else False
 
         df["worked"] = worked
     
@@ -78,7 +79,7 @@ if __name__=="__main__":
     
     df = pd.DataFrame()
 
-    for ind in range(100):
+    for ind in range(10):
 
         ind_dict = dict(index=ind)
 

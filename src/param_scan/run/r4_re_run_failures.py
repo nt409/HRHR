@@ -14,7 +14,7 @@ from param_scan.fns.post_process import PostProcess
 
 
 
-def main(run_attrs, print=False):
+def main(run_attrs, plot, print=False):
         
     PP = PostProcess(config_rand['par_str'])
 
@@ -29,14 +29,14 @@ def main(run_attrs, print=False):
 
     for data in run_attrs:
         NDoses = data["NDoses"]
-        N_cont_doses = data["N_cont_doses"]
-        DS_lim = data["DS_lim"]
         run = data["run"]        
 
-        # saves result to outpus/re_run/...
+        # saves result to outputs/re_run/...
+        N_cont_doses = data["N_cont_doses"]
+        DS_lim = data["DS_lim"]
         # PP.re_run_cont(NDoses=NDoses, N_cont_doses=N_cont_doses, DS_lim=DS_lim, run_indices=[run])
-        grid_out = PP.re_run_grid(NDoses=NDoses, run_indices=[run])
-
+        
+        grid_out = PP.re_run_grid(NDoses=NDoses, run_indices=[run], plot=plot)
         filename = f"./param_scan/outputs/failed/grid_output_run={run}.csv"
         object_dump(filename, grid_out)
 
@@ -76,6 +76,6 @@ if __name__=="__main__":
     
     run_attrs_use = [run_attrs[-1]]
     
-    main(run_attrs_use)
+    main(run_attrs_use, plot=False)
 
 

@@ -26,8 +26,9 @@ def run_single(run_index):
 
 
     # plot output
-    conf_str = conf_str.replace("param_scan/", f"paper_figs/failed_run={this_run_ind}_pert_")
-    DoseSpaceScenarioSingle(grid_default, conf_str)
+    conf_str = conf_str.replace("param_scan/", f"paper_figs/failed_run_ESFY={this_run_ind}_")
+    filename = conf_str[:100] + ".png"
+    DoseSpaceScenarioSingle(grid_default, filename)
 
 
 if __name__=="__main__":

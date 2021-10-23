@@ -48,7 +48,7 @@ def get_alt_scan_params_rand(index):
     while is_invalid:
         rf1 = 10**(np.random.uniform(-10,-4))
         rf2 = 10**(np.random.uniform(-10,-4))
-        rfd = 10**(np.random.uniform(-15,-4))
+        rfd = 10**(np.random.uniform(-15,-6))
         
         om1 = np.random.uniform(0.4, 1)
         om2 = np.random.uniform(0.4, 1)

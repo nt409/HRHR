@@ -12,68 +12,20 @@ from param_scan.fns.post_process import PostProcess
 
 
 
-PP = PostProcess(config_rand['par_str'])
 
-grid_output = PP.re_run_grid(NDoses=201, run_indices=[117], plot=False)
+def get_data_for_appendix(grid_output):
+    
+    # one year before optimal failure year
+    yy = np.amax(grid_output.FY) - 1
 
-def heatmap(z, colorscale=None):
-    z = np.transpose(z)
-    trc = go.Heatmap(x=list(range(z.shape[0])), y=list(range(z.shape[1])), z=z, 
-            colorscale=colorscale)
-    fig = go.Figure(data=[trc])
-    fig.show()
-
-
-def yield_by_year():
-    yld = grid_output.yield_array[80, 23, :13]
-
-    xx = list(range(len(yld)))
-
-    fig = go.Figure(
-                data=[dict(x=xx, y=yld)]
-                    )
-    fig.show()
-    return None
-
-
-def get_yield_cs():
-    cs = []
-    pltly_clr_scale = list(px.colors.sequential.Inferno)
-
-    my_grey = "rgb(0.4,0.4,0.4)"
-    pal = [my_grey, my_grey] + pltly_clr_scale
-
-
-    lim1 = 94/np.amax(yld)
-    vals = [0, lim1] + list(np.linspace(lim1, 1, len(pal)-2))
-
-    for val, col in zip(vals, pal):
-        cs.append([val, col])
-    return cs
-
-def get_RFB_cs():
-    cs = []
-
-    my_grey = "rgb(0.4,0.4,0.4)"
-    pal = [my_grey, my_grey, "red", "red"]
-
-
-    lim1 = -np.nanmin(RFB)/(np.nanmax(RFB)-np.nanmin(RFB))
-    vals = [0, lim1, lim1, 1]
-
-    for val, col in zip(vals, pal):
-        cs.append([val, col])
-    return cs
-
-def get_data_for_app():
-    yld = grid_output.yield_array[:, :, 11]
+    yld = grid_output.yield_array[:, :, yy]
     best_yield = np.amax(yld)
 
     x = np.where(yld==best_yield)
     
-    best_SR = grid_output.end_freqs_DA['SR'][x[0][0], x[1][0], 11]
-    best_RS = grid_output.end_freqs_DA['RS'][x[0][0], x[1][0], 11]
-    best_RR = grid_output.end_freqs_DA['RR'][x[0][0], x[1][0], 11]
+    best_SR = grid_output.end_freqs_DA['SR'][x[0][0], x[1][0], yy]
+    best_RS = grid_output.end_freqs_DA['RS'][x[0][0], x[1][0], yy]
+    best_RR = grid_output.end_freqs_DA['RR'][x[0][0], x[1][0], yy]
 
     print(
           f"\n best dose RR: {best_RR}"
@@ -96,10 +48,10 @@ def get_data_for_app():
 
     x1, x2 = ind_RFB[0][which_ind], ind_RFB[1][which_ind]
 
-    RFB_SR = grid_output.end_freqs_DA['SR'][x1, x2, 11]
-    RFB_RS = grid_output.end_freqs_DA['RS'][x1, x2, 11]
-    RFB_RR = grid_output.end_freqs_DA['RR'][x1, x2, 11]
-    RFB_yld = grid_output.yield_array[x1, x2, 11]
+    RFB_SR = grid_output.end_freqs_DA['SR'][x1, x2, yy]
+    RFB_RS = grid_output.end_freqs_DA['RS'][x1, x2, yy]
+    RFB_RR = grid_output.end_freqs_DA['RR'][x1, x2, yy]
+    RFB_yld = grid_output.yield_array[x1, x2, yy]
     
     
     print(
@@ -111,39 +63,13 @@ def get_data_for_app():
         )
 
 
+    print(f"year is {yy} or {yy+1}")
+
 
 
 if __name__=="__main__":
+    PP = PostProcess(config_rand['par_str'])
 
-    get_data_for_app()
+    grid_output = PP.re_run_grid(NDoses=201, run_indices=[183], plot=False)
 
-        
-    # optimal
-    # sr = grid_output.end_freqs_DA['SR'][74:84, 20:26, 12]
-    # rs = grid_output.end_freqs_DA['RS'][74:84, 20:26, 12]
-    # rr = grid_output.end_freqs_DA['RR'][74:84, 20:26, 12]
-
-    # optimal and 1 year off
-    sr = grid_output.end_freqs_DA['SR'][64:152, 12:65, 11]
-    rs = grid_output.end_freqs_DA['RS'][64:152, 12:65, 11]
-    rr = grid_output.end_freqs_DA['RR'][64:152, 12:65, 11]
-    yld = grid_output.yield_array[64:152, 12:65, 11]
-    fy = grid_output.FY[64:152, 12:65]
-    RFB = EqualResFreqBreakdownArray(grid_output).array[64:152, 12:65]
-
-
-    # cs = get_RFB_cs()
-    # heatmap(RFB, cs)
-    # heatmap(sr)
-    # heatmap(rs)
-    # heatmap(rr)
-    # cs = get_yield_cs()
-    # heatmap(yld, cs)
-    # heatmap(fy)
-
-
-    # x = np.where(grid_output.FY == 12)
-    # print(min(x[0]))
-    # print(max(x[0]))
-    # print(min(x[1]))
-    # print(max(x[1]))
+    get_data_for_appendix(grid_output)

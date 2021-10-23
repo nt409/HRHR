@@ -1,7 +1,7 @@
 import itertools
 import pandas as pd
 
-from alt_scan.utils import get_alt_scan_params
+# from alt_scan.utils import get_alt_scan_params
 
 
 

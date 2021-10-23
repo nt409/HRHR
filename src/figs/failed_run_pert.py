@@ -39,13 +39,14 @@ def run_pert(run_index):
     conf_str = rp.grid_conf.config_string_img
 
     # plot output
-    conf_str = conf_str.replace("param_scan/", f"paper_figs/failed_run={this_run_ind}_pert_")
-    DoseSpaceScenarioDouble(grid_default, grid_pert, conf_str)
+    conf_str = conf_str.replace("param_scan/", f"paper_figs/failed_run_pert={this_run_ind}_")
+    filename = conf_str[:100] + ".png"
+    DoseSpaceScenarioDouble(grid_default, grid_pert, filename)
 
 
 if __name__=="__main__":
 
-    run = 295
+    run = 91
     
     PP = PostProcess(config_rand['par_str'])
 

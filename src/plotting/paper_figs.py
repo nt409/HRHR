@@ -797,6 +797,7 @@ class DoseSpaceScenariosPlot(BasicFig):
 
         EL_SS_traces = self._get_DSS_EL_traces(self.data_SS, 0, 1, showlegend=True)
         EL_DS_traces = self._get_DSS_EL_traces(self.data_DS, 1, 1)
+        
         EL_SD_traces = self._get_DSS_EL_traces(self.data_SD, 0, 0)
         EL_DD_traces = self._get_DSS_EL_traces(self.data_DD, 1, 0)
 
@@ -2986,7 +2987,7 @@ class DoseSpace6(BasicFig):
 
         self.data_list = data_list
 
-        self.cbar_attrs = dict(x=[0.40, 1.01], y=[0.13, 0.5, 0.87], len=0.28)
+        self.cbar_attrs = dict(x=[0.40, 1.01], y=[0.87, 0.5, 0.13], len=0.28)
 
         fig = self._generate_figure()
 
@@ -3102,21 +3103,21 @@ class DoseSpace6(BasicFig):
                         )
                         ))
         
-        # fig.update_layout(
-        #     coloraxis = dict(colorbar=dict(
-        #             title = "E.L.",
-        #             titleside = 'right',
-        #         ),
-        #         # colorscale = grey_colorscale_discrete(self.data_list[0].FY),
-        #         )
-        #     )
         
-        fig.update_xaxes(title="Dose (fungicide <i>A</i>)", range=[0,1], showgrid=False, zeroline=False, row=3, col=1)
-        fig.update_xaxes(title="Dose (fungicide <i>A</i>)", range=[0,1], showgrid=False, zeroline=False, row=3, col=2)
+        fig.update_xaxes(range=[0,1], showline=False, zeroline=False, row=1, col=1)
+        fig.update_xaxes(range=[0,1], showline=False, zeroline=False, row=1, col=2)
+        fig.update_xaxes(range=[0,1], showline=False, zeroline=False, row=2, col=1)
+        fig.update_xaxes(range=[0,1], showline=False, zeroline=False, row=2, col=2)
+        fig.update_xaxes(title="Dose (fungicide <i>A</i>)", range=[0,1], showline=False, zeroline=False, row=3, col=2)
+        fig.update_xaxes(title="Dose (fungicide <i>A</i>)", range=[0,1], showline=False, zeroline=False, row=3, col=1)
+
+        fig.update_yaxes(title="Dose (fungicide <i>B</i>)", range=[0,1], showline=False, zeroline=False, row=1, col=1)
+        fig.update_yaxes(title="Dose (fungicide <i>B</i>)", range=[0,1], showline=False, zeroline=False, row=2, col=1)
+        fig.update_yaxes(title="Dose (fungicide <i>B</i>)", range=[0,1], showline=False, zeroline=False, row=3, col=1)
         
-        fig.update_yaxes(title="Dose (fungicide <i>B</i>)", range=[0,1], showgrid=False, zeroline=False, row=1, col=1)
-        fig.update_yaxes(title="Dose (fungicide <i>B</i>)", range=[0,1], showgrid=False, zeroline=False, row=2, col=1)
-        fig.update_yaxes(title="Dose (fungicide <i>B</i>)", range=[0,1], showgrid=False, zeroline=False, row=3, col=1)
+        fig.update_yaxes(range=[0,1], showline=False, zeroline=False, row=1, col=2)
+        fig.update_yaxes(range=[0,1], showline=False, zeroline=False, row=2, col=2)
+        fig.update_yaxes(range=[0,1], showline=False, zeroline=False, row=3, col=2)
 
         
         left = -0.03
@@ -3142,3 +3143,7 @@ class DoseSpace6(BasicFig):
 
         
         return fig
+
+
+
+

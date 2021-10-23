@@ -220,7 +220,7 @@ class PostProcess:
 
 
 
-    def re_run_cont(self, NDoses, N_cont_doses, DS_lim, run_indices):
+    def re_run_cont_RFB(self, NDoses, N_cont_doses, DS_lim, run_indices):
 
         df_test = self.get_params_for_specific_runs(run_indices)
 
@@ -241,6 +241,53 @@ class PostProcess:
             # print(np.where(np.array(grid_output.FY)==np.amax(grid_output.FY)))
 
             RFB_dfs = RunAlongContourDFsReCalc(rp, grid_output, N_cont_doses, DS_lim, "RFB")
+
+            data = dict(run=this_run_ind,
+                    c_R_maxContEL=RFB_dfs.summary.c_R_maxContEL,
+                    max_grid_EL=np.amax(grid_output.FY))
+            
+            out = out.append(data, ignore_index=True)
+
+            # plot output - not if on cluster!
+            # conf_str = rp.grid_conf.config_string_img
+            # conf_str = conf_str.replace("param_scan/", f"param_scan/run={this_run_ind}_")
+
+            # DoseSpaceScenarioSingle(grid_output, conf_str)
+
+        for col in ["c_R_maxContEL", "max_grid_EL", "run"]:
+            out[col] = out[col].astype("int")
+        out["worked"] = out["c_R_maxContEL"] >= out["max_grid_EL"]
+
+
+        ind_str = ",".join([str(rr) for rr in run_indices])
+        
+        filename = f"{self.folder}/par_scan/re_run/cont_{NDoses}_{N_cont_doses}_{ind_str}.csv"
+        print(f"Saving re-run to: {filename}")
+        print(out)
+        out.to_csv(filename, index=False)
+
+
+    def re_run_cont_SFY(self, NDoses, N_cont_doses, DS_lim, run_indices):
+
+        df_test = self.get_params_for_specific_runs(run_indices)
+
+        out = pd.DataFrame()
+
+        for ii in range(df_test.shape[0]):
+
+            pars = df_test.iloc[int(ii),:]
+
+            this_run_ind = int(df_test.iloc[int(ii),:].run)
+
+            print(f"\nRe-running run: {this_run_ind} \n")
+
+            rp = self._get_RPs(pars, NDoses)
+
+            grid_output = RunGrid(rp.fung_parms).run(rp.grid_conf)
+
+            # print(np.where(np.array(grid_output.FY)==np.amax(grid_output.FY)))
+
+            RFB_dfs = RunAlongContourDFsReCalc(rp, grid_output, N_cont_doses, DS_lim, "EqSel")
 
             data = dict(run=this_run_ind,
                     c_R_maxContEL=RFB_dfs.summary.c_R_maxContEL,

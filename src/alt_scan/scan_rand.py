@@ -58,6 +58,7 @@ def main(n_doses, alt_strat, index):
 
     # ADD TO DATAFRAME
     data = dict(
+        RR =  primary_inoc["RR"],
         RS =  primary_inoc["RS"],
         SR =  primary_inoc["SR"],
         omega1 = fcide_parms["omega_1"],

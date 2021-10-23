@@ -99,3 +99,16 @@ i.e.:
 ```bash
 scancel 47650567
 ```
+
+## To delete files of a certain type (command line)
+
+Find files - run first:
+```bash
+find . -name "*.bak" -type f
+```
+
+If happy to delete these, then go ahead with
+```bash
+find . -name "*.bak" -type f -delete
+```
+

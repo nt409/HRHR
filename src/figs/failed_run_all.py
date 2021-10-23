@@ -36,7 +36,7 @@ def run_all_failed(runs):
 
 
     # plot output
-    conf_str = conf_str.replace("param_scan/", f"paper_figs/failed_run_all={this_run_ind}_pert_")
+    conf_str = conf_str.replace("param_scan/", f"paper_figs/failed_run_all={this_run_ind}_")
     filename = conf_str[:100] + ".png"
     DoseSpace6(grid_outputs, filename)
 

@@ -31,6 +31,7 @@ def main(n_doses, n_its):
     print(df[df["asex_alt"]>df["asex_mix"]])
     print(df[df["sex_alt"]>df["sex_mix"]])
     
+    print("NB 100 iterations but over alt_21 and alt_12")
 
 
     filename = f"./alt_scan/outputs/combined/out_{n_its}_{n_doses}_{alt_strat}.csv"

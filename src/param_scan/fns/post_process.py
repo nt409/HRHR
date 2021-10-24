@@ -242,11 +242,16 @@ class PostProcess:
 
             RFB_dfs = RunAlongContourDFsReCalc(rp, grid_output, N_cont_doses, DS_lim, "RFB")
 
-            data = dict(run=this_run_ind,
+            data = dict(
+                    run=this_run_ind,
                     c_R_maxContEL=RFB_dfs.summary.c_R_maxContEL,
                     max_grid_EL=np.amax(grid_output.FY))
             
             out = out.append(data, ignore_index=True)
+
+            filename = f"{self.folder}/par_scan/re_run/full_df_{NDoses}_{N_cont_doses}_{ii}.csv"
+            print(f"Saving re-run full df to: {filename}")
+            RFB_dfs.df.to_csv(filename, index=False)
 
             # plot output - not if on cluster!
             # conf_str = rp.grid_conf.config_string_img

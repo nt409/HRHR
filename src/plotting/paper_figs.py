@@ -2023,12 +2023,12 @@ class DoseSpaceScenarioSingle(BasicFig):
 
         if showlegend:
             traces.append(self._get_DSS_ERFB_legend_entry())
-            traces.append(self._get_DSS_ESFY_legend_entry())
+            # traces.append(self._get_DSS_ESFY_legend_entry())
 
         traces.append(self._get_DSS_FY_trace(data))
         
         traces.append(self._get_DSS_ERFB_contour_single(data))
-        traces.append(self._get_DSS_ESFY_contour_single(data))
+        # traces.append(self._get_DSS_ESFY_contour_single(data))
 
         return traces
 

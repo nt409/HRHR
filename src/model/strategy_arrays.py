@@ -1,7 +1,7 @@
 import itertools
 import numpy as np
 from scipy.optimize import minimize
-
+from math import floor
 
 from model.utils import logit10_difference
 from model.simulator import RunSingleTactic
@@ -45,7 +45,7 @@ def get_RFB(end_freqs_1, end_freqs_2, fy):
 
 # FY Sel Finder
 
-def find_FY_sel_from_single_run(single_run):
+def find_SFY_from_single_run(single_run):
     fy = single_run.failure_year
     
     start_freqs = single_run.start_freqs
@@ -249,7 +249,7 @@ class ContourDoseFinder:
             self.cont_quant_finder = find_RFB_from_single_run
             
         elif strat_name=="EqSel":
-            self.cont_quant_finder = find_FY_sel_from_single_run
+            self.cont_quant_finder = find_SFY_from_single_run
             
         else:
             raise Exception(f"invalid strat_name: {strat_name}")
@@ -278,14 +278,8 @@ class ContourDoseFinder:
             doses = self._get_doses_on_cntr_this_DS(ds)
 
             if doses is None:
+                print("doses is None - means opt wasn't close or fy=1 - skipping to next ds")
                 continue
-
-            
-            if self.model_cont_quant is None:
-                continue
-
-            # only add if have got close to the contour 
-            # ! - why doesn't it get close otherwise?
 
             dist_from_contour = abs(self.model_cont_quant-self.level)
         
@@ -298,6 +292,7 @@ class ContourDoseFinder:
                 print("this run didn't get close to the contour?? ...")
                 print("contour level:", self.model_cont_quant)
                 print("dose sum:", self.dose_sum)
+                print(f"{dist_from_contour=}")
                 print(vars(DS_bds))
 
 
@@ -309,29 +304,83 @@ class ContourDoseFinder:
     
     def _get_doses_on_cntr_this_DS(self, ds):
         
-        lower, upper = self._get_bnds(ds)
+        lower, upper = self._get_k_limits(ds)
         
-        x0 = [0.5*(lower+upper)]
-        
-        bnds = ((lower, upper), )
+        k0, bnds = self._get_k0_and_bds(lower, upper)
 
-        try:
-            thisFit = minimize(self.objective_fn, x0, bounds=bnds)
-            k = thisFit.x[0]
-            doses = dict(
-                x = 0.5*ds - k,
-                y = 0.5*ds + k,
-                )
-            return doses
-        except Exception as e:
-            print(e)
+        if k0 is None:
             return None
+
+        doses = self._get_doses(k0, bnds, ds)
         
+        return doses
 
 
 
 
-    def _get_bnds(self, ds):
+
+
+    def _get_k0_and_bds(self, lower, upper):
+        """
+        See if there is a point along the dose sum contour which gives FY>1
+        - if so, return as k0
+        - otherwise return None
+        """
+
+        ps = np.linspace(0,1,21)
+        ks = []
+        FYs = []
+
+        for p in ps:
+            k = (1-p)*lower + p*upper
+            k_val, FY = self._valid_doses_this_value_k(k)
+            
+            ks.append(k_val)
+            FYs.append(FY)
+        
+        if max(FYs)==1:
+            return None, None
+        
+        FYs = np.asarray(FYs)
+        inds = np.where(FYs==np.nanmax(FYs))[0]
+        inds = list(inds)
+
+        # if inds has several values, pick one in the middle
+        middle_ind = inds[floor(len(inds)/2)]
+        k = ks[middle_ind]
+
+        
+        ind_min = max(min(inds)-1, 0)
+        ind_max = min(max(inds)+1, len(ks)-1)
+
+        # limit search to near optimal values from basic search over k values
+        k_min = ks[ind_min]
+        k_max = ks[ind_max]
+
+        return [k], ((k_min, k_max),)
+
+            
+
+
+    def _valid_doses_this_value_k(self, k):
+        
+        dose1 = 0.5*self.dose_sum - k
+        dose2 = 0.5*self.dose_sum + k
+
+
+        rp = self.rand_pars
+
+        this_dose_conf = rp.get_single_conf(dose1, dose2)
+        this_dose_conf.load_saved = False
+
+        sing_run = RunSingleTactic(rp.fung_parms).run(this_dose_conf)
+
+        FY = sing_run.failure_year
+        
+        return k, FY
+
+
+    def _get_k_limits(self, ds):
         d = 0.5*ds
 
         # pick lower/upper so that each dose in [0,1]
@@ -342,10 +391,40 @@ class ContourDoseFinder:
 
 
 
+    def _get_doses(self, k0, bnds, ds):
+        # try:
+        
+        thisFit = minimize(self.objective_fn, k0, bounds=bnds)
+        
+        if self.model_cont_quant is None:
+            print("model_cont_quant is None - return None")
+            return None
+
+        k = thisFit.x[0]
+
+        doses = dict(
+            x = 0.5*ds - k,
+            y = 0.5*ds + k,
+            )
+        
+        print(f"{doses=}")
+
+        return doses
+
+        # except Exception as e:
+        #     print(e)
+        #     return None
+        
+
+
 
 
 
     def objective_fn(self, param):
+        """
+        1/ Updates self.model_cont_quant with RFB/SFY value here
+        2/ Returns distance from contour if self.model_cont_quant!=None
+        """
 
         k = param[0]
 
@@ -363,6 +442,8 @@ class ContourDoseFinder:
 
         dist = self._get_distance_from_contour(k)
 
+        # print(f"{dist=}")
+
         return dist
 
 
@@ -375,7 +456,7 @@ class ContourDoseFinder:
         the optimiser back towards the middle of the x+y=DS line
         """
         if self.model_cont_quant is None:
-            return abs(k) + 5
+            return abs(k) + 2
         else:
             return (self.model_cont_quant - self.level)**2
 

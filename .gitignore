@@ -1,4 +1,4 @@
-hrhr.egg-info/
+*.egg-info/
 __pycache__/
 dist/
 *.py[cod]
@@ -7,3 +7,6 @@ outputs/
 Old/
 writing/
 
+*.csv
+*.xlsx
+*.docx

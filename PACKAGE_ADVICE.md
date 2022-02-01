@@ -4,6 +4,8 @@
 
 Lots of stuff online, e.g. https://realpython.com/pypi-publish-python-package/
 
+**Or more recently** https://packaging.python.org/en/latest/tutorials/packaging-projects/
+
 Some youtube stuff too. Try CookieCutter for a simple way?
 
 

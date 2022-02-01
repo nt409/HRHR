@@ -290,8 +290,9 @@ class CombinedModelPlot(BasicFig):
             get_big_text_annotation(left, very_top, 'A'),
             
             get_big_text_annotation(left, top_row, 'B'),
-            get_big_text_annotation(middle, top_row, 'C'),
-            get_big_text_annotation(left, bottom_row, 'D'),
+            get_big_text_annotation(left, bottom_row, 'C'),
+            
+            get_big_text_annotation(middle, top_row, 'D'),
             get_big_text_annotation(middle, bottom_row, 'E'),
 
             get_big_text_annotation(right, top_row, 'F'),

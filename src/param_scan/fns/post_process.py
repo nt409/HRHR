@@ -266,7 +266,7 @@ class PostProcess:
 
         ind_str = ",".join([str(rr) for rr in run_indices])
         
-        filename = f"{self.folder}/par_scan/re_run/cont_{NDoses}_{N_cont_doses}_{ind_str}.csv"
+        filename = f"{self.folder}/par_scan/re_run/RFB_cont_{NDoses}_{N_cont_doses}_{ind_str}.csv"
         print(f"Saving re-run to: {filename}")
         print(out)
         out.to_csv(filename, index=False)
@@ -295,7 +295,7 @@ class PostProcess:
             RFB_dfs = RunAlongContourDFsReCalc(rp, grid_output, N_cont_doses, DS_lim, "EqSel")
 
             data = dict(run=this_run_ind,
-                    c_R_maxContEL=RFB_dfs.summary.c_R_maxContEL,
+                    c_E_maxContEL=RFB_dfs.summary.c_E_maxContEL,
                     max_grid_EL=np.amax(grid_output.FY))
             
             out = out.append(data, ignore_index=True)
@@ -313,7 +313,7 @@ class PostProcess:
 
         ind_str = ",".join([str(rr) for rr in run_indices])
         
-        filename = f"{self.folder}/par_scan/re_run/cont_{NDoses}_{N_cont_doses}_{ind_str}.csv"
+        filename = f"{self.folder}/par_scan/re_run/SFY_cont_{NDoses}_{N_cont_doses}_{ind_str}.csv"
         print(f"Saving re-run to: {filename}")
         print(out)
         out.to_csv(filename, index=False)

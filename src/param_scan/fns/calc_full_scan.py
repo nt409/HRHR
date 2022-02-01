@@ -4,11 +4,6 @@ import numpy as np
 from param_scan.fns.calc_sing_ps_run import SinglePSRun, ScanOutput
 
 
-
-
-
-
-
 class ParameterScan:
     """
     Inputs:
@@ -18,10 +13,10 @@ class ParameterScan:
     Outputs:
     - ScanOutput object
     """
+
     def __init__(self, config, seed) -> None:
         self.config = config
         self.seed = seed
-        
 
     def run(self):
         """
@@ -29,16 +24,13 @@ class ParameterScan:
         """
 
         output = self._get_scan_output()
-        
+
         output.save(self.config, self.seed)
-
-
-
 
     def _get_scan_output(self):
 
         np.random.seed(self.seed)
-        
+
         scan_output = ScanOutput()
 
         N_ITS = self.config["n_iterations"]
@@ -52,4 +44,3 @@ class ParameterScan:
             scan_output.add_new_output(this_run.output)
 
         return scan_output
-    

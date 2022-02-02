@@ -71,7 +71,11 @@ class ThisStratDetailedDF:
         if not contour:
             return df_this_run
 
-        for dose1, dose2, cont_quant in zip(contour['x'], contour['y'], contour['cont_vals']):
+        for dose1, dose2, cont_quant in zip(
+                contour['x'],
+                contour['y'],
+                contour['cont_vals'],
+        ):
 
             EL = self._get_EL_this_dose_combo(dose1, dose2)
 

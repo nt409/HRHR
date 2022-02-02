@@ -12,3 +12,5 @@ writing/
 *.docx
 
 *.code-workspace
+
+*ipynb_checkpoints/

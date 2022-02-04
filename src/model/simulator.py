@@ -36,7 +36,9 @@ class SeasonWithDisease(Simulator):
 
         if within_season_sex_prop > 0:
             self.ode_sys = ODESystemWithinSeasonSex(
-                fungicide_params, within_season_sex_prop)
+                fungicide_params,
+                within_season_sex_prop
+            )
         else:
             self.ode_sys = ODESystem(fungicide_params)
 
@@ -240,7 +242,32 @@ class RunSingleTactic(RunModel):
         self.sexual_reproduction = sexual_reproduction
 
     def run(self, conf):
-        """Run HRHR model for single tactic."""
+        """Run HRHR model for single tactic.
+
+        Parameters
+        ----------
+        conf : SingleConfig
+
+        Returns
+        -------
+        self.out : SingleTacticOutput
+            [description]
+
+        Example of use
+        --------------
+        >>>fcide_parms = dict(
+        ... omega_1=0.9, omega_2=0.9,
+        ... delta_1=1e-2, delta_2=1e-2,
+        ... theta_1=9, theta_2=9,
+        ... )
+        >>>config = SingleConfig(
+        ... 35,
+        ... None, None,
+        ... dose1, dose1, dose2, dose2,
+        ... primary_inoculum=dict(RR=1e-5, RS=1e-3, SR=1e-5, SS=1-1e-5-1e-3-1e-5)
+        ... )
+        >>>data = RunSingleTactic(fcide_parms).run(config)
+        """
 
         self.filename = conf.config_string
 
@@ -416,8 +443,11 @@ class RunGrid(RunModel):
         for f1_ind in tqdm(range(conf.n_doses)):
             for f2_ind in range(conf.n_doses):
 
-                conf.fung1_doses, conf.fung2_doses = fs.get_grid_doses(f1_ind,
-                                                                       f2_ind, conf.n_doses)
+                conf.fung1_doses, conf.fung2_doses = fs.get_grid_doses(
+                    f1_ind,
+                    f2_ind,
+                    conf.n_doses
+                )
 
                 one_tact_output = self.sing_tact.run(conf)
 

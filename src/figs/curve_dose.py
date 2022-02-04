@@ -1,3 +1,5 @@
+"""NB now using dose response app!"""
+
 import numpy as np
 from math import exp
 
@@ -17,7 +19,7 @@ xs = [xA, xB]
 ys = [
     [fcl.effect(xx) for xx in xA],
     [fch.effect(xx) for xx in xB],
-    ]
+]
 
 
 names = ["Curvature 5", "Curvature 10"]
@@ -27,13 +29,15 @@ dashes = ["solid", "dash"]
 dose_resp_data = dict(x=xs, y=ys, name=names, cols=cols, dashes=dashes)
 
 
-time = np.linspace(0,600,601)
-concsA1 = [exp( - PARAMS.delta_1 * xx) for xx in time]
-concsA2 = [exp( - PARAMS.delta_1 * (xx - 244)) if xx>244 else 0 for xx in time]
+time = np.linspace(0, 600, 601)
+concsA1 = [exp(- PARAMS.delta_1 * xx) for xx in time]
+concsA2 = [exp(- PARAMS.delta_1 * (xx - 244))
+           if xx > 244 else 0 for xx in time]
 concsA = np.array(concsA1) + np.array(concsA2)
 
-concsB1 = [0.5 * exp( - PARAMS.delta_1 * xx) for xx in time]
-concsB2 = [0.5 * exp( - PARAMS.delta_1 * (xx - 244)) if xx>244 else 0 for xx in time]
+concsB1 = [0.5 * exp(- PARAMS.delta_1 * xx) for xx in time]
+concsB2 = [0.5 * exp(- PARAMS.delta_1 * (xx - 244))
+           if xx > 244 else 0 for xx in time]
 concsB = np.array(concsB1) + np.array(concsB2)
 
 xs = [time, time]
@@ -41,9 +45,10 @@ xs = [time, time]
 effects = [
     [fcl.effect(xx) for xx in concsA],
     [fch.effect(xx) for xx in concsB],
-    ]
+]
 
-effect_vs_time_data = dict(x=xs, y=effects, name=names, cols=cols, dashes=dashes)
+effect_vs_time_data = dict(
+    x=xs, y=effects, name=names, cols=cols, dashes=dashes)
 
 filename = "../outputs/figures/paper_figs/curve_dose.png"
 

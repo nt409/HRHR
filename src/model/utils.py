@@ -11,17 +11,19 @@ from model.params import PARAMS
 # * Utility functions
 
 def object_dump(file_name, object_to_dump):
-    
+
     # check if file path exists - if not create
-    outdir =  os.path.dirname(file_name)
+    outdir = os.path.dirname(file_name)
     if not os.path.exists(outdir):
-        os.makedirs(outdir,exist_ok=True) 
-        
+        os.makedirs(outdir, exist_ok=True)
+
     with open(file_name, 'wb') as handle:
-        pickle.dump(object_to_dump, handle, protocol=pickle.HIGHEST_PROTOCOL) # protocol?
+        pickle.dump(object_to_dump, handle,
+                    protocol=pickle.HIGHEST_PROTOCOL)  # protocol?
+
 
 def logit10(x):
-    if x>0 and x<1:
+    if x > 0 and x < 1:
         return log10(x/(1-x))
     else:
         raise Exception(f"x={x} - invalid value")
@@ -30,21 +32,19 @@ def logit10(x):
 def logit10_difference(x1, x2):
     return logit10(x1) - logit10(x2)
 
+
 def log10_difference(x1, x2):
     return log10(x1) - log10(x2)
-
 
 
 def get_rfd(rs, sr):
     """Get double resistant frequency if at linkage eqm"""
     B = 1 - rs - sr
     C = rs*sr
-    out = (B - sqrt(B**2 -4*C))/2
+    out = (B - sqrt(B**2 - 4*C))/2
     return out
 
 # * End of utility functions
-
-
 
 
 # * Simulatr functions
@@ -54,8 +54,6 @@ def yield_calculator(y, t):
     return out
 
 
-
-
 def res_prop_calculator(solution):
     """
     Uses final value of disease densities (end of season) to determine the res props.
@@ -63,54 +61,49 @@ def res_prop_calculator(solution):
     These are used for next season (with a SR step in between if sr_prop=/=0)
     """
 
-    disease = (solution.IRR[-1] + 
-                    solution.IRS[-1] +
-                    solution.ISR[-1] + 
-                    solution.ISS[-1])
-        
+    disease = (solution.IRR[-1] +
+               solution.IRS[-1] +
+               solution.ISR[-1] +
+               solution.ISS[-1])
+
     Res_disease_1 = solution.IRR[-1] + solution.IRS[-1]
     Res_disease_2 = solution.IRR[-1] + solution.ISR[-1]
 
     res_props_out = dict(
-        f1 = Res_disease_1/disease,
-        f2 = Res_disease_2/disease,
-        )
-    
+        f1=Res_disease_1/disease,
+        f2=Res_disease_2/disease,
+    )
+
     strain_frequencies = dict(
-        RR = solution.IRR[-1]/disease,
-        RS = solution.IRS[-1]/disease,
-        SR = solution.ISR[-1]/disease,
-        SS = solution.ISS[-1]/disease
-        )
-    
+        RR=solution.IRR[-1]/disease,
+        RS=solution.IRS[-1]/disease,
+        SR=solution.ISR[-1]/disease,
+        SS=solution.ISS[-1]/disease
+    )
+
     return res_props_out, strain_frequencies
-
-
-
 
 
 def sexual_reproduction(freqs):
     f = freqs
     D = f["RR"]*f["SS"] - f["RS"]*f["SR"]
-    
-    out = dict(
-        RR = f["RR"] - 0.5*D,
-        RS = f["RS"] + 0.5*D,
-        SR = f["SR"] + 0.5*D,
-        SS = f["SS"] - 0.5*D,
-        )
-    return out
 
+    out = dict(
+        RR=f["RR"] - 0.5*D,
+        RS=f["RS"] + 0.5*D,
+        SR=f["SR"] + 0.5*D,
+        SS=f["SS"] - 0.5*D,
+    )
+    return out
 
 
 # * End of Simulatr functions
 
 
-
 # * ODESystem fns
 
 def growth(A, t):
-    if t>=PARAMS.T_emerge:
+    if t >= PARAMS.T_emerge:
         grw = PARAMS.r*(PARAMS.k-A)
         return grw
     else:
@@ -118,8 +111,9 @@ def growth(A, t):
 
 
 def senescence(t):
-    if t>=PARAMS.T_GS61:
-        out = 0.005*((t-PARAMS.T_GS61)/(PARAMS.T_GS87-PARAMS.T_GS61)) + 0.1*exp(-0.02*(PARAMS.T_GS87-t))
+    if t >= PARAMS.T_GS61:
+        out = 0.005*((t-PARAMS.T_GS61)/(PARAMS.T_GS87-PARAMS.T_GS61)
+                     ) + 0.1*exp(-0.02*(PARAMS.T_GS87-t))
         return out
     else:
         return 0
@@ -128,7 +122,6 @@ def senescence(t):
 # * End of ODESystem fns
 
 
-    
 # * Classes
 
 class Fungicide:
@@ -144,94 +137,66 @@ class Fungicide:
 # * End of Fcide cls
 
 
-
-
-
-
-
-
-
-
 class FungicideStrategy:
     def __init__(self, my_strategy, n_seasons):
         self.my_strategy = my_strategy
         self.n_seasons = n_seasons
-
-
 
     def get_grid_doses(self, f1_val, f2_val, n_doses):
 
         self.conc_f1 = f1_val/(n_doses-1)
         self.conc_f2 = f2_val/(n_doses-1)
 
-        self._get_doses_for_this_strategy()      
+        self._get_doses_for_this_strategy()
 
         return self.fung1_doses, self.fung2_doses
 
-
-
     def _get_doses_for_this_strategy(self):
-        if self.my_strategy=='mix':
+        if self.my_strategy == 'mix':
             self._get_mixed_doses()
 
-        elif self.my_strategy=='alt_12':
+        elif self.my_strategy == 'alt_12':
             self._get_alt_12_doses()
 
-        elif self.my_strategy=='alt_21':
+        elif self.my_strategy == 'alt_21':
             self._get_alt_21_doses()
 
         else:
             raise Exception(f"Invalid strategy named: {self.my_strategy}")
 
-
-    def _get_mixed_doses(self):        
+    def _get_mixed_doses(self):
         # did half 0.5*
         # but Hobbelen paper just says it means twice as much
         self.fung1_doses = dict(
-            spray_1 = self.conc_f1*np.ones(self.n_seasons),
-            spray_2 = self.conc_f1*np.ones(self.n_seasons)
-            )
+            spray_1=self.conc_f1*np.ones(self.n_seasons),
+            spray_2=self.conc_f1*np.ones(self.n_seasons)
+        )
         self.fung2_doses = dict(
-            spray_1 = self.conc_f2*np.ones(self.n_seasons),
-            spray_2 = self.conc_f2*np.ones(self.n_seasons)
-            )
-
+            spray_1=self.conc_f2*np.ones(self.n_seasons),
+            spray_2=self.conc_f2*np.ones(self.n_seasons)
+        )
 
     def _get_alt_12_doses(self):
         self.fung1_doses = dict(
-            spray_1 = self.conc_f1*np.ones(self.n_seasons),
-            spray_2 = np.zeros(self.n_seasons)
-            )
+            spray_1=self.conc_f1*np.ones(self.n_seasons),
+            spray_2=np.zeros(self.n_seasons)
+        )
         self.fung2_doses = dict(
-            spray_1 = np.zeros(self.n_seasons),
-            spray_2 = self.conc_f2*np.ones(self.n_seasons)
-            )
-    
+            spray_1=np.zeros(self.n_seasons),
+            spray_2=self.conc_f2*np.ones(self.n_seasons)
+        )
 
     def _get_alt_21_doses(self):
         self.fung1_doses = dict(
-            spray_1 = np.zeros(self.n_seasons),
-            spray_2 = self.conc_f1*np.ones(self.n_seasons)
-            )
+            spray_1=np.zeros(self.n_seasons),
+            spray_2=self.conc_f1*np.ones(self.n_seasons)
+        )
         self.fung2_doses = dict(
-            spray_1 = self.conc_f2*np.ones(self.n_seasons),
-            spray_2 = np.zeros(self.n_seasons)
-            )
+            spray_1=self.conc_f2*np.ones(self.n_seasons),
+            spray_2=np.zeros(self.n_seasons)
+        )
 
 # * End of FcideStrt cls
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 class ModelTimes:
@@ -239,30 +204,28 @@ class ModelTimes:
         self.params = params
 
         self.seg_times = [self.params.T_emerge,
-                        self.params.T_GS32,
-                        self.params.T_GS39,
-                        self.params.T_GS61,
-                        self.params.T_GS87]
+                          self.params.T_GS32,
+                          self.params.T_GS39,
+                          self.params.T_GS61,
+                          self.params.T_GS87]
 
-        
         self.seg_names = ["start", "spray_1", "spray_2", "yield"]
 
         self.t_vecs = self._get_list_of_time_vecs()
 
         self.t = self._get_t()
 
-
     def _get_list_of_time_vecs(self):
-        
+
         seg_ts = self.seg_times
-        
+
         sum_ns = 0
 
         list_of_tvs = []
 
         for ii, segment in enumerate(self.seg_names):
 
-            if segment=="yield":
+            if segment == "yield":
                 # makes sure total number of points is self.params.t_points
                 n = 3 + self.params.t_points - sum_ns
 
@@ -274,19 +237,16 @@ class ModelTimes:
 
             time_vec = np.linspace(seg_ts[ii], seg_ts[ii+1], n)
 
-            if segment=="yield":
+            if segment == "yield":
                 self.t_yield = time_vec
 
             list_of_tvs.append(time_vec)
 
         return list_of_tvs
 
-
     def _get_t(self):
         tvs = self.t_vecs
 
-        out = np.concatenate([tvs[ii][:-1] if ii!=3 else tvs[ii]
-                                for ii in range(len(tvs))])
+        out = np.concatenate([tvs[ii][:-1] if ii != 3 else tvs[ii]
+                              for ii in range(len(tvs))])
         return out
-
-

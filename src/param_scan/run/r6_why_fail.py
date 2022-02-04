@@ -26,11 +26,12 @@ def get_data_for_appendix(grid_output):
     best_RR = grid_output.end_freqs_DA['RR'][x[0][0], x[1][0], yy]
 
     print(
-        f"\n best dose RR: {best_RR}"
-        f"\n best dose RS: {best_RS}"
-        f"\n best dose SR: {best_SR}"
-        f"\n best dose SS: {1 - best_SR - best_RS - best_RR}"
-        f"\n best dose yield: {best_yield}"
+        f"best dose RR: {best_RR}",
+        f"best dose RS: {best_RS}",
+        f"best dose SR: {best_SR}",
+        f"best dose SS: {1 - best_SR - best_RS - best_RR}",
+        f"best dose yield: {best_yield}",
+        sep='\n'
     )
 
     n_doses = grid_output.yield_array.shape[0]
@@ -53,11 +54,12 @@ def get_data_for_appendix(grid_output):
     RFB_yld = grid_output.yield_array[x1, x2, yy]
 
     print(
-        f"\n ERFB RR: {RFB_RR}"
-        f"\n ERFB SR: {RFB_SR}"
-        f"\n ERFB RS: {RFB_RS}"
-        f"\n ERFB SS: {1 - RFB_RR - RFB_RS - RFB_SR}"
-        f"\n ERFB yield: {RFB_yld}"
+        f"ERFB RR: {RFB_RR}",
+        f"ERFB SR: {RFB_SR}",
+        f"ERFB RS: {RFB_RS}",
+        f"ERFB SS: {1 - RFB_RR - RFB_RS - RFB_SR}",
+        f"ERFB yield: {RFB_yld}",
+        sep='\n',
     )
 
     nd_use = n_doses-1

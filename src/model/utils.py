@@ -41,8 +41,20 @@ def get_rfd(rs, sr):
     """Get double resistant frequency if at linkage eqm"""
     B = 1 - rs - sr
     C = rs*sr
-    out = (B - sqrt(B**2 - 4*C))/2
-    return out
+    rr_val = (B - sqrt(B**2 - 4*C))/2
+    return rr_val
+
+def primary_inoc_from_sing_res_strains(rs, sr):
+    rr = get_rfd(rs, sr)
+
+    primary_inoc = dict(
+        RR=rr,
+        RS=rs,
+        SR=sr,
+        SS=1-rs-sr-rr
+    )
+
+    return primary_inoc
 
 # * End of utility functions
 

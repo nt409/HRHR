@@ -47,7 +47,7 @@ def random_alt_scan_params(index):
 
         conf_12 = SingleConfig(1, None, None, 1, 1, 1, 1)
         conf_12.load_saved = False
-        conf_12.strategy = "alt_21"
+        conf_12.strategy = "alt_12"
         conf_12.primary_inoculum = primary_inoc
         conf_12.add_string()
 

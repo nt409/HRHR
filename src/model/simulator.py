@@ -138,12 +138,23 @@ class RunSingleTactic(RunModel):
         return self.out
 
     def _set_first_year_start_freqs(self, conf):
+        """Start freqs:
+
+        By default use primary inoc. Otherwise use conf.res_props
+
+        Parameters
+        ----------
+        conf : SingleConfig or GridConfig
+            See their docs in model.config_classes
+        """
         primary_inoculum = conf.primary_inoculum
 
         if primary_inoculum is None:
-            primary_inoculum = self._between_season_calculator(conf,
-                                                               conf.res_props['f1'],
-                                                               conf.res_props['f2'])
+            primary_inoculum = self._between_season_calculator(
+                conf,
+                conf.res_props['f1'],
+                conf.res_props['f2']
+            )
 
         self.out.update_start_freqs(primary_inoculum, 0)
 

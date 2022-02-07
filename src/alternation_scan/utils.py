@@ -1,7 +1,6 @@
 """Utility functions for alternation vs mixture scan"""
 
 import numpy as np
-import itertools
 import pandas as pd
 
 from model.config_classes import SingleConfig
@@ -38,14 +37,23 @@ def random_alt_scan_params(index):
         )
 
         # check full dose fine:
-        conf_a = SingleConfig(1, None, None, 1, 1, 1, 1)
-        conf_a.load_saved = False
-        conf_a.primary_inoculum = primary_inoc
-        conf_a.add_string()
+        conf_21 = SingleConfig(1, None, None, 1, 1, 1, 1)
+        conf_21.load_saved = False
+        conf_21.strategy = "alt_21"
+        conf_21.primary_inoculum = primary_inoc
+        conf_21.add_string()
 
-        yld = RunSingleTactic(fcide_parms).run(conf_a).yield_vec[0]
+        yld_21 = RunSingleTactic(fcide_parms).run(conf_21).yield_vec[0]
 
-        if yld > 95:
+        conf_12 = SingleConfig(1, None, None, 1, 1, 1, 1)
+        conf_12.load_saved = False
+        conf_12.strategy = "alt_21"
+        conf_12.primary_inoculum = primary_inoc
+        conf_12.add_string()
+
+        yld_12 = RunSingleTactic(fcide_parms).run(conf_12).yield_vec[0]
+
+        if (yld_21 > 95) and (yld_12 > 95):
             is_invalid = False
 
     return primary_inoc, fcide_parms

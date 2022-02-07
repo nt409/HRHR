@@ -1,3 +1,12 @@
+"""
+Contains classes:
+
+- RunSingleTactic
+- RunGrid
+
+And some others involved in their calculations (not for direct use)
+"""
+
 from abc import ABC, abstractmethod
 import warnings
 import numpy as np
@@ -39,6 +48,20 @@ class RunModel(ABC):
 
 class RunSingleTactic(RunModel):
     def __init__(self, fcide_parms=None):
+        """Init method
+
+        Parameters
+        ----------
+        fcide_parms : dict, optional
+            keys:
+            - omega_1
+            - omega_2
+            - theta_1
+            - theta_2
+            - delta_1
+            - delta_2
+            , by default None
+        """
         self.fcide_parms = fcide_parms
 
         self.yield_stopper = 95
@@ -232,6 +255,21 @@ class RunSingleTactic(RunModel):
 
 class RunGrid(RunModel):
     def __init__(self, fcide_parms=None):
+        """Init method
+
+        Parameters
+        ----------
+        fcide_parms : dict, optional
+            keys:
+            - omega_1
+            - omega_2
+            - theta_1
+            - theta_2
+            - delta_1
+            - delta_2
+            , by default None
+        """
+
         self.sing_tact = RunSingleTactic(fcide_parms)
         self.fung_strat = FungicideStrategy
 

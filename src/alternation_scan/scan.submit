@@ -1,7 +1,7 @@
 #!/bin/bash
 #! Make sure all the SBATCH directives go in this section and no other commands
 #! Name of the job:
-#SBATCH -J alt_scan
+#SBATCH -J alternation_scan
 #! Project name for Cunniffe group, use SL2 for paying queue:
 #SBATCH -A CUNNIFFE-SL3-CPU
 #! Output filename:
@@ -51,4 +51,4 @@ source activate /home/nt409/software/conda_envs/hrhr_env
 #! The variable $SLURM_ARRAY_TASK_ID contains the array index for each job.
 #! In this example, each job will be passed its index
 
-python -m alt_scan.scan_rand $SLURM_ARRAY_TASK_ID
+python -m alternation_scan.scan $SLURM_ARRAY_TASK_ID

@@ -91,38 +91,36 @@ if __name__ == "__main__":
 
     run_attrs = [
 
-        dict(run=10,  DS_lim=[0.5, 1.1]),  # Y
-        dict(run=116, DS_lim=[0.2, 1.0]),  # Y
+        # dict(run=10,  DS_lim=[0.5, 1.1]),  # Y
+        # dict(run=116, DS_lim=[0.2, 1.0]),  # Y
         dict(run=295, DS_lim=[0.67, 0.7]),  # Y DS_lim=[0.6,0.75]
 
-        dict(run=91,  DS_lim=[0.4, 0.5]),  # N
-        dict(run=183, DS_lim=[0.3, 0.45]),  # N
-        dict(run=227, DS_lim=[0.6, 0.7]),  # M?
-        dict(run=241, DS_lim=[0.3, 0.6]),  # N
+        # dict(run=91,  DS_lim=[0.4, 0.5]),  # N
+        # dict(run=183, DS_lim=[0.3, 0.45]),  # N
+        # dict(run=227, DS_lim=[0.6, 0.7]),  # M?
+        # dict(run=241, DS_lim=[0.3, 0.6]),  # N
 
-        dict(run=478, DS_lim=[0.2, 0.6]),  # N
+        # dict(run=478, DS_lim=[0.2, 0.6]),  # N
 
         # ESFY outperformed ERFB
         # dict(run=265, DS_lim=[0.44, 0.46]),  # N
     ]
 
-    N_dose_def = 101
-    # N_dose_def = 11
-
-    N_cont_ds = 500
-    # N_cont_ds = 10
+    N_grid_doses = 101
+    N_cont_doses = 250
 
     if len(sys.argv) != 2:
         raise Exception("Supply one argument: the run index")
+
     index = int(sys.argv[1])
     run_attrs_use = [run_attrs[index]]
 
-    run_attrs_use[0]["NDoses"] = N_dose_def
-    run_attrs_use[0]["N_cont_doses"] = N_cont_ds
+    run_attrs_use[0]["NDoses"] = N_grid_doses
+    run_attrs_use[0]["N_cont_doses"] = N_cont_doses
 
     # print_it()
-    # check_outcome_RFB(run_attrs_use)
+    check_outcome_RFB(run_attrs_use)
     # check_outcome_SFY(run_attrs_use)
 
     # ! to re run failures via cluster
-    re_run_grid_RFB(run_attrs_use, plot=False)
+    # re_run_grid_RFB(run_attrs_use, plot=False)

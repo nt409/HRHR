@@ -30,7 +30,7 @@ if __name__ == "__main__":
     run_attrs_use = [run_attrs[index]]
 
     N_grid_doses = 101
-    N_cont_doses = 500
+    N_cont_doses = 350
 
     run_attrs_use[0]["NDoses"] = N_grid_doses
     run_attrs_use[0]["N_cont_doses"] = N_cont_doses

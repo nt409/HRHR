@@ -201,6 +201,23 @@ def get_big_text_annotation(x, y, text, xanchor=None):
     )
 
 
+def dose_space_annotation(text, x, y, ax, ay, subplot, color):
+    return dict(text=text,
+                x=x,
+                y=y,
+                ax=ax,
+                ay=ay,
+                xref=f"x{int(subplot)}",
+                yref=f"y{int(subplot)}",
+                # showarrow=False,
+                # arrowwidth=4,
+                arrowsize=1,
+                arrowhead=1,
+                arrowcolor=color,
+                font=dict(size=16, color=color)
+                )
+
+
 def get_shape_annotation(x, y, fontsize=None, xanchor=None):
 
     xanchor = "center" if xanchor is None else xanchor

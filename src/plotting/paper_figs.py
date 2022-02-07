@@ -16,7 +16,7 @@ from model.strategy_arrays import EqualResFreqBreakdownArray, EqualSelectionArra
 from plotting.traces import contour_at_0, contour_at_single_level
 
 from plotting.utils import (
-    divergent_color_scale, get_shape_annotation,
+    divergent_color_scale, dose_space_annotation, get_shape_annotation,
     get_text_annotation, get_arrow_annotation,
     grey_colorscale_discrete, grey_colorscale_discrete_N,
     invisible_colorbar, my_colorbar_subplot, standard_layout,
@@ -659,16 +659,27 @@ class DoseSpaceOverview(BasicFig):
                  xref="paper", yref="paper",
                  ay=0, ax=30, arrowsize=2, arrowwidth=4,
                  arrowhead=0, arrowcolor="black"),
+
             dict(text="", x=self.cbar_attrs['x'][1]+0.014,
                  y=self.cbar_attrs['intercepts'][1],
                  xref="paper", yref="paper",
                  ay=0, ax=30, arrowsize=2, arrowwidth=4,
                  arrowhead=0, arrowcolor="blue"),
+
             get_big_text_annotation(left, top_row, 'A'),
             get_big_text_annotation(middle, top_row, 'B'),
             get_big_text_annotation(left, bottom_row, 'C'),
             get_big_text_annotation(middle, bottom_row, 'D'),
             get_shape_annotation(cbarbox_x, cbarbox_y),
+
+            dose_space_annotation("ESFY", 0.6, 0.62, -20, -20, 1, 'blue'),
+            dose_space_annotation("ESFY", 0.6, 0.62, -20, -20, 2, 'blue'),
+            dose_space_annotation("ERFB", 0.88, 0.27, -6,  -24, 1, 'black'),
+            dose_space_annotation("ERFB", 0.88, 0.27, -6,  -24, 3, 'black'),
+
+            dose_space_annotation("ESFY", 0.4, 9.25, 30, 50, 4, 'blue'),
+            dose_space_annotation("ERFB", 0.5, 11.7, 40,  -10, 4, 'black'),
+
         ]
 
         fig.update_layout(annotations=annotz)
@@ -2726,12 +2737,17 @@ class SREffectResults3PanelApp(BasicFig):
             middle, top_row, 'B: expected <i>rr</i>', xanchor="left")
         c3 = get_big_text_annotation(
             right,  top_row, 'C: high <i>rr</i>', xanchor="left")
+
         c1['font'] = dict(size=18, color=LIGHT_GREY_TEXT)
         c2['font'] = dict(size=18, color=LIGHT_GREY_TEXT)
         c3['font'] = dict(size=18, color=LIGHT_GREY_TEXT)
 
         x_lab = get_big_text_annotation(
-            0.5, -0.14, 'Between-season sexual reproduction proportion (<i>p<sub>B</sub></i>)')
+            0.5,
+            -0.14,
+            'Between-season sexual reproduction proportion (<i>p<sub>B</sub></i>)'
+        )
+
         x_lab['font'] = dict(size=18, color="black")
 
         annotz = [c1, c2, c3, x_lab]

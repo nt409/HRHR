@@ -1,3 +1,4 @@
+import scipy
 import sys
 
 from param_scan.run.r4_re_run_failures import check_outcome_RFB
@@ -18,9 +19,11 @@ run_attrs = [
     # dict(run=265, DS_lim=[0.44, 0.46]),  # N
 ]
 
+
 if __name__ == "__main__":
 
     if len(sys.argv) != 2:
+        print(len(sys.argv))
         raise Exception("Supply one argument: the run index")
 
     index = int(sys.argv[1])

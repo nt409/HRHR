@@ -21,3 +21,5 @@ unset __conda_setup
 # <<< conda initialize <<<
 
 conda activate /home/nt409/software/conda_envs/hrhr_env
+
+python -m param_scan.run.r4_re_run_failures_cluster 0

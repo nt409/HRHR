@@ -27,7 +27,7 @@ def main(n_doses, index):
     # MIXTURE
     # asex, mixture
     cnfg_asex_mix = GridConfig(40, None, None, n_doses)
-    cnfg_asex_mix.load_saved = True
+    cnfg_asex_mix.load_saved = False
 
     cnfg_asex_mix.primary_inoculum = primary_inoc
     cnfg_asex_mix.add_string()

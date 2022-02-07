@@ -11,16 +11,340 @@ import itertools
 
 from model.params import PARAMS
 
-from model.utils import res_prop_calculator, yield_calculator, \
-    FungicideStrategy, object_dump, ModelTimes, sexual_reproduction
+from model.utils import (
+    res_prop_calculator, yield_calculator, FungicideStrategy, object_dump,
+    ModelTimes, sexual_reproduction,
+)
 
 from model.ode_system import ODESystem
-from model.ode_system_SR import ODESystemWithinSeasonSex
 
 from model.config_classes import SingleConfig
 
-from model.outputs import SimOutput, SingleTacticOutput, \
-    GridTacticOutput
+from model.outputs import SimOutput, SingleTacticOutput, GridTacticOutput
+
+
+class RunModel(ABC):
+    @abstractmethod
+    def run(self):
+        pass
+
+    @abstractmethod
+    def _load(self):
+        pass
+
+    @abstractmethod
+    def _save(self):
+        pass
+
+
+class RunSingleTactic(RunModel):
+    def __init__(self, fcide_parms=None):
+        self.fcide_parms = fcide_parms
+
+        self.yield_stopper = 95
+        self.PATHOGEN_STRAIN_NAMES = ['RR', 'RS', 'SR', 'SS']
+
+        self.sexual_reproduction = sexual_reproduction
+
+    def run(self, conf):
+        """Run HRHR model for single tactic.
+
+        Parameters
+        ----------
+        conf : SingleConfig
+
+        Returns
+        -------
+        self.out : SingleTacticOutput
+            class with following attributes:
+            - failure_year : year yield below 95
+            - yield_vec : array of yields for each year
+            - res_vec_dict : dict with keys f1, f2 - total resistance to fcides
+            - start_freqs : dict with keys RR, RS, SR, SS - frequencies, 
+            post-sex from previous year, ready for start of season
+            - failure_year : dict with keys RR, RS, SR, SS - frequencies, 
+            end of season, pre-sex
+            - states_list : contains list for each year, each element
+            containing values of variables over time (e.g. S, E_RR, etc at
+            each time point)
+
+        Example of use
+        --------------
+        >>>fcide_parms = dict(
+        ... omega_1=0.9, omega_2=0.9,
+        ... delta_1=1e-2, delta_2=1e-2,
+        ... theta_1=9, theta_2=9,
+        ... )
+        >>>config = SingleConfig(
+        ... 35,
+        ... None, None,
+        ... dose1, dose1, dose2, dose2,
+        ... primary_inoculum=dict(RR=1e-5, RS=1e-3, SR=1e-5, SS=1-1e-5-1e-3-1e-5)
+        ... )
+        >>>data = RunSingleTactic(fcide_parms).run(config)
+        """
+
+        self.filename = conf.config_string
+
+        if conf.load_saved:
+            loaded_run = self._load()
+            if loaded_run is not None:
+                return loaded_run
+
+        self.sim = SeasonWithDisease(self.fcide_parms)
+
+        dis_free_yield = SeasonNoDiseaseYieldOnly(self.fcide_parms).run()
+
+        self.n_years = len(conf.fung1_doses['spray_1'])
+
+        self.out = SingleTacticOutput(PARAMS.yield_threshold,
+                                      conf.res_props,
+                                      self.PATHOGEN_STRAIN_NAMES,
+                                      self.n_years,
+                                      dis_free_yield)
+
+        self._set_first_year_start_freqs(conf)
+
+        self._loop_over_years(conf)
+
+        self.out.delete_unnecessary_vars()
+
+        if conf.save:
+            self._save()
+
+        return self.out
+
+    def _set_first_year_start_freqs(self, conf):
+        primary_inoculum = conf.primary_inoculum
+
+        if primary_inoculum is None:
+            primary_inoculum = self._between_season_calculator(conf,
+                                                               conf.res_props['f1'],
+                                                               conf.res_props['f2'])
+
+        self.out.update_start_freqs(primary_inoculum, 0)
+
+    def _loop_over_years(self, conf):
+
+        for yr in range(self.n_years):
+            # stop the solver after we drop below threshold
+            if not (yr > 0 and self.out.yield_vec[yr-1] < self.yield_stopper):
+                self._run_single_year(conf, yr)
+
+        if min(self.out.yield_vec) > PARAMS.yield_threshold:
+            self.out.failure_year = -1
+
+            # is a problem if wanted to see output of N>1 years
+            if self.n_years > 1:
+                warnings.warn(
+                    ("Strategy doesn't fail in the allocated number of years,"
+                     f"try increasing self.n_years from {self.n_years}")
+                )
+
+    def _run_single_year(self, conf, yr):
+
+        fung1_doses = self._get_dose_this_fung_this_yr(conf.fung1_doses, yr)
+        fung2_doses = self._get_dose_this_fung_this_yr(conf.fung2_doses, yr)
+
+        model_inoc_in = self._get_initial_density(yr)
+
+        sim_out = self.sim.run(fung1_doses, fung2_doses, model_inoc_in)
+
+        self.out.add_new_sim_output(sim_out, yr)
+
+        self._set_next_year_start_freqs(conf, sim_out, yr+1)
+
+    def _set_next_year_start_freqs(self, conf, sim_out, next_yr):
+
+        end_freqs = sim_out.end_freqs
+
+        # sex/asex after each season
+        res_prop_1_end = end_freqs['RR'] + end_freqs['RS']
+        res_prop_2_end = end_freqs['RR'] + end_freqs['SR']
+
+        # get next year's primary inoc - including SR step
+        next_year_vals = self._between_season_calculator(conf,
+                                                         res_prop_1_end,
+                                                         res_prop_2_end,
+                                                         end_freqs)
+
+        self.out.update_start_freqs(next_year_vals, next_yr)
+
+    @staticmethod
+    def _get_dose_this_fung_this_yr(dose_vec, yr):
+        return dict(spray_1=dose_vec['spray_1'][yr],
+                    spray_2=dose_vec['spray_2'][yr])
+
+    def _get_initial_density(self, yr):
+        out = {}
+        for key in self.PATHOGEN_STRAIN_NAMES:
+            out[key] = PARAMS.init_den*self.out.start_freqs[key][yr]
+        return out
+
+    def _between_season_calculator(self,
+                                   conf,
+                                   res_prop_1,
+                                   res_prop_2,
+                                   freqs=None,
+                                   ):
+
+        bs_sex_prop = conf.bs_sex_prop
+
+        if freqs is None:
+            warnings.warn("IDEALLY WOULDN'T USE OLD SEXUAL REPRODUCTION FORM!")
+            return dict(
+                RR=res_prop_1*res_prop_2,
+                RS=res_prop_1*(1-res_prop_2),
+                SR=(1-res_prop_1)*res_prop_2,
+                SS=(1-res_prop_1)*(1-res_prop_2)
+            )
+
+        else:
+            asex = freqs
+
+            sex = self.sexual_reproduction(freqs)
+
+            out = {}
+            for key in sex.keys():
+                out[key] = bs_sex_prop*sex[key] + (1 - bs_sex_prop)*asex[key]
+
+            return out
+
+    # load/save single
+
+    def _load(self):
+        filename = self.filename
+
+        if os.path.isfile(filename) and "single" in filename:
+            with open(filename, 'rb') as f:
+                loaded_run = pickle.load(f)
+            return loaded_run
+        else:
+            return None
+
+    def _save(self):
+        if "single" in self.filename:
+            object_dump(self.filename, self.out)
+
+
+# * End of RnSingleTactic
+
+
+class RunGrid(RunModel):
+    def __init__(self, fcide_parms=None):
+        self.sing_tact = RunSingleTactic(fcide_parms)
+        self.fung_strat = FungicideStrategy
+
+    def run(self, conf):
+        """Run grid of tactics
+
+        Parameters
+        ----------
+        conf : GridConfig
+            See GC docs
+
+        Returns
+        -------
+        self.output : GridTacticOutput
+            See GTO docs
+        """
+
+        self.filename = conf.config_string
+
+        if conf.load_saved:
+            loaded_run = self._load()
+            if loaded_run is not None:
+                return loaded_run
+
+        self.output = GridTacticOutput(conf.n_doses, conf.n_years)
+
+        self._run_the_grid(conf)
+
+        if conf.save:
+            self._save()
+
+        return self.output
+
+    def _run_the_grid(self, conf):
+        fs = self.fung_strat(conf.strategy, conf.n_years)
+
+        for f1_ind in tqdm(range(conf.n_doses)):
+            for f2_ind in range(conf.n_doses):
+
+                conf.fung1_doses, conf.fung2_doses = fs.get_grid_doses(
+                    f1_ind,
+                    f2_ind,
+                    conf.n_doses
+                )
+
+                one_tact_output = self.sing_tact.run(conf)
+
+                self._post_process(one_tact_output, f1_ind, f2_ind)
+
+    def _post_process(self, data_this_dose, f1_ind, f2_ind):
+
+        self.output.LTY[f1_ind, f2_ind] = self._lifetime_yield(
+            data_this_dose.yield_vec, data_this_dose.failure_year)
+
+        self.output.TY[f1_ind, f2_ind] = self._total_yield(
+            data_this_dose.yield_vec)
+
+        self.output.FY[f1_ind, f2_ind] = data_this_dose.failure_year
+
+        self.output.yield_array[f1_ind, f2_ind, :] = data_this_dose.yield_vec
+
+        self.output.update_dicts_of_arrays(data_this_dose, f1_ind, f2_ind)
+
+    @staticmethod
+    def _lifetime_yield(Y_vec, F_y):
+        return sum(Y_vec[:(F_y+1)])/100
+
+    @staticmethod
+    def _total_yield(Y_vec):
+        return sum(Y_vec)/100
+
+    # load/save single
+
+    def _load(self):
+        filename = self.filename
+
+        if os.path.isfile(filename):
+            with open(filename, 'rb') as f:
+                loaded_run = pickle.load(f)
+            return loaded_run
+        else:
+            return None
+
+    def _save(self):
+        object_dump(self.filename, self.output)
+
+
+# End of RunGrid cls
+
+
+# # * changing doses fns
+
+def get_SR_by_doses(doses, freqs):
+    outputs = {}
+    for dose, rf in itertools.product(doses, freqs):
+        conf_single = SingleConfig(1, rf, rf, dose, dose, dose, dose)
+        output = RunSingleTactic().run(conf_single)
+        outputs[f"dose={dose},rf={rf}"] = output
+
+    conf_str = conf_single.config_string_img
+    str_freqs = [str(round(f, 2)) for f in freqs]
+    str_doses = [str(round(d, 2)) for d in doses]
+
+    middle_string = ("=" + ",_".join(str_freqs) +
+                     "_doses=" + ",_".join(str_doses))
+    middle_string = middle_string.replace(".", ",")
+
+    conf_str = ("=".join(conf_str.split("=")[0:2]) +
+                middle_string + conf_str.split("=")[-1])
+
+    return outputs, conf_str
+
+# * End of changing doses fns
 
 
 class Simulator(ABC):
@@ -32,15 +356,9 @@ class Simulator(ABC):
 class SeasonWithDisease(Simulator):
     """Simulates a single growing season."""
 
-    def __init__(self, fungicide_params, within_season_sex_prop):
+    def __init__(self, fungicide_params):
 
-        if within_season_sex_prop > 0:
-            self.ode_sys = ODESystemWithinSeasonSex(
-                fungicide_params,
-                within_season_sex_prop
-            )
-        else:
-            self.ode_sys = ODESystem(fungicide_params)
+        self.ode_sys = ODESystem(fungicide_params)
 
         self.res_prop_calculator = res_prop_calculator
         self.yield_finder = yield_calculator
@@ -217,303 +535,3 @@ class SeasonNoDiseaseYieldOnly(Simulator):
 
 
 # * End of Sim cls
-
-class RunModel(ABC):
-    @abstractmethod
-    def run(self):
-        pass
-
-    @abstractmethod
-    def _load(self):
-        pass
-
-    @abstractmethod
-    def _save(self):
-        pass
-
-
-class RunSingleTactic(RunModel):
-    def __init__(self, fcide_parms=None):
-        self.fcide_parms = fcide_parms
-
-        self.yield_stopper = 95
-        self.PATHOGEN_STRAIN_NAMES = ['RR', 'RS', 'SR', 'SS']
-
-        self.sexual_reproduction = sexual_reproduction
-
-    def run(self, conf):
-        """Run HRHR model for single tactic.
-
-        Parameters
-        ----------
-        conf : SingleConfig
-
-        Returns
-        -------
-        self.out : SingleTacticOutput
-            [description]
-
-        Example of use
-        --------------
-        >>>fcide_parms = dict(
-        ... omega_1=0.9, omega_2=0.9,
-        ... delta_1=1e-2, delta_2=1e-2,
-        ... theta_1=9, theta_2=9,
-        ... )
-        >>>config = SingleConfig(
-        ... 35,
-        ... None, None,
-        ... dose1, dose1, dose2, dose2,
-        ... primary_inoculum=dict(RR=1e-5, RS=1e-3, SR=1e-5, SS=1-1e-5-1e-3-1e-5)
-        ... )
-        >>>data = RunSingleTactic(fcide_parms).run(config)
-        """
-
-        self.filename = conf.config_string
-
-        if conf.load_saved:
-            loaded_run = self._load()
-            if loaded_run is not None:
-                return loaded_run
-
-        self.sim = SeasonWithDisease(self.fcide_parms,
-                                     within_season_sex_prop=conf.ws_sex_prop)
-
-        dis_free_yield = SeasonNoDiseaseYieldOnly(self.fcide_parms).run()
-
-        self.n_years = len(conf.fung1_doses['spray_1'])
-
-        self.out = SingleTacticOutput(PARAMS.yield_threshold,
-                                      conf.res_props,
-                                      self.PATHOGEN_STRAIN_NAMES,
-                                      self.n_years,
-                                      dis_free_yield)
-
-        self._set_first_year_start_freqs(conf)
-
-        self._loop_over_years(conf)
-
-        self.out.delete_unnecessary_vars()
-
-        if conf.save:
-            self._save()
-
-        return self.out
-
-    def _set_first_year_start_freqs(self, conf):
-        primary_inoculum = conf.primary_inoculum
-
-        if primary_inoculum is None:
-            primary_inoculum = self._between_season_calculator(conf,
-                                                               conf.res_props['f1'],
-                                                               conf.res_props['f2'])
-
-        self.out.update_start_freqs(primary_inoculum, 0)
-
-    def _loop_over_years(self, conf):
-
-        for yr in range(self.n_years):
-            # stop the solver after we drop below threshold
-            if not (yr > 0 and self.out.yield_vec[yr-1] < self.yield_stopper):
-                self._run_single_year(conf, yr)
-
-        if min(self.out.yield_vec) > PARAMS.yield_threshold:
-            self.out.failure_year = -1
-
-            # is a problem if wanted to see output of N>1 years
-            if self.n_years > 1:
-                warnings.warn(("Strategy doesn't fail in the allocated number of years,"
-                               f"try increasing self.n_years from {self.n_years}"))
-
-    def _run_single_year(self, conf, yr):
-
-        fung1_doses = self._get_dose_this_fung_this_yr(conf.fung1_doses, yr)
-        fung2_doses = self._get_dose_this_fung_this_yr(conf.fung2_doses, yr)
-
-        model_inoc_in = self._get_initial_density(yr)
-
-        sim_out = self.sim.run(fung1_doses, fung2_doses, model_inoc_in)
-
-        self.out.add_new_sim_output(sim_out, yr)
-
-        self._set_next_year_start_freqs(conf, sim_out, yr+1)
-
-    def _set_next_year_start_freqs(self, conf, sim_out, next_yr):
-
-        end_freqs = sim_out.end_freqs
-
-        # sex/asex after each season
-        res_prop_1_end = end_freqs['RR'] + end_freqs['RS']
-        res_prop_2_end = end_freqs['RR'] + end_freqs['SR']
-
-        # get next year's primary inoc - including SR step
-        next_year_vals = self._between_season_calculator(conf,
-                                                         res_prop_1_end,
-                                                         res_prop_2_end,
-                                                         end_freqs)
-
-        self.out.update_start_freqs(next_year_vals, next_yr)
-
-    @staticmethod
-    def _get_dose_this_fung_this_yr(dose_vec, yr):
-        return dict(spray_1=dose_vec['spray_1'][yr],
-                    spray_2=dose_vec['spray_2'][yr])
-
-    def _get_initial_density(self, yr):
-        out = {}
-        for key in self.PATHOGEN_STRAIN_NAMES:
-            out[key] = PARAMS.init_den*self.out.start_freqs[key][yr]
-        return out
-
-    def _between_season_calculator(self,
-                                   conf,
-                                   res_prop_1,
-                                   res_prop_2,
-                                   freqs=None,
-                                   ):
-
-        bs_sex_prop = conf.bs_sex_prop
-
-        if freqs is None:
-            warnings.warn("IDEALLY WOULDN'T USE OLD SEXUAL REPRODUCTION FORM!")
-            return dict(
-                RR=res_prop_1*res_prop_2,
-                RS=res_prop_1*(1-res_prop_2),
-                SR=(1-res_prop_1)*res_prop_2,
-                SS=(1-res_prop_1)*(1-res_prop_2)
-            )
-
-        else:
-            asex = freqs
-
-            sex = self.sexual_reproduction(freqs)
-
-            out = {}
-            for key in sex.keys():
-                out[key] = bs_sex_prop*sex[key] + (1 - bs_sex_prop)*asex[key]
-
-            return out
-
-    # load/save single
-
-    def _load(self):
-        filename = self.filename
-
-        if os.path.isfile(filename) and "single" in filename:
-            with open(filename, 'rb') as f:
-                loaded_run = pickle.load(f)
-            return loaded_run
-        else:
-            return None
-
-    def _save(self):
-        if "single" in self.filename:
-            object_dump(self.filename, self.out)
-
-
-# * End of RnSingleTactic
-
-
-class RunGrid(RunModel):
-    def __init__(self, fcide_parms=None):
-        self.sing_tact = RunSingleTactic(fcide_parms)
-        self.fung_strat = FungicideStrategy
-
-    def run(self, conf):
-
-        self.filename = conf.config_string
-
-        if conf.load_saved:
-            loaded_run = self._load()
-            if loaded_run is not None:
-                return loaded_run
-
-        self.output = GridTacticOutput(conf.n_doses, conf.n_years)
-
-        self._run_the_grid(conf)
-
-        if conf.save:
-            self._save()
-
-        return self.output
-
-    def _run_the_grid(self, conf):
-        fs = self.fung_strat(conf.strategy, conf.n_years)
-
-        for f1_ind in tqdm(range(conf.n_doses)):
-            for f2_ind in range(conf.n_doses):
-
-                conf.fung1_doses, conf.fung2_doses = fs.get_grid_doses(
-                    f1_ind,
-                    f2_ind,
-                    conf.n_doses
-                )
-
-                one_tact_output = self.sing_tact.run(conf)
-
-                self._post_process(one_tact_output, f1_ind, f2_ind)
-
-    def _post_process(self, data_this_dose, f1_ind, f2_ind):
-
-        self.output.LTY[f1_ind, f2_ind] = self._lifetime_yield(
-            data_this_dose.yield_vec, data_this_dose.failure_year)
-
-        self.output.TY[f1_ind, f2_ind] = self._total_yield(
-            data_this_dose.yield_vec)
-
-        self.output.FY[f1_ind, f2_ind] = data_this_dose.failure_year
-
-        self.output.yield_array[f1_ind, f2_ind, :] = data_this_dose.yield_vec
-
-        self.output.update_dicts_of_arrays(data_this_dose, f1_ind, f2_ind)
-
-    @staticmethod
-    def _lifetime_yield(Y_vec, F_y):
-        return sum(Y_vec[:(F_y+1)])/100
-
-    @staticmethod
-    def _total_yield(Y_vec):
-        return sum(Y_vec)/100
-
-    # load/save single
-
-    def _load(self):
-        filename = self.filename
-
-        if os.path.isfile(filename):
-            with open(filename, 'rb') as f:
-                loaded_run = pickle.load(f)
-            return loaded_run
-        else:
-            return None
-
-    def _save(self):
-        object_dump(self.filename, self.output)
-
-
-# End of RunGrid cls
-
-
-# # * changing doses fns
-
-def get_SR_by_doses(doses, freqs):
-    outputs = {}
-    for dose, rf in itertools.product(doses, freqs):
-        conf_single = SingleConfig(1, rf, rf, dose, dose, dose, dose)
-        output = RunSingleTactic().run(conf_single)
-        outputs[f"dose={dose},rf={rf}"] = output
-
-    conf_str = conf_single.config_string_img
-    str_freqs = [str(round(f, 2)) for f in freqs]
-    str_doses = [str(round(d, 2)) for d in doses]
-
-    middle_string = ("=" + ",_".join(str_freqs) +
-                     "_doses=" + ",_".join(str_doses))
-    middle_string = middle_string.replace(".", ",")
-
-    conf_str = ("=".join(conf_str.split("=")[0:2]) +
-                middle_string + conf_str.split("=")[-1])
-
-    return outputs, conf_str
-
-# * End of changing doses fns

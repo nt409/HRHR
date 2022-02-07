@@ -2,8 +2,9 @@ import pandas as pd
 import numpy as np
 
 from model.simulator import RunSingleTactic
-from model.strategy_arrays import EqualResFreqBreakdownArray, \
-    EqualSelectionArray
+from model.strategy_arrays import (
+    EqualResFreqBreakdownArray, EqualSelectionArray,
+)
 
 
 # TOC

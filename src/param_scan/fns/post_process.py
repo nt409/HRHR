@@ -1,14 +1,16 @@
-from model.strategy_arrays import EqualResFreqBreakdownArray
-from param_scan.fns.calc_method_IVT import CheckStrategyUsingIVT_DF
 import pandas as pd
 import copy
 import numpy as np
 
 
+# from model.strategy_arrays import EqualResFreqBreakdownArray
 from model.simulator import RunGrid
+
+from param_scan.fns.calc_method_IVT import CheckStrategyUsingIVT_DF
 from param_scan.fns.pars import RandomPars
-from plotting.paper_figs import DoseSpaceScenarioSingle
 from param_scan.fns.recalc_contour import RunAlongContourDFsReCalc
+
+from plotting.paper_figs import DoseSpaceScenarioSingle
 
 # TOC
 # PostProcess
@@ -182,7 +184,25 @@ class PostProcess:
         # return last one calculated
         return grid_output
 
-    def re_run_cont_RFB(self, NDoses, N_cont_doses, DS_lim, run_indices):
+    def re_run_cont_RFB(self,
+                        N_grid_doses,
+                        N_cont_doses,
+                        dose_sum_limits,
+                        run_indices):
+        """Re-run one of the runs from the parameter scan
+
+        Parameters
+        ----------
+        N_grid_doses : int
+
+        N_cont_doses : int
+
+        dose_sum_limits : list
+            upper/lower bound for dose sums to look at
+
+        run_indices : list
+            list of run indices
+        """
 
         df_test = self.get_params_for_specific_runs(run_indices)
 
@@ -196,14 +216,17 @@ class PostProcess:
 
             print(f"\nRe-running run: {this_run_ind} \n")
 
-            rp = self.get_RPs(pars, NDoses)
+            rp = self.get_RPs(pars, N_grid_doses)
 
             grid_output = RunGrid(rp.fung_parms).run(rp.grid_conf)
 
-            # print(np.where(np.array(grid_output.FY)==np.amax(grid_output.FY)))
-
-            RFB_dfs = RunAlongContourDFsReCalc(rp, grid_output,
-                                               N_cont_doses, DS_lim, "RFB")
+            RFB_dfs = RunAlongContourDFsReCalc(
+                rp,
+                grid_output,
+                N_cont_doses,
+                dose_sum_limits,
+                "RFB"
+            )
 
             data = dict(
                 run=this_run_ind,
@@ -213,7 +236,7 @@ class PostProcess:
 
             out = out.append(data, ignore_index=True)
 
-            filename = f"{self.folder}/par_scan/re_run/full_df_{NDoses}_{N_cont_doses}_{ii}.csv"
+            filename = f"{self.folder}/par_scan/re_run/full_df_{N_grid_doses}_{N_cont_doses}_{ii}.csv"
             print(f"Saving re-run full df to: {filename}")
             RFB_dfs.df.to_csv(filename, index=False)
 
@@ -225,16 +248,45 @@ class PostProcess:
 
         for col in ["c_R_maxContEL", "max_grid_EL", "run"]:
             out[col] = out[col].astype("int")
+
         out["worked"] = out["c_R_maxContEL"] >= out["max_grid_EL"]
 
         ind_str = ",".join([str(rr) for rr in run_indices])
 
-        filename = f"{self.folder}/par_scan/re_run/RFB_cont_{NDoses}_{N_cont_doses}_{ind_str}.csv"
+        worked_str = str(any(out["worked"]))
+
+        filename = (
+            f"{self.folder}/par_scan/re_run/RFB_cont_"
+            f"{N_grid_doses}_{N_cont_doses}_{ind_str}_{worked_str=}.csv"
+        )
+
         print(f"Saving re-run to: {filename}")
         print(out)
         out.to_csv(filename, index=False)
 
-    def re_run_cont_SFY(self, NDoses, N_cont_doses, DS_lim, run_indices):
+    def re_run_cont_SFY(self,
+                        N_grid_doses,
+                        N_cont_doses,
+                        dose_sum_limits,
+                        run_indices):
+        """Re-run one of the runs from the parameter scan
+
+        Similar to re_run_cont_SFY but passes EqSel into
+        RunAlongContourDFsReCalc. Didn't combine functions since wanted 
+        flexibility to change/save different things depending on situation
+
+        Parameters
+        ----------
+        N_grid_doses : int
+
+        N_cont_doses : int
+
+        dose_sum_limits : list
+            upper/lower bound for dose sums to look at
+
+        run_indices : list
+            list of run indices
+        """
 
         df_test = self.get_params_for_specific_runs(run_indices)
 
@@ -248,18 +300,23 @@ class PostProcess:
 
             print(f"\nRe-running run: {this_run_ind} \n")
 
-            rp = self.get_RPs(pars, NDoses)
+            rp = self.get_RPs(pars, N_grid_doses)
 
             grid_output = RunGrid(rp.fung_parms).run(rp.grid_conf)
 
-            # print(np.where(np.array(grid_output.FY)==np.amax(grid_output.FY)))
-
             RFB_dfs = RunAlongContourDFsReCalc(
-                rp, grid_output, N_cont_doses, DS_lim, "EqSel")
+                rp,
+                grid_output,
+                N_cont_doses,
+                dose_sum_limits,
+                "EqSel"
+            )
 
-            data = dict(run=this_run_ind,
-                        c_E_maxContEL=RFB_dfs.summary.c_E_maxContEL,
-                        max_grid_EL=np.amax(grid_output.FY))
+            data = dict(
+                run=this_run_ind,
+                c_E_maxContEL=RFB_dfs.summary.c_E_maxContEL,
+                max_grid_EL=np.amax(grid_output.FY)
+            )
 
             out = out.append(data, ignore_index=True)
 
@@ -271,11 +328,12 @@ class PostProcess:
 
         for col in ["c_R_maxContEL", "max_grid_EL", "run"]:
             out[col] = out[col].astype("int")
+
         out["worked"] = out["c_R_maxContEL"] >= out["max_grid_EL"]
 
         ind_str = ",".join([str(rr) for rr in run_indices])
 
-        filename = f"{self.folder}/par_scan/re_run/SFY_cont_{NDoses}_{N_cont_doses}_{ind_str}.csv"
+        filename = f"{self.folder}/par_scan/re_run/SFY_cont_{N_grid_doses}_{N_cont_doses}_{ind_str}.csv"
         print(f"Saving re-run to: {filename}")
         print(out)
         out.to_csv(filename, index=False)

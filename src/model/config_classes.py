@@ -6,7 +6,6 @@ class BaselineConfig:
                  rp2,
                  primary_inoculum,
                  bs_sex_prop=None,
-                 ws_sex_prop=None,
                  ):
 
         self.load_saved = True
@@ -16,7 +15,6 @@ class BaselineConfig:
         self.folder_figs = '../outputs/figures/'
 
         self.bs_sex_prop = 0 if bs_sex_prop is None else bs_sex_prop
-        self.ws_sex_prop = 0 if ws_sex_prop is None else ws_sex_prop
 
         self.n_years = n_years
 
@@ -31,12 +29,13 @@ class BaselineConfig:
             f"{round(self.primary_inoculum['SR'],10)},_"
             f"{round(self.primary_inoculum['RR'],15)}")
 
-        save_str = (f"Ny={self.n_years}_"
-                    f"RPs={self.res_props['f1']},_{self.res_props['f2']}_"
-                    f"PI={inoc_str}_"
-                    f"BSS={round(self.bs_sex_prop,2)}_"
-                    f"WSS={round(self.ws_sex_prop,2)}"
-                    )
+        save_str = (
+            f"Ny={self.n_years}_"
+            f"RPs={self.res_props['f1']},_{self.res_props['f2']}_"
+            f"PI={inoc_str}_"
+            f"BSS={round(self.bs_sex_prop,2)}_"
+            f"WSS={round(0,2)}"  # keeping in since saved runs include this!
+        )
 
         save_str = save_str.replace("0.", "")
         save_str = save_str.replace(".", ",")
@@ -62,7 +61,6 @@ class SingleConfig(BaselineConfig):
                  dose_22,
                  primary_inoculum=None,
                  bs_sex_prop=None,
-                 ws_sex_prop=None,
                  ):
         """Config for a single model run
 
@@ -71,7 +69,7 @@ class SingleConfig(BaselineConfig):
         Parameters
         ----------
         n_years : int
-            n years to run model for
+            number of years to run model for
         total_res_f1 : float
             Total amount of resistance to f1
         total_res_f2 : float
@@ -85,11 +83,14 @@ class SingleConfig(BaselineConfig):
         dose_22 : list, np.array
             Second dose f2 in year 1, 2, ... len(dose_22)
         primary_inoculum : dict, optional
-            dict, keys RR, RS, SR, SS, by default None
+            dict, keys:
+            - RR
+            - RS
+            - SR
+            - SS
+            by default None
         bs_sex_prop : float, optional
-            between-season sex proportion
-        ws_sex_prop : float, optional
-            between-season sex proportion
+            between-season sex proportion, by default None
 
         Example
         -------
@@ -113,7 +114,6 @@ class SingleConfig(BaselineConfig):
             total_res_f2,
             primary_inoculum,
             bs_sex_prop,
-            ws_sex_prop,
         )
 
         self.fung1_doses = dict(spray_1=[dose_11]*n_years,
@@ -140,13 +140,54 @@ class SingleConfig(BaselineConfig):
 class GridConfig(BaselineConfig):
     def __init__(self,
                  n_years,
-                 rp1,
-                 rp2,
+                 total_res_f1,
+                 total_res_f2,
                  n_doses,
-                 primary_inoculum=None
+                 primary_inoculum=None,
+                 bs_sex_prop=None,
                  ):
+        """Config for a grid model run
 
-        super().__init__(n_years, rp1, rp2, primary_inoculum)
+        Parameters
+        ----------
+        n_years : int
+            number of years to run model for
+        total_res_f1 : float
+            Total amount of resistance to f1
+        total_res_f2 : float
+            Total amount of resistance to f2
+        n_doses : int
+            grid is then n_doses x n_doses
+        primary_inoculum : dict, optional
+            dict, keys:
+            - RR
+            - RS
+            - SR
+            - SS
+            by default None
+        bs_sex_prop : float, optional
+            between-season sex proportion, by default None
+
+        Example
+        -------
+        >>>primary_inoc = dict(
+        ... RR=1e-5,
+        ... RS=1e-3,
+        ... SR=1e-5,
+        ... SS=1-1e-5-1e-3-1e-5
+        ... )
+        >>>config = GridConfig(
+        ... 35, None, None, 11, primary_inoculum=primary_inoc,
+        ... )
+        """
+
+        super().__init__(
+            n_years,
+            total_res_f1,
+            total_res_f2,
+            primary_inoculum,
+            bs_sex_prop,
+        )
 
         self.strategy = 'mix'
 

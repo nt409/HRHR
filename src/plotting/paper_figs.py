@@ -15,15 +15,19 @@ from model.strategy_arrays import EqualResFreqBreakdownArray, EqualSelectionArra
 
 from plotting.traces import contour_at_0, contour_at_single_level
 
-from plotting.utils import divergent_color_scale, get_shape_annotation, \
-    get_text_annotation, get_arrow_annotation,\
-    grey_colorscale_discrete, grey_colorscale_discrete_N, \
-    invisible_colorbar, my_colorbar_subplot, standard_layout, \
+from plotting.utils import (
+    divergent_color_scale, get_shape_annotation,
+    get_text_annotation, get_arrow_annotation,
+    grey_colorscale_discrete, grey_colorscale_discrete_N,
+    invisible_colorbar, my_colorbar_subplot, standard_layout,
     grey_colorscale, my_colorbar, get_big_text_annotation
+)
 
-from plotting.consts import ATTRS_DICT, FADED_LINE_COLOR, LABEL_COLOR, LIGHT_GREY_TEXT, \
-    NULL_HEATMAP_COLOUR, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT, \
+from plotting.consts import (
+    ATTRS_DICT, FADED_LINE_COLOR, LABEL_COLOR, LIGHT_GREY_TEXT,
+    NULL_HEATMAP_COLOUR, TITLE_MAP, PLOT_WIDTH, PLOT_HEIGHT,
     FULL_PAGE_WIDTH
+)
 
 
 # Paper Figs

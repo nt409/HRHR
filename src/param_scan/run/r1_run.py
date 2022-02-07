@@ -23,9 +23,9 @@ def main(config, seed):
     ParameterScan(config, seed).run()
 
 
-if __name__=="__main__":
-    
-    if len(sys.argv)!=2:
+if __name__ == "__main__":
+
+    if len(sys.argv) != 2:
         raise Exception("Supply one argument: a random seed")
 
     seed = int(sys.argv[1])

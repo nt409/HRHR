@@ -22,7 +22,7 @@ def main(dd, index, sex_props):
 
     conf_dict = copy.copy(vars(conf))
 
-    print(pd.DataFrame([fcide_pars]))
+    print(pd.DataFrame([fcide_pars]).iloc[0])
     print(conf_dict['primary_inoculum'])
 
     return out

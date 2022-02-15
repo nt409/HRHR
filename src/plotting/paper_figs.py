@@ -336,7 +336,7 @@ class DoseSpaceOverview(BasicFig):
             x=[0.375, 1.005],
             y=[0.21, 0.79],
             # intercepts are where the blue/black lines cross 0.5/0 resp.
-            intercepts=[0.238, 0.765],
+            intercepts=[0.232, 0.762],
             len=0.46)
 
         fig = self._generate_figure()
@@ -677,7 +677,7 @@ class DoseSpaceOverview(BasicFig):
             dose_space_annotation("ERFB", 0.88, 0.27, -6,  -24, 1, 'black'),
             dose_space_annotation("ERFB", 0.88, 0.27, -6,  -24, 3, 'black'),
 
-            dose_space_annotation("ESFY", 0.4, 9.25, 30, 50, 4, 'blue'),
+            dose_space_annotation("ESFY", 1.65, 8.5, -100, 10, 4, 'blue'),
             dose_space_annotation("ERFB", 0.5, 11.7, 40,  -10, 4, 'black'),
 
         ]
@@ -859,6 +859,33 @@ class DoseSpaceScenariosPlot(BasicFig):
             get_big_text_annotation(left, bottom_row, 'C'),
             get_big_text_annotation(middle, bottom_row, 'D'),
             get_shape_annotation(cbarbox_x, cbarbox_y),
+
+
+            dose_space_annotation("ERFB",
+                                  0.76, 0.75,
+                                  20, 20,
+                                  1, 'black'),  # A
+            dose_space_annotation("ERFB",
+                                  0.85, 0.28,
+                                  -15, -25,
+                                  2, 'black'),  # B
+            dose_space_annotation("ERFB",
+                                  0.64, 0.92,
+                                  20, 20,
+                                  3, 'black'),  # C
+            dose_space_annotation("ERFB",
+                                  0.8, 0.45,
+                                  20, 20,
+                                  4, 'black'),  # D
+
+            dose_space_annotation("ESFY", 0.63, 0.64,
+                                  -20, -20, 1, 'blue'),  # A
+            dose_space_annotation("ESFY", 0.75, 0.78,
+                                  -20, -20, 2, 'blue'),  # B
+            dose_space_annotation("ESFY", 0.45, 0.66,
+                                  -20, -20, 3, 'blue'),  # C
+            dose_space_annotation("ESFY", 0.42, 0.9,
+                                  50, -5, 4, 'blue'),  # D
         ]
 
         fig.update_layout(annotations=annotz)
@@ -913,16 +940,15 @@ class ParamScanPlotMeVsHobb(BasicFig):
 
             bad_df = data_use[data_use['successMetric'] > 100]
 
-            print(
-                f"\n CURRENTLY REPLACING {bad_df.shape[0]} ROWS GREATER"
-                f" THAN 100 WITH 100... will need to check/justify!! \n"
-            )
-
             print(bad_df.loc[:, ["run", "c_R_maxContEL",
                   "c_E_maxContEL", "c_E_lowDoseMaxEL", "max_grid_EL"]])
 
             # data_use.loc[data_use['successMetric']>100, ['successMetric']] = 100
             if self.remove_anomaly:
+                print(
+                    f"\n CURRENTLY REPLACING {bad_df.shape[0]} ROWS GREATER"
+                    f" THAN 100 WITH 100... will need to check/justify!! \n"
+                )
                 data_use.loc[data_use['successMetric']
                              > 100, ['successMetric']] = None
 
@@ -933,16 +959,16 @@ class ParamScanPlotMeVsHobb(BasicFig):
 
             bad_df = data_use[data_use['successMetric'] < 0]
 
-            print(
-                f"\n CURRENTLY REPLACING {bad_df.shape[0]} ROWS GREATER"
-                " THAN 100 WITH 100... will need to justify!! \n"
-            )
-
             print(bad_df.loc[:, ["run", "c_R_maxContEL",
                   "c_E_maxContEL", "c_E_lowDoseMaxEL", "max_grid_EL"]])
 
             # data_use.loc[data_use['successMetric']<0, ['successMetric']] = 0
             if self.remove_anomaly:
+                print(
+                    f"\n CURRENTLY REPLACING {bad_df.shape[0]} ROWS GREATER"
+                    " THAN 100 WITH 100... will need to justify!! \n"
+                )
+
                 data_use.loc[data_use['successMetric']
                              < 0, ['successMetric']] = None
 
@@ -1038,8 +1064,11 @@ class ParamScanPlotMeVsHobb(BasicFig):
 
             LIMIT = 0
 
-            xblack = data[data['successMetric'] <= LIMIT][key]
-            yblack = data[data['successMetric'] <= LIMIT]['successMetric']
+            xred = data[data['successMetric'] < LIMIT][key]
+            yred = data[data['successMetric'] < LIMIT]['successMetric']
+
+            xblack = data[data['successMetric'] == LIMIT][key]
+            yblack = data[data['successMetric'] == LIMIT]['successMetric']
 
             xblue = data[data['successMetric'] > LIMIT][key]
             yblue = data[data['successMetric'] > LIMIT]['successMetric']
@@ -1048,13 +1077,17 @@ class ParamScanPlotMeVsHobb(BasicFig):
                                       y=yblue,
                                       mode='markers',
                                       marker=dict(opacity=0.2, color="blue"))
+            scatter_red = go.Scatter(x=xred,
+                                     y=yred,
+                                     mode='markers',
+                                     marker=dict(opacity=0.2, color="red"))
 
             scatter_grey = go.Scatter(x=xblack,
                                       y=yblack,
                                       mode='markers',
                                       marker=dict(opacity=0.1, color="black"))
 
-            out[key] = [scatter_blue, scatter_grey]
+            out[key] = [scatter_red, scatter_blue, scatter_grey]
 
         return out
 
@@ -1860,14 +1893,14 @@ class DoseSpaceScenarioSingle(BasicFig):
     def _get_DSS_EL_traces(self, data, showlegend=False):
         traces = []
 
-        if showlegend:
-            traces.append(self._get_DSS_ERFB_legend_entry())
-            # traces.append(self._get_DSS_ESFY_legend_entry())
+        # if showlegend:
+        #     traces.append(self._get_DSS_ERFB_legend_entry())
+        # traces.append(self._get_DSS_ESFY_legend_entry())
 
         traces.append(self._get_DSS_FY_trace(data))
 
         traces.append(self._get_DSS_ERFB_contour_single(data))
-        # traces.append(self._get_DSS_ESFY_contour_single(data))
+        traces.append(self._get_DSS_ESFY_contour_single(data))
 
         return traces
 
@@ -1949,6 +1982,31 @@ class DoseSpaceScenarioSingle(BasicFig):
                          range=[0, 1], showgrid=False, zeroline=False)
         fig.update_yaxes(title="Dose (fungicide <i>B</i>)",
                          range=[0, 1], showgrid=False, zeroline=False)
+
+        annotz = [
+            dose_space_annotation(
+                "ERFB<br>contour",
+                0.7,
+                0.7,
+                70,
+                70,
+                1,
+                'black'
+            ),  # A
+
+
+            dose_space_annotation(
+                "ESFY<br>contour",
+                0.6,
+                0.77,
+                -70,
+                -70,
+                1,
+                'blue'
+            ),  # A
+        ]
+
+        fig.update_layout(annotations=annotz)
 
         return fig
 
@@ -2040,20 +2098,22 @@ class DoseSpaceScenarioDouble(BasicFig):
         out = contour_at_0(x, y, z_transpose, 'black', 'dash')
         out['name'] = "Delta RFB"
 
-        return out
-
-    def _get_DSS_ESFY_contour_single(self, data):
-        z = EqualSelectionArray(data).array
-
-        x = np.linspace(0, 1, z.shape[0])
-        y = np.linspace(0, 1, z.shape[1])
-
-        z_transpose = np.transpose(z)
-
-        out = contour_at_single_level(x, y, z_transpose, 0.5, 'blue', 'dot')
-        out['name'] = "Equal Selection"
+        out['colorbar'] = invisible_colorbar(1.06, 0.12)
 
         return out
+
+    # def _get_DSS_ESFY_contour_single(self, data):
+    #     z = EqualSelectionArray(data).array
+
+    #     x = np.linspace(0, 1, z.shape[0])
+    #     y = np.linspace(0, 1, z.shape[1])
+
+    #     z_transpose = np.transpose(z)
+
+    #     out = contour_at_single_level(x, y, z_transpose, 0.5, 'blue', 'dot')
+    #     out['name'] = "Equal Selection"
+
+    #     return out
 
     def _sort_layout(self, fig):
         fig.update_layout(standard_layout(True, self.width, self.height))
@@ -2088,10 +2148,31 @@ class DoseSpaceScenarioDouble(BasicFig):
         left = 0
         middle = 0.54
         top_row = 1.15
+
         c1 = get_big_text_annotation(left, top_row, 'A', xanchor="left")
         c2 = get_big_text_annotation(middle, top_row, 'B', xanchor="left")
 
-        annotz = [c1, c2]
+        a3 = dose_space_annotation(
+            "ERFB<br>contour",
+            0.36,
+            0.88,
+            40,
+            40,
+            1,
+            'black'
+        )  # A
+
+        a4 = dose_space_annotation(
+            "ERFB<br>contour",
+            0.36,
+            0.88,
+            40,
+            40,
+            2,
+            'black'
+        )  # B
+
+        annotz = [c1, c2, a3, a4]
 
         fig.update_layout(annotations=annotz)
 
@@ -2121,22 +2202,57 @@ class SREffectAppendix(BasicFig):
 
         fig = make_subplots(rows=3, cols=3,
                             shared_xaxes=True,
+                            horizontal_spacing=0.15
                             )
 
-        cols31 = list(px.colors.sequential.Plasma)[::3]
-        cols32 = list(px.colors.sequential.Plasma)[::3]
-        cols33 = list(px.colors.sequential.Plasma)[::3]
+        colors = list(px.colors.sequential.Plasma)[::3]
 
         # cols32 = list(px.colors.sequential.Viridis)[::3]
         # cols32.reverse()
         # cols33 = list(px.colors.sequential.Cividis)[::3]
 
         trcs_l_rr, trcs_l_rs, trcs_l_sr = self.get_rf_traces(
-            self.outputs_l, self.sex_props, cols31, True)
+            self.outputs_l,
+            self.sex_props,
+            colors,
+            True
+        )
+
         trcs_m_rr, trcs_m_rs, trcs_m_sr = self.get_rf_traces(
-            self.outputs_m, self.sex_props, cols32)
+            self.outputs_m,
+            self.sex_props,
+            colors
+        )
+
         trcs_h_rr, trcs_h_rs, trcs_h_sr = self.get_rf_traces(
-            self.outputs_h, self.sex_props, cols33)
+            self.outputs_h,
+            self.sex_props,
+            colors
+        )
+
+        vert_trcs_l_rr = self.get_vert_traces(trcs_l_rr, colors[0])
+        vert_trcs_m_rr = self.get_vert_traces(trcs_m_rr, colors[0])
+        vert_trcs_h_rr = self.get_vert_traces(trcs_h_rr, colors[0])
+
+        vert_trcs_l_rs = self.get_vert_traces(trcs_l_rs, colors[0])
+        vert_trcs_m_rs = self.get_vert_traces(trcs_m_rs, colors[0])
+        vert_trcs_h_rs = self.get_vert_traces(trcs_h_rs, colors[0])
+
+        vert_trcs_l_sr = self.get_vert_traces(trcs_l_sr, colors[0])
+        vert_trcs_m_sr = self.get_vert_traces(trcs_m_sr, colors[0])
+        vert_trcs_h_sr = self.get_vert_traces(trcs_h_sr, colors[0])
+
+        fig.add_traces(vert_trcs_l_rr, rows=1, cols=1)
+        fig.add_traces(vert_trcs_m_rr, rows=1, cols=2)
+        fig.add_traces(vert_trcs_h_rr, rows=1, cols=3)
+
+        fig.add_traces(vert_trcs_l_rs, rows=2, cols=1)
+        fig.add_traces(vert_trcs_m_rs, rows=2, cols=2)
+        fig.add_traces(vert_trcs_h_rs, rows=2, cols=3)
+
+        fig.add_traces(vert_trcs_l_sr, rows=3, cols=1)
+        fig.add_traces(vert_trcs_m_sr, rows=3, cols=2)
+        fig.add_traces(vert_trcs_h_sr, rows=3, cols=3)
 
         fig.add_traces(trcs_l_rr, rows=1, cols=1)
         fig.add_traces(trcs_m_rr, rows=1, cols=2)
@@ -2154,6 +2270,32 @@ class SREffectAppendix(BasicFig):
 
         return fig
 
+    def get_vert_traces(self, traces, color):
+        min_y = 10
+        max_y = -10
+
+        for trc in traces:
+            max_y = max(max_y, np.max(trc['y']))
+            min_y = min(min_y, np.min(trc['y']))
+
+            if "=0" in trc['name'] and "0." not in trc['name']:
+                print(trc['name'])
+
+                xvals = [
+                    np.min(trc['x']),
+                    np.max(trc['x'])
+                ]
+
+        vert_trc = go.Scatter(
+            x=xvals,
+            y=[min_y, max_y],
+            line=dict(color=color, dash='dash'),
+            showlegend=False,
+            mode='lines',
+            opacity=0.5,
+        )
+        return vert_trc
+
     def get_rf_traces(self, outputs, bss, col, showledge=False):
 
         traces_rr = []
@@ -2161,7 +2303,12 @@ class SREffectAppendix(BasicFig):
         traces_sr = []
 
         for data, bs in zip(outputs, bss):
-            traces = self.get_rf_trace(data, bs, col, showledge)
+            traces = self.get_rf_trace(
+                data,
+                bs,
+                col,
+                showledge
+            )
 
             traces_rr += [traces[0]]
             traces_rs += [traces[1]]
@@ -2201,7 +2348,7 @@ class SREffectAppendix(BasicFig):
 
             trc = dict(x=x, y=ff,
                        line=dict(color=col),
-                       # name=name_use,
+                       name=f"={bs}",
                        showlegend=False,
                        mode="lines"
                        )
@@ -2233,15 +2380,20 @@ class SREffectAppendix(BasicFig):
 
             name_use = name.split(",")[0]
 
-            vertical_trace = go.Scatter(x=xs, y=ys,
-                                        showlegend=showlegend,
-                                        name=name_use,
-                                        marker=dict(
-                                            color=col, size=12, symbol=marker),
-                                        mode="markers",
-                                        )
+            marker_trc = go.Scatter(
+                x=xs,
+                y=ys,
+                showlegend=showlegend,
+                name=name_use,
+                marker=dict(
+                    color=col,
+                    size=12,
+                    symbol=marker
+                ),
+                mode="markers",
+            )
 
-            traces.append(vertical_trace)
+            traces.append(marker_trc)
 
         return traces
 
@@ -2249,19 +2401,111 @@ class SREffectAppendix(BasicFig):
 
         fig.update_layout(standard_layout(True, self.width, self.height))
 
+        ticktext = [1e-12, 1e-8, 1e-4, 1e-1, 0.9]
+        nptt = np.array(ticktext)
+        tickvals = np.log10(nptt/(1-nptt))
+
+        # np.log10()
+
         fig.update_yaxes(
-            title="Frequency <i>rr</i><br>(logit scale)", row=1, col=1)
+            title="Frequency <i>rr</i><br>(logit scale)",
+            row=1,
+            col=1,
+            tickvals=tickvals,
+            ticktext=ticktext,
+        )
+
+        tt_tmp = [1e-4, 1e-1]
+        nptt_tmp = np.array(tt_tmp)
+        tickvals_tmp = np.log10(nptt_tmp/(1-nptt_tmp))
+
         fig.update_yaxes(
-            title="Frequency <i>rs</i><br>(logit scale)", row=2, col=1)
+            title="Frequency <i>rs</i><br>(logit scale)",
+            row=2,
+            col=1,
+            tickvals=tickvals_tmp,
+            ticktext=tt_tmp,
+        )
+
+        tt_tmp = [1e-5, 1e-3, 1e-1]
+        nptt_tmp = np.array(tt_tmp)
+        tickvals_tmp = np.log10(nptt_tmp/(1-nptt_tmp))
+
         fig.update_yaxes(
-            title="Frequency <i>sr</i><br>(logit scale)", row=3, col=1)
+            title="Frequency <i>sr</i><br>(logit scale)",
+            row=3,
+            col=1,
+            tickvals=tickvals_tmp,
+            ticktext=tt_tmp,
+        )
+
+        fig.update_yaxes(
+            row=1,
+            col=2,
+            tickvals=tickvals,
+            ticktext=ticktext,
+        )
+
+        tt_tmp = [1e-6, 1e-4]
+        nptt_tmp = np.array(tt_tmp)
+        tickvals_tmp = np.log10(nptt_tmp/(1-nptt_tmp))
+
+        fig.update_yaxes(
+            row=2,
+            col=2,
+            tickvals=tickvals_tmp,
+            ticktext=tt_tmp,
+        )
+
+        fig.update_yaxes(
+            row=3,
+            col=2,
+            tickvals=tickvals,
+            ticktext=ticktext,
+        )
+
+        fig.update_yaxes(
+            row=1,
+            col=3,
+            tickvals=tickvals,
+            ticktext=ticktext,
+        )
+
+        fig.update_yaxes(
+            row=2,
+            col=3,
+            tickvals=tickvals,
+            ticktext=ticktext,
+        )
+
+        tt_tmp = [1e-6, 1e-2, 1e-1]
+        nptt_tmp = np.array(tt_tmp)
+        tickvals_tmp = np.log10(nptt_tmp/(1-nptt_tmp))
+
+        fig.update_yaxes(
+            row=3,
+            col=3,
+            tickvals=tickvals_tmp,
+            ticktext=tt_tmp,
+        )
 
         fig.update_xaxes(
-            range=[-0.5, self.outputs_l[0].failure_year + 0.9], row=3, col=1)
+            range=[-0.5, self.outputs_l[0].failure_year + 0.9],
+            row=3,
+            col=1
+        )
+
         fig.update_xaxes(
-            range=[-0.5, self.outputs_m[1].failure_year + 0.9], row=3, col=2)
+            range=[-0.5, self.outputs_m[1].failure_year + 0.9],
+            row=3,
+            col=2
+        )
+
         fig.update_xaxes(
-            range=[-0.5, self.outputs_h[2].failure_year + 0.9], row=3, col=3)
+            range=[-0.5, self.outputs_h[2].failure_year + 0.9],
+            row=3,
+            col=3
+        )
 
         left = -0.015
         middle = 0.34
@@ -2811,6 +3055,8 @@ class DoseSpace6(BasicFig):
 
         traces.append(self._get_DSS_FY_trace(data, cbar_x, cbar_y))
 
+        # traces.append(self._get_DSS_ESFY_contour_single(data))
+
         traces.append(self._get_DSS_ERFB_contour_single(data))
 
         return traces
@@ -2827,7 +3073,9 @@ class DoseSpace6(BasicFig):
         return go.Scatter(x=[1],
                           y=[1],
                           mode="lines",
-                          line=dict(color="black", dash="dash"),
+                          line=dict(color="black",
+                                    #    dash="dash"
+                                    ),
                           name=u"\u0394<sub>RFB</sub>=0 contour"
                           )
 
@@ -2859,10 +3107,25 @@ class DoseSpace6(BasicFig):
 
         z_transpose = np.transpose(z)
 
-        out = contour_at_0(x, y, z_transpose, 'black', 'dash', xpos=0.52)
+        out = contour_at_0(x, y, z_transpose, 'black', None, xpos=0.52)
         out['name'] = "Delta RFB"
 
         return out
+
+    # def _get_DSS_ESFY_contour_single(self, data):
+    #     z = EqualSelectionArray(data).array
+
+    #     x = np.linspace(0, 1, z.shape[0])
+    #     y = np.linspace(0, 1, z.shape[1])
+
+    #     z_transpose = np.transpose(z)
+
+    #     out = contour_at_single_level(x, y, z_transpose, 0.5, 'blue', 'dot')
+    #     out['name'] = "Equal Selection"
+    #     out['colorbar']['x'] = 0.25
+    #     # out['coloraxis'] = "coloraxis"
+
+    #     return out
 
     def _sort_layout(self, fig):
         fig.update_layout(standard_layout(True, self.width, self.height))
@@ -2919,8 +3182,19 @@ class DoseSpace6(BasicFig):
             get_big_text_annotation(left, middle_row, 'C', xanchor="left"),
             get_big_text_annotation(middle, middle_row, 'D', xanchor="left"),
             get_big_text_annotation(left, bottom_row, 'E', xanchor="left"),
-            get_big_text_annotation(middle, bottom_row, 'F', xanchor="left"),
+            # get_big_text_annotation(middle, bottom_row, 'F', xanchor="left"),
             get_shape_annotation(0.55, 0.55),
+
+            dose_space_annotation("ERFB<br>contour", 0.36,
+                                  0.88, 50, 30, 1, 'black'),  # A
+            dose_space_annotation("ERFB<br>contour", 0.55,
+                                  0.75, 20, 50, 2, 'black'),  # B
+            dose_space_annotation("ERFB<br>contour", 0.9,
+                                  0.4, -20, -30, 3, 'black'),  # C
+            dose_space_annotation("ERFB<br>contour", 0.9, 0.15,
+                                  -20, -60, 4, 'black'),  # D
+            dose_space_annotation("ERFB<br>contour", 0.8, 0.15,
+                                  -20, -60, 5, 'black'),  # E
         ]
 
         fig.update_layout(annotations=annotz)

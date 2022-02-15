@@ -57,7 +57,7 @@ def get_data(load_saved, n_doses):
 
     # diff RFs, diff fung pars
     output_DD, conf_grid = _data_one_panel(
-        primary_inoc_same,
+        primary_inoc_diff,
         fcide_p_D,
         n_doses,
         load_saved,

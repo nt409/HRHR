@@ -15,6 +15,9 @@ def run_pert(run_index):
 
     pars = df_test.iloc[0, :]
 
+    print(pars)
+    exit()
+
     this_run_ind = int(df_test.iloc[0, :].run)
 
     # rp = PP._get_RPs(pars, NDoses=101)

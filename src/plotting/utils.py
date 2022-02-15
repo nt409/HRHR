@@ -143,13 +143,15 @@ def invisible_colorbar(x, y):
     """
     hacky way to remove second colorbar - set x position so not visible
     """
-    return dict(x=x,
-                y=y,
-                len=0.1,
-                thickness=1,
-                tickfont=dict(size=1,
-                              color="rgba(0,0,0,0)"
-                              ))
+    return dict(
+        x=x,
+        y=y,
+        len=0.1,
+        thickness=1,
+        tickfont=dict(size=1,
+                      color="rgba(0,0,0,0)"
+                      )
+    )
 
 
 def get_text_annotation(x, y, text, xanchor=None, yanchor=None):

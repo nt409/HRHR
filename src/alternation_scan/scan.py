@@ -18,7 +18,7 @@ from model.config_classes import GridConfig
 from alternation_scan.utils import random_alt_scan_params
 
 
-def main(n_doses, index):
+def main(n_doses, index, load_saved):
 
     primary_inoc, fcide_parms = random_alt_scan_params(index)
 
@@ -27,7 +27,7 @@ def main(n_doses, index):
     # MIXTURE
     # asex, mixture
     cnfg_asex_mix = GridConfig(40, None, None, n_doses)
-    cnfg_asex_mix.load_saved = False
+    cnfg_asex_mix.load_saved = load_saved
 
     cnfg_asex_mix.primary_inoculum = primary_inoc
     cnfg_asex_mix.add_string()
@@ -110,4 +110,4 @@ if __name__ == "__main__":
 
     index = int(sys.argv[1])
 
-    df = main(n_doses=51, index=index)
+    df = main(n_doses=51, index=index, load_saved=False)

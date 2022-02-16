@@ -1,7 +1,7 @@
 *.egg-info/
 __pycache__/
 dist/
-*.py[cod]
+# *.py[cod]
 
 outputs/
 Old/

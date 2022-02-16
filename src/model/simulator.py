@@ -50,6 +50,8 @@ class RunSingleTactic(RunModel):
     def __init__(self, fcide_parms=None):
         """Init method
 
+        NB in the paper we denote the decay rates delta_i by Lambda_i instead
+
         Parameters
         ----------
         fcide_parms : dict, optional
@@ -93,6 +95,7 @@ class RunSingleTactic(RunModel):
 
         Example of use
         --------------
+        >>>dose1, dose2 = 0.5, 0.5
         >>>fcide_parms = dict(
         ... omega_1=0.9, omega_2=0.9,
         ... delta_1=1e-2, delta_2=1e-2,
@@ -268,6 +271,9 @@ class RunGrid(RunModel):
     def __init__(self, fcide_parms=None):
         """Init method
 
+        NB in the paper we refer to decay rates delta_1 and delta_2 as Lambda_1
+        and Lambda_2.
+
         Parameters
         ----------
         fcide_parms : dict, optional
@@ -296,6 +302,29 @@ class RunGrid(RunModel):
         -------
         self.output : GridTacticOutput
             See GTO docs
+
+        Example
+        -------
+        >>>n_years = 30
+        >>>n_doses = 11
+        >>>config = GridConfig(
+        ... n_years, 
+        ... None,
+        ... None,
+        ... n_doses,
+        ... primary_inoculum=dict(
+        ... RR=1e-5, RS=1e-3, 
+        ... SR=1e-5, SS=1-1e-5-1e-3-1e-5)
+        ... )
+        >>>fungicide_params = dict(
+        ... theta_1=9,
+        ... theta_2=9,
+        ... delta_1 = 1.11e-2,
+        ... delta_2 = 1.11e-2,
+        ... omega_1 = 0.48,
+        ... omega_2 = 1,
+        ... )
+        >>>model_output = RunGrid(fungicide_params).run(config)
         """
 
         self.filename = conf.config_string

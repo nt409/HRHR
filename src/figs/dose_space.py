@@ -7,10 +7,8 @@ import pickle
 
 from model.utils import object_dump
 from model.strategy_arrays import EqualResFreqBreakdownArray, EqualSelectionArray
-from model.simulator import RunGrid, RunSingleTactic
-from model.config_classes import GridConfig, SingleConfig
-
-from plotting.paper_figs import DoseSpaceOverview
+from model.simulator import RunSingleTactic
+from model.config_classes import SingleConfig
 
 
 class PretendPars:

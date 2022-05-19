@@ -9,7 +9,6 @@ from .consts import LIGHT_GREY_TEXT, NULL_HEATMAP_COLOUR, PLOT_WIDTH, PLOT_HEIGH
 def standard_layout(legend_on, width=PLOT_WIDTH, height=PLOT_HEIGHT):
     return go.Layout(
         font=dict(size=16),
-        # template="plotly_white",
         template="simple_white",
         width=width,
         height=height,

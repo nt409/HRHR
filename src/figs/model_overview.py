@@ -1,3 +1,5 @@
+"""Fig2"""
+
 from model.simulator import RunSingleTactic
 from model.config_classes import SingleConfig
 from plotting.paper_figs import CombinedModelPlot
@@ -21,4 +23,5 @@ config_sing.add_string()
 run_s = RunSingleTactic()
 run_s.yield_stopper = 0
 output = run_s.run(config_sing)
-CombinedModelPlot(output, config_sing.config_string_img)
+p = CombinedModelPlot(output, config_sing.config_string_img)
+p.fig.write_image('../outputs/figures/paper_figs/hires/fig2.jpg', scale=4)

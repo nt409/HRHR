@@ -66,12 +66,12 @@ class CombinedModelPlot(BasicFig):
 
         self.xx = data.states_list[self.DPC_year].t
 
-        fig = self._generate_figure()
+        self.fig = self._generate_figure()
 
         self.filename = conf_str.replace(
             "/single/", "/paper_figs/model_overview_combined_")
 
-        self._save_and_show(fig)
+        self._save_and_show(self.fig)
 
     def _generate_figure(self):
 
@@ -299,14 +299,14 @@ class CombinedModelPlot(BasicFig):
             title="Time<br>(degree-days x10<sup>3</sup>)", row=2, col=2, showgrid=False)
         fig.update_xaxes(title="Time (years)", row=2, col=3, showgrid=False)
 
-        fig.update_yaxes(title="Leaf proportion", row=1,
+        fig.update_yaxes(title="Scaled leaf index", row=1,
                          col=1, showline=True, showgrid=False)
-        fig.update_yaxes(title="Leaf proportion<br>(x10<sup>-3</sup>)",
+        fig.update_yaxes(title="Scaled leaf index<br>(x10<sup>-3</sup>)",
                          row=1, col=2, showline=True, showgrid=False)
 
-        fig.update_yaxes(title="Leaf proportion", row=2,
+        fig.update_yaxes(title="Scaled leaf index", row=2,
                          col=1, showline=True, showgrid=False)
-        fig.update_yaxes(title="Leaf proportion<br>(x10<sup>-3</sup>)",
+        fig.update_yaxes(title="Scaled leaf index<br>(x10<sup>-3</sup>)",
                          row=2, col=2, showline=True, showgrid=False)
 
         fig.update_yaxes(title="Yield", row=1, col=3, showgrid=False)
@@ -339,12 +339,12 @@ class DoseSpaceOverview(BasicFig):
             intercepts=[0.232, 0.762],
             len=0.46)
 
-        fig = self._generate_figure()
+        self.fig = self._generate_figure()
 
         self.filename = conf_str.replace(
             "/grid/", "/paper_figs/dose_space_overview_")
 
-        self._save_and_show(fig)
+        self._save_and_show(self.fig)
 
     def _generate_figure(self):
 
@@ -701,12 +701,12 @@ class DoseSpaceScenariosPlot(BasicFig):
 
         self.cbar_attrs = dict(x=[0.43, 1.005], y=[0.21, 0.79], len=0.46)
 
-        fig = self._generate_figure()
+        self.fig = self._generate_figure()
 
         self.filename = conf_str.replace(
             "/grid/", "/paper_figs/dose_space_scenarios_")
 
-        self._save_and_show(fig)
+        self._save_and_show(self.fig)
 
     def _generate_figure(self):
 
@@ -908,11 +908,11 @@ class ParamScanPlotMeVsHobb(BasicFig):
 
         self.data_high_low = self._process_data_high_low(data)
 
-        fig = self._generate_figure()
+        self.fig = self._generate_figure()
 
         self.filename = f"../outputs/figures/paper_figs/par_scan_{conf_str}"
 
-        self._save_and_show(fig)
+        self._save_and_show(self.fig)
 
     def _process_data(self, data):
 
@@ -1479,11 +1479,11 @@ class DoseResponse(BasicFig):
         self.dr_data = dr_data
         self.eff_data = eff_data
 
-        fig = self._generate_figure()
+        self.fig = self._generate_figure()
 
         self.filename = filename
 
-        self._save_and_show(fig)
+        self._save_and_show(self.fig)
 
     def _generate_figure(self):
         # vertical_spacing=0.18,
@@ -1598,8 +1598,6 @@ class DoseResponse(BasicFig):
                              )
             traces.append(trc)
 
-        traces.append(trc)
-
         return traces
 
     def _get_eff_traces(self):
@@ -1622,8 +1620,6 @@ class DoseResponse(BasicFig):
                              )
             traces.append(trc)
 
-        traces.append(trc)
-
         return traces
 
     def _sort_layout(self, fig):
@@ -1633,7 +1629,7 @@ class DoseResponse(BasicFig):
         fig.update_xaxes(showgrid=False, row=1, col=1)
         fig.update_xaxes(title="Concentration (C)",
                          range=[-0.01, 1], showgrid=False, row=2, col=1)
-        fig.update_xaxes(showgrid=False, row=1, col=2)
+        fig.update_xaxes(range=[1200, 2900], showgrid=False, row=1, col=2)
         fig.update_xaxes(title="Time (degree days)",
                          showgrid=False, row=2, col=2)
 
@@ -1871,12 +1867,12 @@ class DoseSpaceScenarioSingle(BasicFig):
 
         self.data = data
 
-        fig = self._generate_figure()
+        self.fig = self._generate_figure()
 
         self.filename = conf_str.replace(
             "/grid/", "/paper_figs/dose_space_scenario_single")
 
-        self._save_and_show(fig)
+        self._save_and_show(self.fig)
 
     def _generate_figure(self):
 
@@ -2791,11 +2787,11 @@ class SREffectResults3Panel(BasicFig):
 
         self.double_freqs = double_freqs
 
-        fig = self._generate_figure()
+        self.fig = self._generate_figure()
 
         self.filename = conf_str.replace("/grid/", "/paper_figs/sr_effect")
 
-        self._save_and_show(fig)
+        self._save_and_show(self.fig)
 
     def _generate_figure(self):
 
@@ -2838,7 +2834,7 @@ class SREffectResults3Panel(BasicFig):
 
             trc = dict(x=xx,
                        y=yy,
-                       name=f"Scenario {int(rr+1)}",
+                       name=f"Replicate {int(rr+1)}",
                        showlegend=showlegend,
                        line=dict(color=colr),
                        opacity=opacity,

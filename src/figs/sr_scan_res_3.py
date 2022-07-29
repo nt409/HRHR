@@ -37,4 +37,5 @@ if __name__ == "__main__":
     df.sort_values(by=["run", "bs_sex_prop"], inplace=True)
 
     filename = f"../outputs/figures/paper_figs/sr_effect_res_{n_its}_{n_sex_props}_{n_doses}_{dff_str}.png"
-    SREffectResults3Panel(df_use, double_freq_factors, filename)
+    p = SREffectResults3Panel(df_use, double_freq_factors, filename)
+    p.fig.write_image('../outputs/figures/paper_figs/hires/fig5.jpg', scale=4)

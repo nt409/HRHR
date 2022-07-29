@@ -13,4 +13,6 @@ from param_scan.fns.post_process import PostProcess
 if __name__ == "__main__":
     par_str = config_rand['par_str']
     data = PostProcess(par_str).processed_df
-    ParamScanPlotMeVsHobb(data, f"{par_str}.png")
+    p = ParamScanPlotMeVsHobb(data, f"{par_str}.png")
+    p.fig.write_image('../outputs/figures/paper_figs/hires/fig6.jpg', scale=4)
+

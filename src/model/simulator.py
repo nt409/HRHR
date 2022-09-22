@@ -374,12 +374,12 @@ class RunGrid(RunModel):
         self.output.update_dicts_of_arrays(data_this_dose, f1_ind, f2_ind)
 
     @staticmethod
-    def _lifetime_yield(Y_vec, F_y):
-        return sum(Y_vec[:(F_y+1)])/100
+    def _lifetime_yield(y_vec, F_y):
+        return sum(y_vec[:(F_y-1)])
 
     @staticmethod
-    def _total_yield(Y_vec):
-        return sum(Y_vec)/100
+    def _total_yield(y_vec):
+        return sum(y_vec)
 
     # load/save single
 
